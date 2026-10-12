@@ -213,7 +213,7 @@ jobs:
           sleep 10
 
           # Check health endpoint
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://ajch-fin-manager.workers.dev/api/health)
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://ajch-fin-manager-production.ajeetchouksey27.workers.dev/api/health)
           if [ "$RESPONSE" == "200" ]; then
             echo "✅ Backend deployment successful"
           else
@@ -258,7 +258,7 @@ jobs:
           sleep 10
 
           # Check frontend
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://ajch-fin-manager-frontend.pages.dev)
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://ajch-fin-manager.pages.dev)
           if [ "$RESPONSE" == "200" ]; then
             echo "✅ Frontend deployment successful"
           else
@@ -289,7 +289,7 @@ jobs:
       - name: Test backend health
         run: |
           echo "Testing backend health..."
-          RESPONSE=$(curl -s https://ajch-fin-manager.workers.dev/api/health)
+          RESPONSE=$(curl -s https://ajch-fin-manager-production.ajeetchouksey27.workers.dev/api/health)
           echo "Response: $RESPONSE"
 
           if echo "$RESPONSE" | grep -q '"status":"ok"'; then
@@ -302,7 +302,7 @@ jobs:
       - name: Test frontend
         run: |
           echo "Testing frontend..."
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://ajch-fin-manager-frontend.pages.dev)
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://ajch-fin-manager.pages.dev)
 
           if [ "$RESPONSE" == "200" ]; then
             echo "✅ Frontend is responding"
