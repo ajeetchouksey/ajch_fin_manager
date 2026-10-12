@@ -74,7 +74,7 @@ export async function handleSync(
     const driveManager = new GoogleDriveManager(env);
 
     // Get Finance folder
-    const financeFolder = await driveManager.getOrCreateFinanceFolder(accessToken);
+    await driveManager.getOrCreateFinanceFolder(accessToken);
 
     // Sync based on scope
     const syncedAt = new Date().toISOString();

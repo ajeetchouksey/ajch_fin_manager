@@ -221,7 +221,7 @@ export class AIProviderManager {
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as Record<string, unknown>;
         throw new AppErrorClass(
           "CLAUDE_API_ERROR",
           `Claude API error: ${error.message}`,
@@ -300,10 +300,10 @@ export class AIProviderManager {
       );
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as Record<string, unknown>;
         throw new AppErrorClass(
           "GEMINI_API_ERROR",
-          `Gemini API error: ${error.error?.message || "Unknown error"}`,
+          `Gemini API error: ${String((error?.error as Record<string, unknown>)?.message || "Unknown error")}`,
           response.status,
           error
         );
@@ -380,10 +380,10 @@ export class AIProviderManager {
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as Record<string, unknown>;
         throw new AppErrorClass(
           "OPENAI_API_ERROR",
-          `OpenAI API error: ${error.error?.message || "Unknown error"}`,
+          `OpenAI API error: ${String((error?.error as Record<string, unknown>)?.message || "Unknown error")}`,
           response.status,
           error
         );

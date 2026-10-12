@@ -211,8 +211,8 @@ export interface AppError {
 
 // Cloudflare Worker environment bindings
 export interface CloudflareEnv {
-  CACHE: R2Bucket;
-  SESSIONS: KVNamespace;
+  CACHE: any; // R2Bucket
+  SESSIONS: any; // KVNamespace
   ENVIRONMENT: string;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;

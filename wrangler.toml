@@ -1,23 +1,18 @@
 name = "ajch-fin-manager"
-type = "javascript"
-main = "src/worker.ts"
+main = "dist/worker.js"
 compatibility_date = "2026-10-12"
 account_id = "your-account-id"
 workers_dev = true
 
-# Development environment (workers.dev subdomain)
-[env.development]
-routes = [
-  { pattern = "https://*.ajch-fin-manager.workers.dev/*" }
-]
-vars = { ENVIRONMENT = "development" }
-
-# Production environment (custom domain)
-[env.production]
-routes = [
-  { pattern = "https://finance.ajeetchouksey.dev/*", zone_name = "ajeetchouksey.dev" }
-]
-vars = { ENVIRONMENT = "production" }
+# Environment variables and secrets
+[vars]
+GOOGLE_CLIENT_ID = ""
+GOOGLE_CLIENT_SECRET = ""
+CLAUDE_API_KEY = ""
+GEMINI_API_KEY = ""
+OPENAI_API_KEY = ""
+DEFAULT_AI_PROVIDER = "gemini"
+ENVIRONMENT = "development"
 
 # R2 bucket for caching
 [[r2_buckets]]
@@ -30,29 +25,17 @@ binding = "SESSIONS"
 id = "your-kv-namespace-id"
 preview_id = "your-preview-namespace-id"
 
-# Environment variables and secrets
-[vars]
-GOOGLE_CLIENT_ID = ""
-GOOGLE_CLIENT_SECRET = ""
-CLAUDE_API_KEY = ""
-GEMINI_API_KEY = ""
-OPENAI_API_KEY = ""
-DEFAULT_AI_PROVIDER = "gemini"
+# Development environment
+[env.development]
+vars = { ENVIRONMENT = "development" }
 
-# Build configuration
-[build]
-command = "npm install && npm run build"
-cwd = "."
-main = "src/worker.ts"
-
-[build.upload]
-format = "service-worker"
-main = "src/worker.ts"
-
-# Analytics Engine binding (optional)
-[analytics]
-enabled = true
+# Production environment (custom domain)
+[env.production]
+vars = { ENVIRONMENT = "production" }
+routes = [
+  { pattern = "https://finance.ajeetchouksey.dev/*", zone_name = "ajeetchouksey.dev" }
+]
 
 # Triggers for scheduled events
 [[triggers.crons]]
-crons = ["0 */6 * * *"]  # Every 6 hours
+crons = ["0 */6 * * *"]

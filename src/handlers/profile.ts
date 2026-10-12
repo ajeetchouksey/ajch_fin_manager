@@ -60,7 +60,7 @@ export async function handleProfile(
 /**
  * Get user profile
  */
-async function getProfile(userId: string, env: CloudflareEnv): Promise<Response> {
+async function getProfile(userId: string, _env: CloudflareEnv): Promise<Response> {
   try {
     // TODO: Retrieve profile from KV namespace
     // For now, return mock profile
@@ -94,7 +94,7 @@ async function getProfile(userId: string, env: CloudflareEnv): Promise<Response>
  */
 async function createProfile(
   profileData: Partial<UserProfile> | undefined,
-  env: CloudflareEnv
+  _env: CloudflareEnv
 ): Promise<Response> {
   try {
     if (!profileData || !profileData.email || !profileData.name) {
@@ -144,7 +144,7 @@ async function createProfile(
 async function updateProfile(
   userId: string,
   updates: Partial<UserProfile> | undefined,
-  env: CloudflareEnv
+  _env: CloudflareEnv
 ): Promise<Response> {
   try {
     if (!updates) {

@@ -82,7 +82,7 @@ async function startAnalysis(
         snapshot: FinancialSnapshot;
       }
     | undefined,
-  env: CloudflareEnv
+  _env: CloudflareEnv
 ): Promise<Response> {
   try {
     if (!request || !request.userId || !request.type || !request.snapshot) {
@@ -112,7 +112,7 @@ async function startAnalysis(
 
     // TODO: Store analysis request in R2 or KV
     // Run analysis in background
-    runAnalysisInBackground(analysisId, request, env);
+    runAnalysisInBackground(analysisId, request, _env);
 
     return buildResponse(analysis, 202);
   } catch (error) {
@@ -124,7 +124,7 @@ async function startAnalysis(
 /**
  * Get analysis result
  */
-async function getAnalysis(analysisId: string, env: CloudflareEnv): Promise<Response> {
+async function getAnalysis(analysisId: string, _env: CloudflareEnv): Promise<Response> {
   try {
     // TODO: Retrieve analysis from R2 or KV storage
     const analysis: AnalysisRequest = {
@@ -247,7 +247,7 @@ async function runAnalysisInBackground(
     }
 
     // Run AI analysis
-    const result = await aiManager.chat([
+    await aiManager.chat([
       {
         role: "user",
         content: prompt,

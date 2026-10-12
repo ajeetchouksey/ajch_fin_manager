@@ -34,7 +34,7 @@ function handleOptions(request: Request): Response {
 async function handleRequest(
   request: Request,
   env: CloudflareEnv,
-  ctx: ExecutionContext
+  _ctx: any
 ): Promise<Response> {
   const url = new URL(request.url);
   const pathname = url.pathname;
@@ -145,7 +145,7 @@ export default {
   async fetch(
     request: Request,
     env: CloudflareEnv,
-    ctx: ExecutionContext
+    ctx: any
   ): Promise<Response> {
     // Handle CORS preflight
     if (request.method === "OPTIONS") {
@@ -185,9 +185,9 @@ export default {
    * Handle scheduled events (periodic sync)
    */
   async scheduled(
-    event: ScheduledEvent,
-    env: CloudflareEnv,
-    ctx: ExecutionContext
+    event: any,
+    _env: CloudflareEnv,
+    _ctx: any
   ): Promise<void> {
     log("info", "Scheduled event triggered", { cron: event.cron });
 

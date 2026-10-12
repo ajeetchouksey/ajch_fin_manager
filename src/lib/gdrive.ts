@@ -4,22 +4,19 @@
  */
 
 import type {
-  CloudflareEnv,
   GoogleOAuthToken,
   GoogleDriveFile,
   Account,
   Transaction,
   Goal,
 } from "./types";
-import { AppErrorClass, toBase64, fromBase64, log, retryWithBackoff } from "./utils";
+import { AppErrorClass, log, retryWithBackoff } from "./utils";
 
 export class GoogleDriveManager {
-  private env: CloudflareEnv;
   private clientId: string;
   private clientSecret: string;
 
-  constructor(env: CloudflareEnv) {
-    this.env = env;
+  constructor(env: { GOOGLE_CLIENT_ID: string; GOOGLE_CLIENT_SECRET: string }) {
     this.clientId = env.GOOGLE_CLIENT_ID;
     this.clientSecret = env.GOOGLE_CLIENT_SECRET;
 
@@ -72,7 +69,7 @@ export class GoogleDriveManager {
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as Record<string, unknown>;
         throw new AppErrorClass(
           "OAUTH_ERROR",
           `Failed to exchange code: ${error.error_description}`,
@@ -118,7 +115,7 @@ export class GoogleDriveManager {
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as Record<string, unknown>;
         throw new AppErrorClass(
           "TOKEN_REFRESH_ERROR",
           "Failed to refresh token",
@@ -184,7 +181,7 @@ export class GoogleDriveManager {
       );
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as Record<string, unknown>;
         throw new AppErrorClass(
           "DRIVE_CREATE_ERROR",
           "Failed to create folder",
@@ -225,7 +222,7 @@ export class GoogleDriveManager {
       );
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as Record<string, unknown>;
         throw new AppErrorClass(
           "DRIVE_SEARCH_ERROR",
           "Failed to search files",
@@ -255,7 +252,7 @@ export class GoogleDriveManager {
       );
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as Record<string, unknown>;
         throw new AppErrorClass(
           "DRIVE_READ_ERROR",
           "Failed to read file",
@@ -291,7 +288,7 @@ export class GoogleDriveManager {
       );
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as Record<string, unknown>;
         throw new AppErrorClass(
           "DRIVE_WRITE_ERROR",
           "Failed to write file",
@@ -342,7 +339,7 @@ export class GoogleDriveManager {
       );
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as Record<string, unknown>;
         throw new AppErrorClass(
           "DRIVE_CREATE_FILE_ERROR",
           "Failed to create file",

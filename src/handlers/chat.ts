@@ -35,7 +35,7 @@ export async function handleChat(
       throw new AppErrorClass("INVALID_JSON", "Invalid request body", 400);
     }
 
-    const { userId, message, provider: preferredProvider, model } = chatRequest;
+    const { userId, message, provider: preferredProvider } = chatRequest;
 
     if (!userId || !message) {
       throw new AppErrorClass(
@@ -143,47 +143,17 @@ Remember: You're a helpful tool, not a substitute for professional financial adv
  * Extract actionable suggestions from AI response
  * Looks for specific recommendations that can become proposals
  */
-function extractSuggestions(content: string): string[] {
-  const suggestions: string[] = [];
-
-  // Look for numbered lists or bullet points
-  const lines = content.split("\n");
-  let inSuggestionSection = false;
-
-  for (const line of lines) {
-    // Check if this is a suggestion header
-    if (
-      line.toLowerCase().includes("recommendation") ||
-      line.toLowerCase().includes("suggestion") ||
-      line.toLowerCase().includes("action")
-    ) {
-      inSuggestionSection = true;
-      continue;
-    }
-
-    // Extract numbered items or bullets
-    if (inSuggestionSection) {
-      const match = line.match(/^[\d.\-\*]\s+(.+)/);
-      if (match) {
-        suggestions.push(match[1].trim());
-      }
-
-      // Stop if we hit another section
-      if (line.match(/^##\s/) && !line.toLowerCase().includes("recommendation")) {
-        inSuggestionSection = false;
-      }
-    }
-  }
-
-  // Limit to top 3 suggestions
-  return suggestions.slice(0, 3);
+function extractSuggestions(_content: string): undefined {
+  // TODO: Parse suggestions from AI response and create Proposal objects
+  // For now, return undefined as proposals are generated dynamically
+  return undefined;
 }
 
 /**
  * Generate unique message ID
  */
 function generateMessageId(): string {
-  return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 }
 
 /**
