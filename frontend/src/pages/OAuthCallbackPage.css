@@ -1,0 +1,66 @@
+.callback-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100svh;
+  padding: 20px;
+  background: linear-gradient(135deg, var(--accent-bg) 0%, transparent 100%);
+}
+
+.callback-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 48px;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.callback-card h1 {
+  margin: 24px 0 12px;
+  color: var(--text-h);
+}
+
+.callback-card p {
+  color: var(--text);
+  margin: 8px 0;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error-message {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  padding: 12px;
+  margin: 16px 0;
+}
+
+.redirect-message {
+  font-size: 14px;
+  color: var(--text);
+  margin-top: 12px;
+}
+
+@media (max-width: 640px) {
+  .callback-card {
+    padding: 32px 24px;
+  }
+}
