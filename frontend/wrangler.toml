@@ -1,0 +1,13 @@
+name = "ajch-fin-manager-frontend"
+type = "javascript"
+compatibility_date = "2026-10-12"
+
+[env.development]
+vars = { VITE_API_URL = "http://localhost:8787" }
+
+[env.production]
+vars = { VITE_API_URL = "https://api.ajeetchouksey.dev" }
+
+[[routes]]
+pattern = "https://finance.ajeetchouksey.dev/*"
+zone_name = "ajeetchouksey.dev"
