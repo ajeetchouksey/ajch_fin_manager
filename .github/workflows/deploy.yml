@@ -203,12 +203,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-        run: |
-          # Set the GOOGLE_CLIENT_SECRET as a Wrangler secret
-          echo "$GOOGLE_CLIENT_SECRET" | npx wrangler secret put GOOGLE_CLIENT_SECRET --env production
-
-          # Deploy to production environment
-          npx wrangler deploy --env production
+        run: npx wrangler deploy --env production
 
       - name: Verify deployment
         env:
