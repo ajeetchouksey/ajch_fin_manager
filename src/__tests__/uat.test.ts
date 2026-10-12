@@ -86,7 +86,7 @@ describe('User Acceptance Testing (UAT)', () => {
 
     it('should clear session on logout', async () => {
       // Verify that after logout, subsequent requests without token are rejected
-      const beforeLogout = await fetch(`${API_BASE_URL}/api/profile`, {
+      await fetch(`${API_BASE_URL}/api/profile`, {
         headers: { 'Authorization': 'Bearer test' },
       });
 
@@ -165,7 +165,7 @@ describe('User Acceptance Testing (UAT)', () => {
 
     it('should handle chat requests within acceptable time', async () => {
       const start = Date.now();
-      const response = await fetch(`${API_BASE_URL}/api/chat`, {
+      await fetch(`${API_BASE_URL}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -184,7 +184,7 @@ describe('User Acceptance Testing (UAT)', () => {
 
     it('should handle profile requests within < 500ms', async () => {
       const start = Date.now();
-      const response = await fetch(`${API_BASE_URL}/api/profile`, {
+      await fetch(`${API_BASE_URL}/api/profile`, {
         headers: {
           'Authorization': 'Bearer test',
         },
@@ -196,7 +196,7 @@ describe('User Acceptance Testing (UAT)', () => {
 
     it('should respond to sync requests within acceptable time', async () => {
       const start = Date.now();
-      const response = await fetch(`${API_BASE_URL}/api/sync`, {
+      await fetch(`${API_BASE_URL}/api/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -78,7 +78,7 @@ describe('Integration Testing', () => {
       const response = await fetch(`${API_BASE_URL}/api/health`);
 
       expect(response.status).toBe(200);
-      const data = await response.json();
+      const data = (await response.json()) as { status: string; timestamp: string; environment: string };
       expect(data).toHaveProperty('status');
       expect(data.status).toBe('ok');
       expect(data).toHaveProperty('timestamp');
