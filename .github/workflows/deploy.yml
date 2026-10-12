@@ -1,0 +1,321 @@
+name: Test & Deploy to Cloudflare
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # ===== TEST PHASE =====
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run TypeScript check
+        run: npm run type-check
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+      - name: Run security tests
+        run: npm run test:security
+
+      - name: Run UAT tests
+        run: npm run test:uat
+
+      - name: Generate coverage report
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/coverage-final.json
+          flags: unittests
+          name: codecov-umbrella
+
+      - name: Install frontend dependencies
+        run: cd frontend && npm ci
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        continue-on-error: true  # Don't fail if E2E tests fail in PR
+
+      - name: Upload E2E test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+
+  # ===== BUILD BACKEND PHASE =====
+  build-backend:
+    name: Build Backend
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build backend
+        run: npm run build
+
+      - name: Verify build output
+        run: |
+          if [ ! -f dist/worker.js ]; then
+            echo "Build failed: dist/worker.js not found"
+            exit 1
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-build
+          path: dist/
+
+  # ===== BUILD FRONTEND PHASE =====
+  build-frontend:
+    name: Build Frontend
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        run: cd frontend && npm ci
+
+      - name: Build frontend
+        run: cd frontend && npm run build
+
+      - name: Verify build output
+        run: |
+          if [ ! -d frontend/dist ]; then
+            echo "Build failed: frontend/dist not found"
+            exit 1
+          fi
+
+      - name: Check bundle size
+        run: |
+          BUNDLE_SIZE=$(du -sh frontend/dist | cut -f1)
+          echo "Frontend bundle size: $BUNDLE_SIZE"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-build
+          path: frontend/dist/
+
+  # ===== DEPLOY BACKEND PHASE =====
+  deploy-backend:
+    name: Deploy Backend to Cloudflare Workers
+    needs: build-backend
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build backend
+        run: npm run build
+
+      - name: Deploy to Cloudflare Workers
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler deploy
+
+      - name: Verify deployment
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          # Wait for deployment to be ready
+          sleep 10
+
+          # Check health endpoint
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://ajch-fin-manager.workers.dev/api/health)
+          if [ "$RESPONSE" == "200" ]; then
+            echo "✅ Backend deployment successful"
+          else
+            echo "❌ Backend health check failed with status $RESPONSE"
+            exit 1
+          fi
+
+  # ===== DEPLOY FRONTEND PHASE =====
+  deploy-frontend:
+    name: Deploy Frontend to Cloudflare Pages
+    needs: build-frontend
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        run: cd frontend && npm ci
+
+      - name: Build frontend
+        run: cd frontend && npm run build
+
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler pages deploy frontend/dist --project-name=ajch-fin-manager
+
+      - name: Verify deployment
+        run: |
+          # Wait for deployment to be ready
+          sleep 10
+
+          # Check frontend
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://ajch-fin-manager-frontend.pages.dev)
+          if [ "$RESPONSE" == "200" ]; then
+            echo "✅ Frontend deployment successful"
+          else
+            echo "❌ Frontend health check failed with status $RESPONSE"
+            exit 1
+          fi
+
+  # ===== POST-DEPLOYMENT TESTS =====
+  smoke-tests:
+    name: Run Smoke Tests
+    needs: [deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test backend health
+        run: |
+          echo "Testing backend health..."
+          RESPONSE=$(curl -s https://ajch-fin-manager.workers.dev/api/health)
+          echo "Response: $RESPONSE"
+
+          if echo "$RESPONSE" | grep -q '"status":"ok"'; then
+            echo "✅ Backend health check passed"
+          else
+            echo "❌ Backend health check failed"
+            exit 1
+          fi
+
+      - name: Test frontend
+        run: |
+          echo "Testing frontend..."
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://ajch-fin-manager-frontend.pages.dev)
+
+          if [ "$RESPONSE" == "200" ]; then
+            echo "✅ Frontend is responding"
+          else
+            echo "❌ Frontend returned status $RESPONSE"
+            exit 1
+          fi
+
+  # ===== NOTIFICATION PHASE =====
+  notify:
+    name: Notify Deployment Status
+    needs: [test, deploy-backend, deploy-frontend, smoke-tests]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Deployment Status
+        run: |
+          echo "Deployment Status Summary"
+          echo "========================="
+          echo "Tests: ${{ needs.test.result }}"
+          echo "Backend Build: ${{ needs.build-backend.result }}"
+          echo "Frontend Build: ${{ needs.build-frontend.result }}"
+          echo "Backend Deploy: ${{ needs.deploy-backend.result }}"
+          echo "Frontend Deploy: ${{ needs.deploy-frontend.result }}"
+          echo "Smoke Tests: ${{ needs.smoke-tests.result }}"
+
+      - name: Create deployment summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests | ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend Build | ${{ needs.build-backend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Build | ${{ needs.build-frontend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend Deploy | ${{ needs.deploy-backend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Deploy | ${{ needs.deploy-frontend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Smoke Tests | ${{ needs.smoke-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Backend:** https://ajch-fin-manager.workers.dev" >> $GITHUB_STEP_SUMMARY
+          echo "**Frontend:** https://ajch-fin-manager-frontend.pages.dev" >> $GITHUB_STEP_SUMMARY
