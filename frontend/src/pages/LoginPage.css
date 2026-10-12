@@ -4,17 +4,19 @@
   justify-content: center;
   min-height: 100svh;
   padding: 20px;
-  background: linear-gradient(135deg, var(--accent-bg) 0%, transparent 100%);
+  background: var(--aarya-bg);
+  background-image: radial-gradient(circle at top right, rgba(124, 58, 237, 0.15) 0%, transparent 50%);
 }
 
 .login-card {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 16px;
   padding: 48px;
   max-width: 480px;
   width: 100%;
-  box-shadow: var(--shadow);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
 }
 
 .login-header {
@@ -46,10 +48,10 @@
 .signin-button {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(124, 58, 237, 0.5);
   border-radius: 8px;
-  background: var(--bg);
-  color: var(--text-h);
+  background: rgba(124, 58, 237, 0.1);
+  color: #f1f5f9;
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
@@ -61,8 +63,9 @@
 }
 
 .signin-button:hover {
-  background: var(--code-bg);
-  border-color: var(--accent-border);
+  background: rgba(124, 58, 237, 0.2);
+  border-color: rgba(124, 58, 237, 0.8);
+  box-shadow: 0 0 12px rgba(124, 58, 237, 0.3);
 }
 
 .signin-button:active {
@@ -108,7 +111,8 @@
 }
 
 .login-features {
-  background: var(--code-bg);
+  background: rgba(56, 189, 248, 0.05);
+  border: 1px solid rgba(56, 189, 248, 0.2);
   border-radius: 8px;
   padding: 20px;
   margin-top: 24px;
@@ -118,7 +122,7 @@
   font-size: 14px;
   font-weight: 600;
   margin: 0 0 12px;
-  color: var(--text-h);
+  color: #38bdf8;
 }
 
 .login-features ul {
@@ -129,7 +133,7 @@
 
 .login-features li {
   font-size: 14px;
-  color: var(--text);
+  color: #cbd5e1;
   padding: 6px 0;
   margin: 0;
 }
