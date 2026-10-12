@@ -1,0 +1,58 @@
+name = "ajch-fin-manager"
+type = "javascript"
+main = "src/worker.ts"
+compatibility_date = "2026-10-12"
+account_id = "your-account-id"
+workers_dev = true
+
+# Development environment (workers.dev subdomain)
+[env.development]
+routes = [
+  { pattern = "https://*.ajch-fin-manager.workers.dev/*" }
+]
+vars = { ENVIRONMENT = "development" }
+
+# Production environment (custom domain)
+[env.production]
+routes = [
+  { pattern = "https://finance.ajeetchouksey.dev/*", zone_name = "ajeetchouksey.dev" }
+]
+vars = { ENVIRONMENT = "production" }
+
+# R2 bucket for caching
+[[r2_buckets]]
+binding = "CACHE"
+bucket_name = "ajch-fin-cache"
+
+# Cloudflare KV namespace for user sessions
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "your-kv-namespace-id"
+preview_id = "your-preview-namespace-id"
+
+# Environment variables and secrets
+[vars]
+GOOGLE_CLIENT_ID = ""
+GOOGLE_CLIENT_SECRET = ""
+CLAUDE_API_KEY = ""
+GEMINI_API_KEY = ""
+OPENAI_API_KEY = ""
+DEFAULT_AI_PROVIDER = "gemini"
+
+# Build configuration
+[build]
+command = "npm install && npm run build"
+cwd = "."
+main = "src/worker.ts"
+
+[build.upload]
+format = "service-worker"
+main = "src/worker.ts"
+
+# Analytics Engine binding (optional)
+[analytics]
+enabled = true
+
+# Triggers for scheduled events
+[[triggers.crons]]
+crons = ["0 */6 * * *"]  # Every 6 hours
