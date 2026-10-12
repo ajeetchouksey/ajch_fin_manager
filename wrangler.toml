@@ -23,12 +23,9 @@ preview_id = "b95f19c9673e457c9faea59f81bf1a03"
 [env.development]
 vars = { ENVIRONMENT = "development" }
 
-# Production environment (custom domain)
+# Production environment
 [env.production]
 vars = { ENVIRONMENT = "production" }
-routes = [
-  { pattern = "https://finance.ajeetchouksey.dev/*", zone_name = "ajeetchouksey.dev" }
-]
 
 # Triggers for scheduled events
 [[triggers.crons]]
