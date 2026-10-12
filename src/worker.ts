@@ -14,6 +14,7 @@ import { handleChat } from "./handlers/chat";
 import { handleSync } from "./handlers/sync";
 import { handleProfile } from "./handlers/profile";
 import { handleAnalysis } from "./handlers/analysis";
+import { handleAuthToken } from "./handlers/auth";
 
 /**
  * CORS preflight handler
@@ -52,6 +53,11 @@ async function handleRequest(
         timestamp: new Date().toISOString(),
         environment: env.ENVIRONMENT,
       });
+    }
+
+    // OAuth token exchange endpoint
+    if (pathname === "/api/auth/token" && method === "POST") {
+      return await handleAuthToken(request, env);
     }
 
     // Chat endpoint
@@ -207,4 +213,4 @@ export type { CloudflareEnv } from "./lib/types";
 /**
  * Export API for local development
  */
-export { handleChat, handleSync, handleProfile, handleAnalysis };
+export { handleChat, handleSync, handleProfile, handleAnalysis, handleAuthToken };
