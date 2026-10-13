@@ -304,6 +304,47 @@ export function parseStatement(lines: string[]): ExtractedRow[] {
   return rows.map(({ date, description, amount }) => ({ date, description: description || '(no description)', amount }))
 }
 
+/** A balance printed on a statement: what the account held at the end of a day. */
+export interface StatementBalance {
+  balance: number
+  /** YYYY-MM-DD, when the statement says which day */
+  date?: string
+}
+
+const CLOSING_LINE = /(closing|end(?:e)?saldo|neuer saldo|kontostand|available balance|current balance|balance as (?:on|of|at)|saldo (?:am|per|zum)|carried forward)/i
+
+/**
+ * The statement's closing balance: a "closing balance" / "Neuer Saldo" line, otherwise the running
+ * balance after the latest transaction. Undefined when the statement prints neither.
+ */
+export function parseStatementBalance(lines: string[]): StatementBalance | undefined {
+  const year = guessYear(lines)
+  let closing: StatementBalance | undefined
+  const running: Array<{ date: string; balance: number }> = []
+
+  for (const raw of lines) {
+    const line = raw.trim()
+    const dates = findDates(line, year)
+    const amounts = findAmounts(line).filter((a) => !dates.some((d) => a.index < d.index + d.length && a.index + a.length > d.index))
+    if (!amounts.length) continue
+    if (CLOSING_LINE.test(line)) {
+      closing = { balance: amounts[amounts.length - 1].value, date: dates[dates.length - 1]?.iso }
+      continue
+    }
+    if (dates.length && dates[0].index <= 3 && amounts.length >= 2 && !BALANCE_LINE.test(line)) {
+      running.push({ date: dates[0].iso, balance: amounts[amounts.length - 1].value })
+    }
+  }
+
+  const latestDate = running.reduce<string | undefined>((d, r) => (!d || r.date > d ? r.date : d), undefined)
+  if (closing) return { balance: closing.balance, date: closing.date ?? latestDate }
+  if (!running.length) return undefined
+  // Newest first or oldest first: the latest row is at whichever end carries the latest date
+  const newestFirst = running[0].date > running[running.length - 1].date
+  const last = newestFirst ? running.find((r) => r.date === latestDate)! : [...running].reverse().find((r) => r.date === latestDate)!
+  return { balance: last.balance, date: last.date }
+}
+
 /** CSV text (Date, Description, Amount) for the import screen, so extracted rows can be checked and edited. */
 export function rowsToCsv(rows: ExtractedRow[]): string {
   const q = (s: string) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s)

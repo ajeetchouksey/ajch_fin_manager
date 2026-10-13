@@ -302,6 +302,41 @@ export function analyzeTable(table: string[][]): TableAnalysis {
   return { headerRow, firstRow, map, currency, bank: detectBank(header) }
 }
 
+const BALANCE_HEADER = /(saldo|kontostand|balance)/
+
+/**
+ * The account balance a bank export states: the running balance column after the latest row
+ * (ING "Saldo", HDFC "Closing Balance"), or a summary line above the table such as DKB's
+ * "Kontostand vom 12.10.2026: 1.234,56 €". Undefined when the export has neither.
+ */
+export function findCsvBalance(table: string[][], analysis: TableAnalysis): { balance: number; date?: string } | undefined {
+  const { headerRow, firstRow, map } = analysis
+  const header = headerRow >= 0 ? table[headerRow].map((h) => h.toLowerCase().trim()) : []
+  const col = header.findIndex((h) => BALANCE_HEADER.test(h) && !/(opening|anfang|alt)/.test(h))
+  if (col >= 0 && map.date !== undefined) {
+    const rows = table
+      .slice(firstRow)
+      .map((r) => ({ date: parseDate(r[map.date!] ?? ''), balance: parseAmount(r[col] ?? '') }))
+      .filter((r): r is { date: string; balance: number } => !!r.date && r.balance !== null)
+    if (rows.length) {
+      const latest = rows.reduce((d, r) => (r.date > d ? r.date : d), rows[0].date)
+      // On the latest day, the newest row is the last one in an oldest-first export, the first otherwise
+      const newestFirst = rows[0].date > rows[rows.length - 1].date
+      return (newestFirst ? rows : [...rows].reverse()).find((r) => r.date === latest)
+    }
+  }
+  for (const row of table.slice(0, Math.max(0, headerRow))) {
+    const label = row.find((c) => BALANCE_HEADER.test(c.toLowerCase()))
+    const money = row.filter((c) => c !== label && isMoney(c))
+    if (!label || !money.length) continue
+    const balance = parseAmount(money[money.length - 1])
+    if (balance === null) continue
+    const dateText = row.map((c) => /\d{1,4}[./-]\d{1,2}[./-]\d{2,4}/.exec(c)?.[0]).find(Boolean)
+    return { balance, date: (dateText && parseDate(dateText)) || undefined }
+  }
+  return undefined
+}
+
 function detectBank(header: string[]): string | undefined {
   const h = header.join('|')
   if (/buchungstag\|wertstellung\|umsatzart\|buchungstext\|betrag/.test(h)) return 'Commerzbank'

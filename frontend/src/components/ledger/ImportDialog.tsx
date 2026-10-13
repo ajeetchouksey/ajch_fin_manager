@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Check, ClipboardPaste, FileUp, Loader2, ShieldCheck, Sparkles } from 'lucide-react'
+import { ArrowLeft, Check, ClipboardPaste, FileUp, Landmark, Loader2, ShieldCheck, Sparkles } from 'lucide-react'
 import { Dialog } from '../Dialog'
 import { useLedger } from '../../context/LedgerContext'
 import { useLedgerOptions, writeLastEntry } from '../../hooks/useLedgerOptions'
-import { analyzeTable, parseCsv, readCsvFile, type ColumnMap, type DateFormat } from '../../lib/ledger/csv'
+import { analyzeTable, findCsvBalance, parseAmount, parseCsv, readCsvFile, type ColumnMap, type DateFormat } from '../../lib/ledger/csv'
 import { TRANSFER_CATEGORY } from '../../lib/ledger/categorize'
 import { statementRow, type Sign } from '../../lib/ledger/statement'
 import { DEFAULT_MATCH_DAYS, matchToLedger, type LedgerMatch } from '../../lib/ledger/reconcile'
-import { isExtractable, parseStatement, readFileText, rowsToCsv, type ExtractProgress } from '../../lib/ledger/extract'
+import { isExtractable, parseStatement, parseStatementBalance, readFileText, rowsToCsv, type ExtractProgress, type StatementBalance } from '../../lib/ledger/extract'
+import { accountType } from '../../lib/ledger/portfolio'
 import { CURRENCIES, dedupeKey, formatMoney, parseTags, todayIso } from '../../lib/ledger/types'
 import { CategorySelect, ErrorNote, Field, TagInput, inputClass, selectClass } from './ui'
 
@@ -16,7 +17,7 @@ type Step = 'source' | 'map'
 
 /** Bulk add: CSV from a bank export, a PDF statement or a photo/scan (read on the device), or pasted rows. */
 export function ImportDialog({ onClose, initialFile }: { onClose: () => void; initialFile?: File }) {
-  const { importTransactions, uploadDocuments, transactions, busy, error } = useLedger()
+  const { importTransactions, uploadDocuments, saveAccount, transactions, accounts, busy, error } = useLedger()
   const opts = useLedgerOptions()
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -52,6 +53,14 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
   const [extracting, setExtracting] = useState<ExtractProgress | null>(null)
   const [sourceSaveFailed, setSourceSaveFailed] = useState(false)
   const [skippedMatches, setSkippedMatches] = useState(0)
+  /** Closing balance printed on the statement, if any */
+  const [foundBalance, setFoundBalance] = useState<StatementBalance | undefined>()
+  /** Balance as on a date: the starting point for the account's value (typed when the statement shows none) */
+  const [balanceText, setBalanceText] = useState('')
+  const [balanceDate, setBalanceDate] = useState('')
+  /** Portfolio account to update: an account id, 'new', or '' for none; null = follow the Account field */
+  const [balanceTarget, setBalanceTarget] = useState<string | null>(null)
+  const [balanceResult, setBalanceResult] = useState<{ name: string; text: string } | 'failed' | null>(null)
 
   const table = useMemo(() => (raw.trim() ? parseCsv(raw) : []), [raw])
   const header = headerRow >= 0 ? table[headerRow] ?? [] : []
@@ -65,7 +74,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
     setOverrides(new Map())
   }
 
-  const goToMapping = (text: string, name = '') => {
+  const goToMapping = (text: string, name = '', statementBalance?: StatementBalance) => {
     editRaw(text)
     setFileName(name)
     const t = parseCsv(text)
@@ -79,6 +88,10 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
     setMap(a.map)
     setBank(a.bank)
     if (a.currency) setCurrency(a.currency)
+    const found = statementBalance ?? findCsvBalance(t, a)
+    setFoundBalance(found)
+    setBalanceText(found ? found.balance.toFixed(2) : '')
+    setBalanceDate(found?.date ?? '')
     // Banks that list money out as positive numbers in a single column are rare; credit cards are the usual case
     setSign('negative-out')
     setShowMapping(a.map.date === undefined || a.map.amount === undefined || a.map.description === undefined)
@@ -97,7 +110,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
         if (!rows.length) return setLocalError('No transactions found in that file. Rows need a date and an amount. For photos, try a sharper, well-lit picture, or use your bank’s CSV export.')
         setSourceFile(f)
         setExtracted(true)
-        goToMapping(rowsToCsv(rows), f.name)
+        goToMapping(rowsToCsv(rows), f.name, parseStatementBalance(lines))
       } catch (err) {
         setLocalError((err as Error)?.message || 'That file could not be read.')
       } finally {
@@ -160,10 +173,51 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
     { out: 0, in: 0, transfer: 0 },
   )
 
+  // Balance as on date → the matching account on the Accounts page
+  const lastTxDate = toImport.reduce((d, p) => (p.tx.date > d ? p.tx.date : d), '')
+  const asOf = balanceDate || lastTxDate || todayIso()
+  const balanceAccounts = accounts.filter((a) => accountType(a.type).group !== 'cover')
+  const byName = balanceAccounts.find((a) => a.name.trim().toLowerCase() === account.trim().toLowerCase())
+  const target = balanceTarget ?? (byName ? byName.id : account.trim() ? 'new' : '')
+  const targetAccount = balanceAccounts.find((a) => a.id === target)
+  const newAccountName = account.trim() || (bank ? `${bank} account` : 'Bank account')
+  const newAccountType = sign === 'positive-out' ? 'credit_card' : 'current'
+  const isDebt = accountType(targetAccount?.type ?? newAccountType).group === 'debt'
+  const balanceValue = balanceText.trim() ? parseAmount(balanceText) : null
+  const balanceNote = (() => {
+    if (!balanceText.trim() || !target) return null
+    if (balanceValue === null) return 'Enter the balance as a number, for example 1234.56.'
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf)) return 'Choose the date of this balance.'
+    if (balanceValue < 0 && !isDebt) return 'A negative balance (overdraft) can’t be kept on a current or savings account yet, so it will not be updated.'
+    if (targetAccount && targetAccount.asOf > asOf) return `${targetAccount.name} already has a newer balance (${formatMoney(targetAccount.balance, targetAccount.currency)} on ${targetAccount.asOf}), so that one is kept.`
+    return null
+  })()
+  const balanceToSave = balanceValue !== null && target && !balanceNote ? Math.round(Math.abs(balanceValue) * 100) / 100 : null
+
   const runImport = async () => {
     if (!toImport.length) return
     try {
       const n = await importTransactions(toImport.map((p) => p.tx))
+      if (balanceToSave !== null) {
+        // The transactions are already saved; a failed balance update is reported, not thrown
+        const saved = await saveAccount(
+          targetAccount
+            ? { ...targetAccount, balance: balanceToSave, asOf }
+            : {
+                name: newAccountName.slice(0, 80),
+                type: newAccountType,
+                institution: bank ?? '',
+                currency,
+                balance: balanceToSave,
+                asOf,
+                rate: null,
+                monthly: 0,
+                notes: 'Created from a statement import',
+              },
+          targetAccount,
+        ).catch(() => null)
+        setBalanceResult(saved ? { name: saved.name, text: `${formatMoney(saved.balance, saved.currency)} on ${saved.asOf}` } : 'failed')
+      }
       setSkippedMatches(matched.filter((p) => p.skipped).length)
       writeLastEntry({ currency, account: account.trim() || undefined })
       if (sourceFile && saveSource) {
@@ -215,6 +269,8 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
           <p className="text-xl font-semibold text-white">{done} transactions added</p>
           <p className="mt-1 text-sm text-slate-400">They are in the Transactions tab of your Ledger. You can add notes or tags to any of them.</p>
           {skippedMatches > 0 && <p className="mt-2 text-sm text-slate-400">{skippedMatches} {skippedMatches === 1 ? 'payment was' : 'payments were'} already in your Ledger and kept as you entered them.</p>}
+          {balanceResult && balanceResult !== 'failed' && <p className="mt-2 text-sm text-slate-400">Balance of {balanceResult.name} set to {balanceResult.text}.</p>}
+          {balanceResult === 'failed' && <p className="mt-3 text-sm text-amber-200/90">The balance could not be saved. You can update it on the Accounts page.</p>}
           {sourceSaveFailed && <p className="mt-3 text-sm text-amber-200/90">The statement file could not be saved to Documents. You can upload it from the Documents page.</p>}
         </div>
       </Dialog>
@@ -427,6 +483,31 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
               Also save {sourceFile.name} to my Documents as a bank statement
             </label>
           )}
+        </section>
+
+        <section>
+          <h3 className="mb-1 flex items-center gap-2 font-semibold text-white"><Landmark className="h-4 w-4 text-brand-soft" /> Balance as on date</h3>
+          <p className="mb-3 text-sm text-slate-400">
+            {foundBalance
+              ? `Found on the statement${foundBalance.date ? ` for ${foundBalance.date}` : ''}. It becomes the account’s balance, the starting point for net worth and forecasts.`
+              : 'The statement doesn’t show a total balance. Optional: enter what the account held on a date (for example from your banking app) to use it as the starting point for net worth and forecasts.'}
+          </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label={isDebt ? 'Amount owed' : 'Balance'} htmlFor="imp-bal">
+              <input id="imp-bal" inputMode="decimal" className={inputClass} value={balanceText} onChange={(e) => setBalanceText(e.target.value)} placeholder="0.00" />
+            </Field>
+            <Field label="As on" htmlFor="imp-bal-date">
+              <input id="imp-bal-date" type="date" className={inputClass} value={asOf} onChange={(e) => setBalanceDate(e.target.value)} />
+            </Field>
+            <Field label="Update account" htmlFor="imp-bal-acc">
+              <select id="imp-bal-acc" className={selectClass} value={target} onChange={(e) => setBalanceTarget(e.target.value)}>
+                <option value="">Don’t update an account</option>
+                {balanceAccounts.map((a) => <option key={a.id} value={a.id}>{a.name} · {formatMoney(a.balance, a.currency)}</option>)}
+                <option value="new">New account “{newAccountName}”</option>
+              </select>
+            </Field>
+          </div>
+          {balanceNote && <p className="mt-2 text-xs text-amber-200/90">{balanceNote}</p>}
         </section>
 
         {extracted && sourceFile && (
