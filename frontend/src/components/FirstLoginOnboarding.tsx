@@ -49,23 +49,24 @@ export function FirstLoginOnboarding({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-2xl border border-slate-700/50 w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 sm:p-6">
+      <div className="bg-slate-800 rounded-xl sm:rounded-2xl border border-slate-700/50 w-full h-[90vh] sm:h-auto sm:max-w-lg md:max-w-2xl sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-700/30 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-white">Quick Setup</h2>
-            <p className="text-sm text-slate-400">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-700/30 flex items-center justify-between flex-shrink-0">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg sm:text-xl font-bold text-white truncate">Quick Setup</h2>
+            <p className="text-xs sm:text-sm text-slate-400 mt-1">
               Let's set up your profile ({messages.length > 0 ? Math.ceil((messages.length / 6) * 100) : 0}%)
             </p>
           </div>
           {onSkip && (
             <button
               onClick={onSkip}
-              className="text-slate-400 hover:text-slate-300 transition-colors"
+              className="ml-3 flex-shrink-0 text-slate-400 hover:text-slate-300 transition-colors"
+              aria-label="Close setup"
             >
               <svg
-                className="w-6 h-6"
+                className="w-5 h-5 sm:w-6 sm:h-6"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -81,18 +82,18 @@ export function FirstLoginOnboarding({
           )}
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {/* Messages Container */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           {messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center h-full min-h-[300px] sm:min-h-[400px]">
               <div className="text-center">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-600 to-violet-400 flex items-center justify-center text-white text-lg font-bold mx-auto mb-3">
                   AI
                 </div>
-                <p className="text-slate-300 mb-2">
-                  Welcome to Finance Manager! 👋
+                <p className="text-slate-300 mb-2 text-sm sm:text-base">
+                  Welcome to Finance Manager!
                 </p>
-                <p className="text-sm text-slate-400">
+                <p className="text-xs sm:text-sm text-slate-400">
                   I'm here to help you set up your financial profile in just a few minutes.
                 </p>
               </div>
@@ -104,8 +105,8 @@ export function FirstLoginOnboarding({
           )}
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-              <p className="text-sm text-red-400">{error}</p>
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm">
+              <p className="text-red-400">{error}</p>
             </div>
           )}
 
@@ -125,7 +126,7 @@ export function FirstLoginOnboarding({
         </div>
 
         {/* Input Area */}
-        <div className="px-6 py-4 border-t border-slate-700/30">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-700/30 flex-shrink-0">
           {messages.length > 0 && !loading ? (
             <>
               <ChatInput
@@ -137,7 +138,7 @@ export function FirstLoginOnboarding({
                 <button
                   onClick={handleComplete}
                   disabled={isSubmitting}
-                  className="w-full mt-4 px-4 py-2 bg-gradient-to-r from-violet-600 to-violet-500 hover:shadow-lg hover:shadow-violet-500/30 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full mt-3 sm:mt-4 px-4 py-2 sm:py-2.5 bg-gradient-to-r from-violet-600 to-violet-500 hover:shadow-lg hover:shadow-violet-500/30 text-white text-sm sm:text-base font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? 'Saving...' : 'Complete Setup'}
                 </button>
@@ -151,7 +152,7 @@ export function FirstLoginOnboarding({
                 )
               }
               disabled={loading}
-              className="w-full px-4 py-2 bg-gradient-to-r from-violet-600 to-violet-500 hover:shadow-lg hover:shadow-violet-500/30 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2 sm:py-2.5 bg-gradient-to-r from-violet-600 to-violet-500 hover:shadow-lg hover:shadow-violet-500/30 text-white text-sm sm:text-base font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Start Setup
             </button>
