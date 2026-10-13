@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Loader2, ScanText, ShieldCheck } from 'lucide-react'
 import { Dialog } from '../Dialog'
 import { useLedger } from '../../context/LedgerContext'
 import { useLedgerOptions, readLastEntry, writeLastEntry } from '../../hooks/useLedgerOptions'
+import { EXTRACTABLE_ACCEPT, parseReceipt, readFileText, type ExtractProgress } from '../../lib/ledger/extract'
 import { CURRENCIES, DOCUMENT_TYPES, parseTags, todayIso, type Direction, type Transaction } from '../../lib/ledger/types'
 import { ErrorNote, Field, FilePicker, TagInput, inputClass, selectClass } from './ui'
 
@@ -24,6 +25,47 @@ export function TransactionDialog({ onClose, existing }: { onClose: () => void; 
   const [files, setFiles] = useState<File[]>([])
   const [docType, setDocType] = useState('Receipt')
   const [localError, setLocalError] = useState<string | null>(null)
+  const receiptRef = useRef<HTMLInputElement>(null)
+  const [scanning, setScanning] = useState<ExtractProgress | null>(null)
+  const [scanNote, setScanNote] = useState<string | null>(null)
+
+  /** Reads a receipt or invoice on this device, pre-fills the form and attaches the file. */
+  const fillFromReceipt = async (file: File) => {
+    setLocalError(null)
+    setScanNote(null)
+    if (file.size > 15 * 1024 * 1024) return setLocalError('That file is larger than 15 MB.')
+    setScanning({ status: 'Starting' })
+    try {
+      const { lines } = await readFileText(file, setScanning)
+      const r = parseReceipt(lines)
+      const found: string[] = []
+      setDirection('out')
+      if (r.amount) {
+        setAmount(r.amount.toFixed(2))
+        found.push('amount')
+      }
+      if (r.date) {
+        setDate(r.date)
+        found.push('date')
+      }
+      if (r.merchant && !description.trim()) {
+        setDescription(r.merchant)
+        found.push('shop')
+      }
+      if (r.currency) setCurrency(r.currency)
+      setFiles((fs) => (fs.includes(file) ? fs : [...fs, file]))
+      setDocType(/invoice|rechnung/i.test(lines.join(' ')) ? 'Invoice' : 'Receipt')
+      setScanNote(
+        found.length
+          ? `Filled in the ${found.join(', ')} from ${file.name}. Please check them. The file will be attached.`
+          : `Couldn't read the details from ${file.name}. Please type them in. The file will still be attached.`,
+      )
+    } catch (err) {
+      setLocalError((err as Error)?.message || 'That file could not be read.')
+    } finally {
+      setScanning(null)
+    }
+  }
 
   const categories = direction === 'out' ? opts.expenseCategories : opts.incomeCategories
   const currencies = Array.from(new Set([currency, opts.defaultCurrency, ...CURRENCIES].filter(Boolean)))
@@ -72,7 +114,7 @@ export function TransactionDialog({ onClose, existing }: { onClose: () => void; 
           <button type="button" className="btn btn-ghost" onClick={onClose} disabled={busy}>
             Cancel
           </button>
-          <button type="button" className="btn btn-primary" onClick={() => void submit()} disabled={busy}>
+          <button type="button" className="btn btn-primary" onClick={() => void submit()} disabled={busy || !!scanning}>
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             {busy ? (files.length ? 'Uploading…' : 'Saving…') : existing ? 'Save changes' : 'Add transaction'}
           </button>
@@ -86,6 +128,29 @@ export function TransactionDialog({ onClose, existing }: { onClose: () => void; 
           void submit()
         }}
       >
+        {!existing && (
+          <div>
+            <button type="button" className="btn btn-secondary w-full" disabled={!!scanning || busy} onClick={() => receiptRef.current?.click()}>
+              {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanText className="h-4 w-4" />}
+              {scanning ? `${scanning.status}${scanning.progress !== undefined ? ` · ${Math.round(scanning.progress * 100)}%` : ''}` : 'Fill from a receipt or invoice'}
+            </button>
+            <input
+              ref={receiptRef}
+              type="file"
+              accept={EXTRACTABLE_ACCEPT}
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                e.target.value = ''
+                if (f) void fillFromReceipt(f)
+              }}
+            />
+            <p className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500">
+              <ShieldCheck className="h-3.5 w-3.5" /> {scanNote ?? 'Photo or PDF. Read on this device; nothing is sent to our servers.'}
+            </p>
+          </div>
+        )}
+
         <div role="radiogroup" aria-label="Money in or out" className="grid grid-cols-2 gap-1 rounded-xl border border-line-strong p-1">
           {(['out', 'in'] as const).map((d) => (
             <button
