@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { OnboardingChatMessage } from './OnboardingChatMessage'
 import { ChatInput } from './ChatInput'
 import { useOnboarding } from '../hooks/useOnboarding'
+import { TrendUpIcon, UsersIcon, TargetIcon, DocumentIcon, TagIcon } from './Icons'
 
 type FocusArea = 'investments' | 'household' | 'goals' | 'tax' | 'categories'
 
@@ -14,37 +15,37 @@ const FOCUS_AREAS: Array<{
   id: FocusArea
   label: string
   description: string
-  icon: string
+  icon: React.ReactNode
 }> = [
   {
     id: 'investments',
     label: 'Investment Setup',
     description: 'Configure your investment accounts and preferences',
-    icon: '📈',
+    icon: <TrendUpIcon className="w-5 h-5" />,
   },
   {
     id: 'household',
     label: 'Household Members',
     description: 'Add family members and dependents',
-    icon: '👨‍👩‍👧‍👦',
+    icon: <UsersIcon className="w-5 h-5" />,
   },
   {
     id: 'goals',
     label: 'Financial Goals',
     description: 'Set and track your financial goals',
-    icon: '🎯',
+    icon: <TargetIcon className="w-5 h-5" />,
   },
   {
     id: 'tax',
     label: 'Tax Settings',
     description: 'Configure tax-related information',
-    icon: '📋',
+    icon: <DocumentIcon className="w-5 h-5" />,
   },
   {
     id: 'categories',
     label: 'Expense Categories',
     description: 'Customize your expense tracking categories',
-    icon: '🏷️',
+    icon: <TagIcon className="w-5 h-5" />,
   },
 ]
 
@@ -147,7 +148,7 @@ export function ProgressiveOnboardingModal({
                       className="w-full text-left px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg transition-all bg-slate-700/30 text-slate-300 hover:bg-slate-700/50 hover:text-white"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-xl flex-shrink-0">{area.icon}</span>
+                        <div className="text-violet-400 flex-shrink-0">{area.icon}</div>
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-xs sm:text-sm leading-tight">{area.label}</p>
                           <p className="text-xs opacity-75 hidden sm:block mt-0.5 line-clamp-2">
@@ -183,8 +184,10 @@ export function ProgressiveOnboardingModal({
                 {messages.length === 0 ? (
                   <div className="flex items-center justify-center h-full min-h-[300px] sm:min-h-[400px]">
                     <div className="text-center">
-                      <div className="text-4xl mb-3">
-                        {FOCUS_AREAS.find((f) => f.id === selectedFocus)?.icon}
+                      <div className="flex justify-center mb-4">
+                        <div className="text-violet-400">
+                          {FOCUS_AREAS.find((f) => f.id === selectedFocus)?.icon}
+                        </div>
                       </div>
                       <p className="text-sm sm:text-base text-slate-300 mb-2 font-medium">
                         {FOCUS_AREAS.find((f) => f.id === selectedFocus)?.label}
