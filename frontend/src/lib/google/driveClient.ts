@@ -162,7 +162,15 @@ export class LedgerClient {
     })
     const requests: unknown[] = []
     const data: Array<{ range: string; values: unknown[][] }> = []
-    if (!have.has(TX_SHEET)) {
+    // A new spreadsheet comes with one default tab ("Sheet1"); reuse it as Transactions rather than leave it behind.
+    const defaultTab = info.sheets.length === 1 && ![TX_SHEET, DOC_SHEET, META_SHEET].includes(info.sheets[0].properties.title) ? info.sheets[0].properties.sheetId : null
+    if (!have.has(TX_SHEET) && defaultTab !== null) {
+      requests.push(
+        { updateSheetProperties: { properties: { sheetId: defaultTab, title: TX_SHEET, gridProperties: { frozenRowCount: 1 } }, fields: 'title,gridProperties.frozenRowCount' } },
+        header(defaultTab, TRANSACTION_COLUMNS.length),
+      )
+      data.push({ range: `${TX_SHEET}!A1`, values: [Array.from(TRANSACTION_COLUMNS)] })
+    } else if (!have.has(TX_SHEET)) {
       const sheetId = nextId++
       requests.push({ addSheet: { properties: { sheetId, title: TX_SHEET, gridProperties: { frozenRowCount: 1 } } } }, header(sheetId, TRANSACTION_COLUMNS.length))
       data.push({ range: `${TX_SHEET}!A1`, values: [Array.from(TRANSACTION_COLUMNS)] })
