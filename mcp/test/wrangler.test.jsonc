@@ -1,0 +1,7 @@
+// Test-only Worker for the tool harness. Not deployed.
+{
+  "name": "finbuddy-mcp-test",
+  "main": "harness.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"]
+}

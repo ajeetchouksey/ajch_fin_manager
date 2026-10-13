@@ -1,28 +1,21 @@
-import { useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Check, ClipboardPaste, FileUp, Loader2, ShieldCheck } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowLeft, Check, ClipboardPaste, FileUp, Loader2, ShieldCheck, Sparkles } from 'lucide-react'
 import { Dialog } from '../Dialog'
 import { useLedger } from '../../context/LedgerContext'
 import { useLedgerOptions, writeLastEntry } from '../../hooks/useLedgerOptions'
-import { guessColumns, parseAmount, parseCsv, parseDate, type DateFormat } from '../../lib/ledger/csv'
+import { analyzeTable, parseCsv, readCsvFile, type ColumnMap, type DateFormat } from '../../lib/ledger/csv'
+import { TRANSFER_CATEGORY } from '../../lib/ledger/categorize'
+import { statementRow, type Sign } from '../../lib/ledger/statement'
 import { DEFAULT_MATCH_DAYS, matchToLedger, type LedgerMatch } from '../../lib/ledger/reconcile'
 import { isExtractable, parseStatement, readFileText, rowsToCsv, type ExtractProgress } from '../../lib/ledger/extract'
-import { CURRENCIES, dedupeKey, formatMoney, parseTags, todayIso, type Direction } from '../../lib/ledger/types'
-import { ErrorNote, Field, TagInput, inputClass, selectClass } from './ui'
+import { CURRENCIES, dedupeKey, formatMoney, parseTags, todayIso } from '../../lib/ledger/types'
+import { CategorySelect, ErrorNote, Field, TagInput, inputClass, selectClass } from './ui'
 
 const MAX_ROWS = 2000
 type Step = 'source' | 'map'
-type Sign = 'negative-out' | 'positive-out' | 'all-out' | 'all-in'
-
-interface Mapping {
-  date?: number
-  amount?: number
-  description?: number
-  category?: number
-  notes?: number
-}
 
 /** Bulk add: CSV from a bank export, a PDF statement or a photo/scan (read on the device), or pasted rows. */
-export function ImportDialog({ onClose }: { onClose: () => void }) {
+export function ImportDialog({ onClose, initialFile }: { onClose: () => void; initialFile?: File }) {
   const { importTransactions, uploadDocuments, transactions, busy, error } = useLedger()
   const opts = useLedgerOptions()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -30,13 +23,19 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<Step>('source')
   const [raw, setRaw] = useState('')
   const [fileName, setFileName] = useState('')
-  const [hasHeader, setHasHeader] = useState(true)
-  const [map, setMap] = useState<Mapping>({})
+  const [headerRow, setHeaderRow] = useState(0)
+  const [firstRow, setFirstRow] = useState(1)
+  const [map, setMap] = useState<ColumnMap>({})
+  const [bank, setBank] = useState<string | undefined>()
+  const [showMapping, setShowMapping] = useState(false)
   const [dateFormat, setDateFormat] = useState<DateFormat>('auto')
   const [sign, setSign] = useState<Sign>('negative-out')
   const [currency, setCurrency] = useState(opts.defaultCurrency)
   const [account, setAccount] = useState('')
+  /** '' = suggest a category for each row */
   const [category, setCategory] = useState('')
+  /** Categories the user picked for single rows in the preview */
+  const [overrides, setOverrides] = useState<Map<number, string>>(new Map())
   const [tags, setTags] = useState('')
   const [notes, setNotes] = useState('')
   const [skipDuplicates, setSkipDuplicates] = useState(true)
@@ -45,22 +44,25 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
   const [keep, setKeep] = useState<Set<number>>(new Set())
   const [localError, setLocalError] = useState<string | null>(null)
   const [done, setDone] = useState<number | null>(null)
-  // Set when rows were extracted from a PDF or image rather than read from CSV
+  // The statement file, saved to Documents after the import (CSV, PDF or image)
   const [sourceFile, setSourceFile] = useState<File | null>(null)
+  // True when rows were read from a PDF or image rather than a CSV
+  const [extracted, setExtracted] = useState(false)
   const [saveSource, setSaveSource] = useState(true)
   const [extracting, setExtracting] = useState<ExtractProgress | null>(null)
   const [sourceSaveFailed, setSourceSaveFailed] = useState(false)
   const [skippedMatches, setSkippedMatches] = useState(0)
 
   const table = useMemo(() => (raw.trim() ? parseCsv(raw) : []), [raw])
-  const header = hasHeader ? table[0] ?? [] : []
-  const body = hasHeader ? table.slice(1) : table
-  const width = Math.max(0, ...table.map((r) => r.length))
+  const header = headerRow >= 0 ? table[headerRow] ?? [] : []
+  const body = table.slice(firstRow)
+  const width = Math.max(0, ...table.slice(Math.max(0, headerRow)).map((r) => r.length))
   const columnNames = Array.from({ length: width }, (_, i) => (header[i] ? `${header[i]}` : `Column ${i + 1}`))
 
   const editRaw = (text: string) => {
     setRaw(text)
     setKeep(new Set())
+    setOverrides(new Map())
   }
 
   const goToMapping = (text: string, name = '') => {
@@ -71,51 +73,59 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
       setLocalError('No rows found. Check the file or the pasted text.')
       return
     }
-    const looksLikeHeader = t[0].some((c) => /[a-zA-ZäöüÄÖÜ]{3,}/.test(c)) && !t[0].some((c) => parseDate(c) && parseAmount(c) === null)
-    setHasHeader(looksLikeHeader)
-    const guess = looksLikeHeader ? guessColumns(t[0]) : {}
-    if (!looksLikeHeader && t[0].length >= 3) {
-      // Typical "date, description, amount" without a header
-      const dateCol = t[0].findIndex((c) => parseDate(c))
-      const amountCol = t[0].findIndex((c, i) => i !== dateCol && parseAmount(c) !== null && !parseDate(c))
-      const descCol = t[0].findIndex((_, i) => i !== dateCol && i !== amountCol)
-      Object.assign(guess, { date: dateCol >= 0 ? dateCol : undefined, amount: amountCol >= 0 ? amountCol : undefined, description: descCol >= 0 ? descCol : undefined })
-    }
-    setMap(guess)
+    const a = analyzeTable(t)
+    setHeaderRow(a.headerRow)
+    setFirstRow(a.firstRow)
+    setMap(a.map)
+    setBank(a.bank)
+    if (a.currency) setCurrency(a.currency)
+    // Banks that list money out as positive numbers in a single column are rare; credit cards are the usual case
+    setSign('negative-out')
+    setShowMapping(a.map.date === undefined || a.map.amount === undefined || a.map.description === undefined)
     setLocalError(null)
     setStep('map')
   }
 
+  const loadFile = async (f: File) => {
+    setLocalError(null)
+    if (isExtractable(f)) {
+      if (f.size > 15 * 1024 * 1024) return setLocalError('That file is larger than 15 MB.')
+      setExtracting({ status: 'Starting' })
+      try {
+        const { lines } = await readFileText(f, setExtracting)
+        const rows = parseStatement(lines)
+        if (!rows.length) return setLocalError('No transactions found in that file. Rows need a date and an amount. For photos, try a sharper, well-lit picture, or use your bank’s CSV export.')
+        setSourceFile(f)
+        setExtracted(true)
+        goToMapping(rowsToCsv(rows), f.name)
+      } catch (err) {
+        setLocalError((err as Error)?.message || 'That file could not be read.')
+      } finally {
+        setExtracting(null)
+      }
+      return
+    }
+    if (f.size > 5 * 1024 * 1024) return setLocalError('That file is larger than 5 MB. Export a shorter date range.')
+    setSourceFile(f)
+    setExtracted(false)
+    goToMapping(await readCsvFile(f), f.name)
+  }
+
+  // A statement handed over from the Add transaction dialog
+  const started = useRef(false)
+  useEffect(() => {
+    if (!initialFile || started.current) return
+    started.current = true
+    void loadFile(initialFile)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFile])
+
   const parsed = useMemo(() => {
-    return body.slice(0, MAX_ROWS).map((r) => {
-      const date = map.date !== undefined ? parseDate(r[map.date] ?? '', dateFormat) : null
-      const value = map.amount !== undefined ? parseAmount(r[map.amount] ?? '') : null
-      const description = (map.description !== undefined ? r[map.description] ?? '' : '').slice(0, 200)
-      if (!date || value === null || value === 0) {
-        return { ok: false as const, reason: !date ? 'No valid date' : 'No amount', cells: r }
-      }
-      let direction: Direction
-      if (sign === 'all-out') direction = 'out'
-      else if (sign === 'all-in') direction = 'in'
-      else if (sign === 'negative-out') direction = value < 0 ? 'out' : 'in'
-      else direction = value < 0 ? 'in' : 'out'
-      const amount = Math.round(Math.abs(value) * 100) / 100
-      const rowCategory = map.category !== undefined ? (r[map.category] ?? '').slice(0, 60) : ''
-      const rowNotes = map.notes !== undefined ? (r[map.notes] ?? '') : ''
-      const tx = {
-        date,
-        direction,
-        amount,
-        currency,
-        account: account.trim(),
-        category: rowCategory || category || (direction === 'out' ? 'Other' : 'Other income'),
-        description: description || '(no description)',
-        notes: [rowNotes, notes.trim()].filter(Boolean).join(' — ').slice(0, 2000),
-        tags: parseTags(tags),
-      }
-      return { ok: true as const, tx }
-    })
-  }, [body, map, dateFormat, sign, currency, account, category, tags, notes])
+    const knownCategories = [...opts.expenseCategories, ...opts.incomeCategories]
+    return body.slice(0, MAX_ROWS).map((r, i) =>
+      statementRow(r, map, { dateFormat, sign, currency, account, category: overrides.get(i) || category, tags, notes, learned: opts.learned, knownCategories }),
+    )
+  }, [body, map, dateFormat, sign, currency, account, category, overrides, tags, notes, opts])
 
   // Rows already in the Ledger: exact copies, or the user's own entry for the same payment
   const matches = useMemo(() => matchToLedger(parsed.map((p) => (p.ok ? p.tx : null)), transactions, matchDays), [parsed, transactions, matchDays])
@@ -139,13 +149,15 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
   const matched = valid.filter((p) => p.match)
   const dupCount = valid.filter((p) => p.inFileDuplicate).length
   const badCount = preview.length - valid.length
+  const suggestedCount = toImport.filter((p) => p.suggested).length
   const totals = toImport.reduce(
     (acc, p) => {
-      if (p.tx.direction === 'out') acc.out += p.tx.amount
+      if (p.tx.category === TRANSFER_CATEGORY) acc.transfer += p.tx.amount
+      else if (p.tx.direction === 'out') acc.out += p.tx.amount
       else acc.in += p.tx.amount
       return acc
     },
-    { out: 0, in: 0 },
+    { out: 0, in: 0, transfer: 0 },
   )
 
   const runImport = async () => {
@@ -174,7 +186,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const columnSelect = (key: keyof Mapping, label: string, optional = false) => (
+  const columnSelect = (key: keyof ColumnMap, label: string, optional = false) => (
     <Field label={label} htmlFor={`map-${key}`}>
       <select
         id={`map-${key}`}
@@ -191,6 +203,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
       </select>
     </Field>
   )
+  const colName = (i: number | undefined) => (i !== undefined ? columnNames[i] : undefined)
 
   if (done !== null) {
     return (
@@ -210,47 +223,24 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
 
   if (step === 'source') {
     return (
-      <Dialog onClose={onClose} title="Import transactions" subtitle="From a bank export (CSV) or pasted rows" fitContent>
+      <Dialog onClose={onClose} title="Import transactions" subtitle="From a bank export (CSV), a PDF statement or pasted rows" fitContent>
         <div className="space-y-5 px-4 py-5 sm:px-6">
           <button type="button" disabled={!!extracting} onClick={() => fileRef.current?.click()} className="flex w-full items-center gap-4 rounded-2xl border border-line-strong p-4 text-left hover:border-brand-soft/50">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-brand-soft"><FileUp className="h-5 w-5" /></span>
             <span>
-              <span className="block font-semibold text-white">Upload a file</span>
-              <span className="block text-sm text-slate-400">A CSV export, a PDF bank statement, or a photo or scan of one.</span>
+              <span className="block font-semibold text-white">Upload a statement</span>
+              <span className="block text-sm text-slate-400">The CSV export from your bank (Commerzbank, Sparkasse, DKB, ING, N26, HDFC …), a PDF statement, or a photo of one.</span>
             </span>
           </button>
           <input
             ref={fileRef}
             type="file"
-            accept=".csv,text/csv,text/plain,.txt,.pdf,application/pdf,image/png,image/jpeg,image/webp"
+            accept=".csv,text/csv,text/plain,.txt,.tsv,.pdf,application/pdf,image/png,image/jpeg,image/webp"
             className="hidden"
-            onChange={async (e) => {
+            onChange={(e) => {
               const f = e.target.files?.[0]
               e.target.value = ''
-              if (!f) return
-              setLocalError(null)
-              if (isExtractable(f)) {
-                if (f.size > 15 * 1024 * 1024) return setLocalError('That file is larger than 15 MB.')
-                setExtracting({ status: 'Starting' })
-                try {
-                  const { lines } = await readFileText(f, setExtracting)
-                  const rows = parseStatement(lines)
-                  if (!rows.length) return setLocalError('No transactions found in that file. Rows need a date and an amount. For photos, try a sharper, well-lit picture, or use your bank’s CSV export.')
-                  setSourceFile(f)
-                  goToMapping(rowsToCsv(rows), f.name)
-                } catch (err) {
-                  setLocalError((err as Error)?.message || 'That file could not be read.')
-                } finally {
-                  setExtracting(null)
-                }
-                return
-              }
-              setSourceFile(null)
-              if (f.size > 5 * 1024 * 1024) return setLocalError('That file is larger than 5 MB. Export a shorter date range.')
-              const buf = await f.arrayBuffer()
-              let text = new TextDecoder('utf-8').decode(buf)
-              if (text.includes('�')) text = new TextDecoder('windows-1252').decode(buf) // older German bank exports
-              goToMapping(text, f.name)
+              if (f) void loadFile(f)
             }}
           />
           {extracting ? (
@@ -259,7 +249,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
               <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500"><ShieldCheck className="h-3.5 w-3.5" /> Read on this device. The file is not sent anywhere.</p>
             </div>
           ) : (
-            <p className="flex items-center gap-1.5 text-xs text-slate-500"><ShieldCheck className="h-3.5 w-3.5" /> PDFs and photos are read on this device. Nothing is sent to our servers.</p>
+            <p className="flex items-center gap-1.5 text-xs text-slate-500"><ShieldCheck className="h-3.5 w-3.5" /> Files are read on this device. Nothing is sent to our servers.</p>
           )}
           <div>
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200"><ClipboardPaste className="h-4 w-4 text-brand-soft" /> Or paste rows</div>
@@ -274,6 +264,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
             <p className="mt-1 text-xs text-slate-500">Copy rows from Excel, Google Sheets or your bank. One transaction per line.</p>
             <button type="button" className="btn btn-secondary mt-3" disabled={!raw.trim() || !!extracting} onClick={() => {
               setSourceFile(null)
+              setExtracted(false)
               goToMapping(raw)
             }}>
               Continue
@@ -285,12 +276,21 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     )
   }
 
+  const detected = [
+    ['Date', colName(map.date)],
+    [map.credit !== undefined ? 'Money out' : 'Amount', colName(map.amount)],
+    ['Money in', colName(map.credit)],
+    ['Payee', colName(map.payee)],
+    ['Description', colName(map.description)],
+    ['Currency', colName(map.currency)],
+  ].filter((x): x is [string, string] => !!x[1])
+
   return (
     <Dialog
       onClose={onClose}
       size="lg"
       title="Check and import"
-      subtitle={fileName || `${body.length} rows pasted`}
+      subtitle={`${bank ? `${bank} export · ` : ''}${fileName || `${body.length} rows pasted`}`}
       leading={<button type="button" className="icon-btn" aria-label="Back" onClick={() => setStep('source')}><ArrowLeft className="h-5 w-5" /></button>}
       footer={
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -311,33 +311,65 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
       <div className="space-y-6 px-4 py-5 sm:px-6">
         <section>
           <h3 className="mb-3 font-semibold text-white">1. Which column is which?</h3>
-          <label className="mb-3 flex items-center gap-2 text-sm text-slate-300">
-            <input type="checkbox" checked={hasHeader} onChange={(e) => setHasHeader(e.target.checked)} className="h-4 w-4 accent-[var(--color-brand)]" />
-            First row is a header
-          </label>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {columnSelect('date', 'Date')}
-            {columnSelect('amount', 'Amount')}
-            {columnSelect('description', 'Description')}
-            {columnSelect('category', 'Category (optional)', true)}
-            {columnSelect('notes', 'Notes (optional)', true)}
-            <Field label="Date format" htmlFor="map-datefmt">
-              <select id="map-datefmt" className={selectClass} value={dateFormat} onChange={(e) => setDateFormat(e.target.value as DateFormat)}>
-                <option value="auto">Automatic (day first)</option>
-                <option value="dmy">DD.MM.YYYY</option>
-                <option value="mdy">MM/DD/YYYY</option>
-                <option value="ymd">YYYY-MM-DD</option>
-              </select>
-            </Field>
-          </div>
-          <Field label="Amounts" htmlFor="map-sign">
-            <select id="map-sign" className={`${selectClass} mt-0`} value={sign} onChange={(e) => setSign(e.target.value as Sign)}>
-              <option value="negative-out">Negative = money out (most banks)</option>
-              <option value="positive-out">Positive = money out (credit cards)</option>
-              <option value="all-out">All are money out</option>
-              <option value="all-in">All are money in</option>
-            </select>
-          </Field>
+          {!showMapping ? (
+            <div className="rounded-xl border border-line p-3 text-sm">
+              <p className="flex items-center gap-1.5 font-medium text-white">
+                <Sparkles className="h-4 w-4 text-brand-soft" /> {bank ? `Recognised a ${bank} export` : 'Columns recognised'}
+              </p>
+              <p className="mt-1 text-slate-400">{detected.map(([k, v]) => `${k}: ${v}`).join(' · ')}</p>
+              <button type="button" className="mt-2 text-sm font-medium text-brand-soft hover:underline" onClick={() => setShowMapping(true)}>Change columns</button>
+            </div>
+          ) : (
+            <>
+              <label className="mb-3 flex items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={headerRow >= 0}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setHeaderRow(firstRow)
+                      setFirstRow(firstRow + 1)
+                    } else {
+                      setFirstRow(headerRow)
+                      setHeaderRow(-1)
+                    }
+                  }}
+                  className="h-4 w-4 accent-[var(--color-brand)]"
+                />
+                {headerRow > 0 ? `Row ${headerRow + 1} is the header (${headerRow} summary lines above it are skipped)` : 'First row is a header'}
+              </label>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {columnSelect('date', 'Date')}
+                {columnSelect('amount', map.credit !== undefined ? 'Money out column' : 'Amount')}
+                {columnSelect('credit', 'Money in column (if separate)', true)}
+                {columnSelect('description', 'Description')}
+                {columnSelect('payee', 'Payee / name (optional)', true)}
+                {columnSelect('category', 'Category (optional)', true)}
+                {columnSelect('currency', 'Currency (optional)', true)}
+                {columnSelect('notes', 'Notes (optional)', true)}
+                <Field label="Date format" htmlFor="map-datefmt">
+                  <select id="map-datefmt" className={selectClass} value={dateFormat} onChange={(e) => setDateFormat(e.target.value as DateFormat)}>
+                    <option value="auto">Automatic (day first)</option>
+                    <option value="dmy">DD.MM.YYYY</option>
+                    <option value="mdy">MM/DD/YYYY</option>
+                    <option value="ymd">YYYY-MM-DD</option>
+                  </select>
+                </Field>
+              </div>
+            </>
+          )}
+          {map.credit === undefined && (
+            <div className="mt-3">
+              <Field label="Amounts" htmlFor="map-sign">
+                <select id="map-sign" className={selectClass} value={sign} onChange={(e) => setSign(e.target.value as Sign)}>
+                  <option value="negative-out">Negative = money out (bank accounts)</option>
+                  <option value="positive-out">Positive = money out (credit cards)</option>
+                  <option value="all-out">All are money out</option>
+                  <option value="all-in">All are money in</option>
+                </select>
+              </Field>
+            </div>
+          )}
         </section>
 
         <section>
@@ -350,14 +382,22 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
               </select>
             </Field>
             <Field label="Account" htmlFor="imp-acc">
-              <input id="imp-acc" list="imp-accounts" className={inputClass} value={account} onChange={(e) => setAccount(e.target.value)} placeholder="e.g. Sparkasse current" maxLength={80} />
+              <input id="imp-acc" list="imp-accounts" className={inputClass} value={account} onChange={(e) => setAccount(e.target.value)} placeholder={bank ? `e.g. ${bank} current` : 'e.g. Sparkasse current'} maxLength={80} />
               <datalist id="imp-accounts">{opts.accounts.map((a) => <option key={a} value={a} />)}</datalist>
             </Field>
-            <Field label="Default category" htmlFor="imp-cat">
-              <select id="imp-cat" className={selectClass} value={category} onChange={(e) => setCategory(e.target.value)}>
-                <option value="">Other</option>
-                {[...opts.expenseCategories, ...opts.incomeCategories].map((c) => <option key={c}>{c}</option>)}
-              </select>
+            <Field label="Category" htmlFor="imp-cat">
+              <CategorySelect
+                id="imp-cat"
+                value={category}
+                onChange={(c) => {
+                  setCategory(c)
+                  setOverrides(new Map())
+                }}
+                expense={opts.expenseCategories}
+                income={opts.incomeCategories}
+                empty="Automatic (suggested per row)"
+                transfer
+              />
             </Field>
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -381,17 +421,19 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
               days. Your own entry is kept with its notes, tags and receipts.
             </p>
           )}
+          {sourceFile && (
+            <label className="mt-3 flex items-center gap-2 text-sm text-slate-300">
+              <input type="checkbox" checked={saveSource} onChange={(e) => setSaveSource(e.target.checked)} className="h-4 w-4 accent-[var(--color-brand)]" />
+              Also save {sourceFile.name} to my Documents as a bank statement
+            </label>
+          )}
         </section>
 
-        {sourceFile && (
+        {extracted && sourceFile && (
           <section>
             <h3 className="mb-1 font-semibold text-white">Rows read from {sourceFile.name}</h3>
             <p className="mb-3 text-sm text-slate-400">Read on this device. Check them against the statement and fix any mistakes here; the preview updates as you type.</p>
             <textarea rows={8} className={`${inputClass} py-3 font-mono text-xs`} value={raw} onChange={(e) => editRaw(e.target.value)} aria-label="Extracted rows" spellCheck={false} />
-            <label className="mt-3 flex items-center gap-2 text-sm text-slate-300">
-              <input type="checkbox" checked={saveSource} onChange={(e) => setSaveSource(e.target.checked)} className="h-4 w-4 accent-[var(--color-brand)]" />
-              Also save the file to my Documents as a bank statement
-            </label>
           </section>
         )}
 
@@ -440,29 +482,48 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
         )}
 
         <section>
-          <h3 className="mb-3 font-semibold text-white">3. Preview</h3>
+          <h3 className="mb-1 font-semibold text-white">3. Preview</h3>
           {toImport.length > 0 && (
             <p className="mb-2 text-sm text-slate-400">
               Out {formatMoney(totals.out, currency)} · In {formatMoney(totals.in, currency)}
+              {totals.transfer > 0 && <> · Transfers {formatMoney(totals.transfer, currency)}</>}
+              {!category && suggestedCount > 0 && <> · {suggestedCount} categorised automatically</>}
             </p>
           )}
           <div className="overflow-x-auto rounded-xl border border-line">
-            <table className="w-full min-w-[560px] text-left text-sm">
+            <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="bg-white/5 text-xs uppercase tracking-wide text-slate-400">
                 <tr><th className="px-3 py-2">Date</th><th className="px-3 py-2">Description</th><th className="px-3 py-2">Category</th><th className="px-3 py-2 text-right">Amount</th><th className="px-3 py-2">Status</th></tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {preview.slice(0, 50).map((p, i) =>
+                {preview.slice(0, 100).map((p) =>
                   p.ok ? (
-                    <tr key={i} className={p.skipped ? 'opacity-45' : ''}>
+                    <tr key={p.i} className={p.skipped ? 'opacity-45' : ''}>
                       <td className="whitespace-nowrap px-3 py-2 text-slate-300">{p.tx.date}</td>
-                      <td className="max-w-[220px] truncate px-3 py-2 text-white">{p.tx.description}</td>
-                      <td className="px-3 py-2 text-slate-300">{p.tx.category}</td>
+                      <td className="max-w-[240px] truncate px-3 py-2 text-white" title={p.tx.description}>{p.tx.description}</td>
+                      <td className="px-2 py-1">
+                        <CategorySelect
+                          value={p.tx.category}
+                          onChange={(c) =>
+                            setOverrides((o) => {
+                              const next = new Map(o)
+                              if (c) next.set(p.i, c)
+                              else next.delete(p.i)
+                              return next
+                            })
+                          }
+                          expense={opts.expenseCategories}
+                          income={opts.incomeCategories}
+                          empty="Automatic"
+                          transfer
+                          className="min-h-9 w-full min-w-[150px] rounded-lg border border-transparent bg-transparent px-1 text-sm text-slate-200 hover:border-line-strong focus:border-brand-soft/60 focus:outline-none"
+                        />
+                      </td>
                       <td className={`whitespace-nowrap px-3 py-2 text-right font-medium ${p.tx.direction === 'in' ? 'text-brand-success' : 'text-white'}`}>{formatMoney(p.tx.amount, p.tx.currency, p.tx.direction)}</td>
                       <td className="px-3 py-2 text-xs text-slate-400">{p.match ? (p.skipped ? 'Already added' : 'Import anyway') : p.inFileDuplicate ? 'Repeated row' : 'Ready'}</td>
                     </tr>
                   ) : (
-                    <tr key={i} className="text-amber-200/80">
+                    <tr key={p.i} className="text-amber-200/80">
                       <td className="px-3 py-2" colSpan={4}><span className="line-clamp-1">{p.cells.join(' · ')}</span></td>
                       <td className="px-3 py-2 text-xs">{p.reason}</td>
                     </tr>
@@ -471,7 +532,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
               </tbody>
             </table>
           </div>
-          {preview.length > 50 && <p className="mt-2 text-xs text-slate-500">Showing 50 of {preview.length} rows.</p>}
+          {preview.length > 100 && <p className="mt-2 text-xs text-slate-500">Showing 100 of {preview.length} rows. Change categories for the rest after importing.</p>}
         </section>
         <ErrorNote>{localError || error}</ErrorNote>
       </div>

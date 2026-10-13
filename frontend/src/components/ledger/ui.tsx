@@ -126,3 +126,49 @@ export function ErrorNote({ children }: { children: ReactNode }) {
     </p>
   )
 }
+
+/** One list for every category, grouped by money out / money in, so nothing looks missing. */
+export function CategorySelect({
+  id,
+  value,
+  onChange,
+  expense,
+  income,
+  empty = 'Choose…',
+  transfer = false,
+  className = selectClass,
+}: {
+  id?: string
+  value: string
+  onChange: (category: string) => void
+  expense: string[]
+  income: string[]
+  /** Label of the empty choice */
+  empty?: string
+  /** Offer "Transfer" (between own accounts) */
+  transfer?: boolean
+  className?: string
+}) {
+  const known = value === '' || expense.includes(value) || income.includes(value) || (transfer && value === 'Transfer')
+  return (
+    <select id={id} className={className} value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">{empty}</option>
+      {!known && <option value={value}>{value}</option>}
+      <optgroup label="Money out">
+        {expense.map((c) => (
+          <option key={`out-${c}`} value={c}>{c}</option>
+        ))}
+      </optgroup>
+      <optgroup label="Money in">
+        {income.map((c) => (
+          <option key={`in-${c}`} value={c}>{c}</option>
+        ))}
+      </optgroup>
+      {transfer && (
+        <optgroup label="Between my accounts">
+          <option value="Transfer">Transfer</option>
+        </optgroup>
+      )}
+    </select>
+  )
+}

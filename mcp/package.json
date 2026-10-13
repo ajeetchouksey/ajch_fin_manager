@@ -1,0 +1,26 @@
+{
+  "name": "finbuddy-mcp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "FinBuddy connector: lets the user's own AI app (Claude, ChatGPT, any MCP client) work with their Drive Ledger",
+  "scripts": {
+    "dev": "wrangler dev --port 8788",
+    "dev:test": "wrangler dev --config test/wrangler.test.jsonc --port 8799 --ip 127.0.0.1",
+    "deploy": "wrangler deploy",
+    "type-check": "tsc --noEmit",
+    "test:tools": "node test/run-tools.mjs"
+  },
+  "dependencies": {
+    "@cloudflare/workers-oauth-provider": "^1.2.3",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@modelcontextprotocol/server": "^2.3.1",
+    "agents": "^0.28.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261013.1",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.150.0"
+  }
+}

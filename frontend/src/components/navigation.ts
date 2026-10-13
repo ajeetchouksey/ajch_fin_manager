@@ -1,4 +1,4 @@
-import { ArrowLeftRight, FileText, LayoutDashboard, Target, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, FileText, LayoutDashboard, Lightbulb, Target, Wallet, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -12,4 +12,5 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
   { to: '/documents', label: 'Documents', icon: FileText },
   { to: '/goals', label: 'Goals', icon: Target },
+  { to: '/insights', label: 'Insights', icon: Lightbulb },
 ]

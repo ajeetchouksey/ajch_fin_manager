@@ -1,6 +1,8 @@
 import type { Transaction } from './types'
+import { isTransfer } from './categorize'
 
-/** Pure calculations for the Overview. Amounts are never mixed across currencies. */
+/** Pure calculations for the Overview. Amounts are never mixed across currencies.
+ * Transfers between the user's own accounts are neither income nor spending. */
 
 export const ym = (date: string) => date.slice(0, 7)
 
@@ -48,7 +50,7 @@ export function totalsFor(tx: Transaction[], month: string, currency: string): M
   let spending = 0
   let count = 0
   for (const t of tx) {
-    if (ym(t.date) !== month || t.currency !== currency) continue
+    if (ym(t.date) !== month || t.currency !== currency || isTransfer(t)) continue
     count++
     if (t.direction === 'in') income += t.amount
     else spending += t.amount
@@ -69,7 +71,7 @@ export function spendingByCategory(tx: Transaction[], month: string, currency: s
   const sums = new Map<string, { amount: number; count: number }>()
   let total = 0
   for (const t of tx) {
-    if (t.direction !== 'out' || ym(t.date) !== month || t.currency !== currency) continue
+    if (t.direction !== 'out' || ym(t.date) !== month || t.currency !== currency || isTransfer(t)) continue
     const k = t.category || 'Other'
     const s = sums.get(k) ?? { amount: 0, count: 0 }
     s.amount += t.amount

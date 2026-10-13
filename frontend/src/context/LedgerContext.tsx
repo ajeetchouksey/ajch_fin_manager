@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { clearDriveToken, getStoredDriveToken, requestDriveToken } from '../lib/google/gis'
-import { DOC_SHEET, DriveError, LedgerClient, TX_SHEET } from '../lib/google/driveClient'
-import { newId, type LedgerDocument, type LedgerLocation, type Transaction } from '../lib/ledger/types'
+import { ACCOUNT_SHEET, DOC_SHEET, DriveError, GOAL_SHEET, LedgerClient, TX_SHEET } from '../lib/google/driveClient'
+import { newId, todayIso, type LedgerDocument, type LedgerLocation, type Transaction } from '../lib/ledger/types'
+import { newAccountId, newGoalId, type Account, type BalanceEntry, type Goal } from '../lib/ledger/portfolio'
 
 /**
  * The Ledger lives in the user's own Google Drive (ADR-001). This context connects to it,
@@ -21,12 +22,18 @@ export interface DocumentDraft {
   tags: string[]
 }
 
+export type AccountDraft = Omit<Account, 'id' | 'createdAt' | 'row'>
+export type GoalDraft = Omit<Goal, 'id' | 'createdAt' | 'row'>
+
 interface LedgerContextValue {
   status: LedgerStatus
   error: string | null
   location: LedgerLocation | null
   transactions: Transaction[]
   documents: LedgerDocument[]
+  accounts: Account[]
+  balances: BalanceEntry[]
+  goals: Goal[]
   busy: boolean
   connect: (folderName: string) => Promise<void>
   reconnect: () => Promise<void>
@@ -38,6 +45,11 @@ interface LedgerContextValue {
   deleteTransaction: (t: Transaction) => Promise<void>
   uploadDocuments: (drafts: DocumentDraft[], transactionId?: string) => Promise<LedgerDocument[]>
   deleteDocumentRecord: (d: LedgerDocument) => Promise<void>
+  /** Add an account, or update one; a changed balance is also kept in the Balances history. */
+  saveAccount: (draft: AccountDraft, existing?: Account) => Promise<Account>
+  deleteAccount: (a: Account) => Promise<void>
+  saveGoal: (draft: GoalDraft, existing?: Goal) => Promise<Goal>
+  deleteGoal: (g: Goal) => Promise<void>
   clearError: () => void
 }
 
@@ -73,6 +85,9 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const [location, setLocation] = useState<LedgerLocation | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [documents, setDocuments] = useState<LedgerDocument[]>([])
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [balances, setBalances] = useState<BalanceEntry[]>([])
+  const [goals, setGoals] = useState<Goal[]>([])
   const [busy, setBusy] = useState(false)
   const locRef = useRef<LedgerLocation | null>(null)
   useEffect(() => {
@@ -99,11 +114,28 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     setError(err instanceof Error ? err.message : 'Something went wrong with Google Drive.')
   }, [])
 
+  // Ledgers created before a tab existed get it added once per session
+  const checkedTabs = useRef<string | null>(null)
+
   const load = useCallback(
     async (loc: LedgerLocation) => {
-      const [tx, docs] = await Promise.all([client.listTransactions(loc.spreadsheetId), client.listDocuments(loc.spreadsheetId)])
+      if (checkedTabs.current !== loc.spreadsheetId) {
+        await client.initialiseSheet(loc.spreadsheetId)
+        checkedTabs.current = loc.spreadsheetId
+      }
+      const id = loc.spreadsheetId
+      const [tx, docs, accs, bals, gls] = await Promise.all([
+        client.listTransactions(id),
+        client.listDocuments(id),
+        client.listAccounts(id),
+        client.listBalances(id),
+        client.listGoals(id),
+      ])
       setTransactions(tx)
       setDocuments(docs)
+      setAccounts(accs)
+      setBalances(bals)
+      setGoals(gls)
     },
     [client],
   )
@@ -190,6 +222,9 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     setLocation(null)
     setTransactions([])
     setDocuments([])
+    setAccounts([])
+    setBalances([])
+    setGoals([])
     setStatus('disconnected')
   }, [userId])
 
@@ -319,12 +354,66 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [run, client, load],
   )
 
+  const saveAccount: LedgerContextValue['saveAccount'] = useCallback(
+    (draft, existing) =>
+      run(async () => {
+        const loc = requireLoc()
+        const id = loc.spreadsheetId
+        const account: Account = existing ? { ...existing, ...draft } : { ...draft, id: newAccountId(), createdAt: new Date().toISOString() }
+        if (existing) await client.updateAccount(id, account)
+        else await client.appendAccounts(id, [account])
+        if (!existing || existing.balance !== account.balance || existing.asOf !== account.asOf) {
+          await client.appendBalances(id, [{ accountId: account.id, date: account.asOf || todayIso(), balance: account.balance, recordedAt: new Date().toISOString() }])
+        }
+        await load(loc)
+        return account
+      }),
+    [run, client, load],
+  )
+
+  const deleteAccount: LedgerContextValue['deleteAccount'] = useCallback(
+    (a) =>
+      run(async () => {
+        const loc = requireLoc()
+        // Balance history stays in the sheet; it is ignored once the account is gone
+        await client.deleteRow(loc.spreadsheetId, ACCOUNT_SHEET, a.row ?? 0, a.id)
+        await load(loc)
+      }),
+    [run, client, load],
+  )
+
+  const saveGoal: LedgerContextValue['saveGoal'] = useCallback(
+    (draft, existing) =>
+      run(async () => {
+        const loc = requireLoc()
+        const goal: Goal = existing ? { ...existing, ...draft } : { ...draft, id: newGoalId(), createdAt: new Date().toISOString() }
+        if (existing) await client.updateGoal(loc.spreadsheetId, goal)
+        else await client.appendGoals(loc.spreadsheetId, [goal])
+        await load(loc)
+        return goal
+      }),
+    [run, client, load],
+  )
+
+  const deleteGoal: LedgerContextValue['deleteGoal'] = useCallback(
+    (g) =>
+      run(async () => {
+        const loc = requireLoc()
+        await client.deleteRow(loc.spreadsheetId, GOAL_SHEET, g.row ?? 0, g.id)
+        await load(loc)
+      }),
+    [run, client, load],
+  )
+
   const value: LedgerContextValue = {
     status,
     error,
     location,
     transactions,
     documents,
+    accounts,
+    balances,
+    goals,
     busy,
     connect,
     reconnect,
@@ -336,6 +425,10 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     deleteTransaction,
     uploadDocuments,
     deleteDocumentRecord,
+    saveAccount,
+    deleteAccount,
+    saveGoal,
+    deleteGoal,
     clearError: () => setError(null),
   }
 

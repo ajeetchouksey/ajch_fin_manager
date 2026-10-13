@@ -11,10 +11,11 @@ import { TransactionDetails } from '../components/ledger/TransactionDetails'
 import { UploadDocumentsDialog } from '../components/ledger/UploadDocumentsDialog'
 import { ErrorNote, TagChips, inputClass } from '../components/ledger/ui'
 import { formatMoney, type Transaction } from '../lib/ledger/types'
+import { isTransfer } from '../lib/ledger/categorize'
 
 type Open =
   | { kind: 'add' }
-  | { kind: 'import' }
+  | { kind: 'import'; file?: File }
   | { kind: 'details'; tx: Transaction }
   | { kind: 'edit'; tx: Transaction }
   | { kind: 'attach'; tx: Transaction }
@@ -111,6 +112,7 @@ export function TransactionsPage() {
           {groups.map(([month, list]) => {
             const byCur = new Map<string, { in: number; out: number }>()
             for (const t of list) {
+              if (isTransfer(t)) continue
               const c = byCur.get(t.currency) ?? { in: 0, out: 0 }
               c[t.direction] += t.amount
               byCur.set(t.currency, c)
@@ -129,8 +131,8 @@ export function TransactionsPage() {
                   {list.map((t) => (
                     <li key={t.id}>
                       <button type="button" onClick={() => setOpen({ kind: 'details', tx: t })} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.03] sm:px-5">
-                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${t.direction === 'in' ? 'bg-brand-success/15 text-brand-success' : 'bg-white/5 text-slate-300'}`}>
-                          {t.direction === 'in' ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isTransfer(t) ? 'bg-white/5 text-slate-400' : t.direction === 'in' ? 'bg-brand-success/15 text-brand-success' : 'bg-white/5 text-slate-300'}`}>
+                          {isTransfer(t) ? <ArrowLeftRight className="h-4 w-4" /> : t.direction === 'in' ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-1.5">
@@ -157,9 +159,9 @@ export function TransactionsPage() {
         </div>
       )}
 
-      {open?.kind === 'add' && <TransactionDialog onClose={() => setOpen(null)} />}
+      {open?.kind === 'add' && <TransactionDialog onClose={() => setOpen(null)} onImportStatement={(file) => setOpen({ kind: 'import', file })} />}
       {open?.kind === 'edit' && <TransactionDialog existing={open.tx} onClose={() => setOpen(null)} />}
-      {open?.kind === 'import' && <ImportDialog onClose={() => setOpen(null)} />}
+      {open?.kind === 'import' && <ImportDialog initialFile={open.file} onClose={() => setOpen(null)} />}
       {open?.kind === 'attach' && <UploadDocumentsDialog transaction={open.tx} onClose={() => setOpen(null)} />}
       {open?.kind === 'details' && (
         <TransactionDetails

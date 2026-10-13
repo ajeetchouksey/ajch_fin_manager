@@ -92,7 +92,33 @@ export const DOCUMENT_TYPES = [
   'Other',
 ]
 
-export const INCOME_CATEGORIES = ['Salary', 'Bonus', 'Refund', 'Interest & dividends', 'Rental income', 'Gift received', 'Other income']
+export const INCOME_CATEGORIES = [
+  'Salary',
+  'Bonus',
+  'Freelance & side income',
+  'Interest & dividends',
+  'Rental income',
+  'Pension',
+  'Child benefit',
+  'Tax refund',
+  'Refund',
+  'Gift received',
+  'Sale of items',
+  'Other income',
+]
+
+/** Spending categories every user gets on top of the ones chosen during setup. */
+export const MORE_EXPENSE_CATEGORIES = [
+  'Mobile & internet',
+  'Fitness',
+  'Personal care',
+  'Pets',
+  'Taxes',
+  'Fees & charges',
+  'Loan & EMI',
+  'Savings & investments',
+  'Cash withdrawal',
+]
 
 const splitList = (s: unknown) =>
   String(s ?? '')

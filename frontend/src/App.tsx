@@ -2,7 +2,8 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { LoginPage } from './pages/LoginPage'
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage'
 import { DashboardPage } from './pages/DashboardPage'
-import { AccountsPage, GoalsPage } from './pages/SectionPages'
+import { AccountsPage, GoalsPage } from './pages/PortfolioPages'
+import { InsightsPage } from './pages/InsightsPage'
 import { TransactionsPage } from './pages/TransactionsPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { StoragePage } from './pages/StoragePage'
@@ -36,6 +37,7 @@ function App() {
         <Route path="/transactions" element={<TransactionsPage />} />
         <Route path="/documents" element={<DocumentsPage />} />
         <Route path="/goals" element={<GoalsPage />} />
+        <Route path="/insights" element={<InsightsPage />} />
         <Route path="/settings/storage" element={<StoragePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
