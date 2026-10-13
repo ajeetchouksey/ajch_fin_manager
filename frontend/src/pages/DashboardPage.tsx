@@ -47,13 +47,13 @@ export function DashboardPage() {
 
   return (
     <>
-      <PageHeader eyebrow={today} title={firstName ? `${greeting()}, ${firstName}` : greeting()} description="Let's get your finances organised." />
+      <PageHeader eyebrow={today} title={firstName ? <>{greeting()}, <span className="heading-gradient">{firstName}</span></> : greeting()} description="Let's get your finances organised." />
 
       {/* Getting started */}
-      <section aria-labelledby="getting-started" className="card overflow-hidden">
+      <section aria-labelledby="getting-started" className="card card-accent-top overflow-hidden">
         <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
           <div>
-            <h2 id="getting-started" className="text-base font-semibold text-white">
+            <h2 id="getting-started" className="text-xl font-semibold text-white">
               Getting started
             </h2>
             <p className="mt-0.5 text-sm text-slate-400">
@@ -70,13 +70,13 @@ export function DashboardPage() {
             <li key={title} className="flex items-start gap-4 px-5 py-4 sm:items-center sm:px-6">
               <span
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                  done ? 'bg-emerald-500/15 text-emerald-400' : 'bg-brand/15 text-brand-soft'
+                  done ? 'bg-brand-success/15 text-brand-success' : 'bg-brand/15 text-brand-soft'
                 }`}
               >
                 {done ? <Check className="h-5 w-5" strokeWidth={2.5} /> : <Icon className="h-5 w-5" strokeWidth={1.75} />}
               </span>
               <div className="min-w-0 flex-1">
-                <p className={`text-[15px] font-medium ${done ? 'text-slate-400 line-through decoration-slate-600' : 'text-white'}`}>
+                <p className={`text-base font-medium ${done ? 'text-slate-400 line-through decoration-slate-600' : 'text-white'}`}>
                   <span className="sr-only">Step {i + 1}: </span>
                   {title}
                 </p>
@@ -124,7 +124,7 @@ export function DashboardPage() {
 function SectionHeader({ id, title, to }: { id: string; title: string; to: string }) {
   return (
     <div className="flex items-center justify-between border-b border-line px-5 py-3.5 sm:px-6">
-      <h2 id={id} className="text-base font-semibold text-white">
+      <h2 id={id} className="text-xl font-semibold text-white">
         {title}
       </h2>
       <Link to={to} className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-soft hover:text-white pointer-fine:min-h-0">

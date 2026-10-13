@@ -16,7 +16,7 @@ export function FullScreenStatus({ title, description, tone = 'loading' }: FullS
           <span className="absolute -inset-2 animate-spin rounded-[22px] border-2 border-transparent border-t-brand-soft" />
         )}
       </div>
-      <h1 className="mt-8 text-lg font-semibold text-white">{title}</h1>
+      <h1 className="mt-8 text-2xl font-semibold text-white">{title}</h1>
       {description && (
         <p className={`mt-1.5 max-w-sm text-sm ${tone === 'error' ? 'text-rose-300' : 'text-slate-400'}`}>{description}</p>
       )}

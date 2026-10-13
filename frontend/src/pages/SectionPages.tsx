@@ -7,7 +7,7 @@ export function AccountsPage() {
   const { openDetailedSetup } = useSetup()
   return (
     <>
-      <PageHeader title="Accounts" description="Bank, card, loan and investment accounts in one place." />
+      <PageHeader eyebrow="Finance" title="Accounts" description="Bank, card, loan and investment accounts in one place." />
       <div className="card">
         <EmptyState
           icon={Wallet}
@@ -28,7 +28,7 @@ export function TransactionsPage() {
   const { openDetailedSetup } = useSetup()
   return (
     <>
-      <PageHeader title="Transactions" description="Every payment in and out, categorised automatically." />
+      <PageHeader eyebrow="Finance" title="Transactions" description="Every payment in and out, categorised automatically." />
       <div className="card">
         <EmptyState
           icon={ArrowLeftRight}
@@ -49,7 +49,7 @@ export function GoalsPage() {
   const { openDetailedSetup } = useSetup()
   return (
     <>
-      <PageHeader title="Goals" description="Track progress towards what matters to you." />
+      <PageHeader eyebrow="Finance" title="Goals" description="Track progress towards what matters to you." />
       <div className="card">
         <EmptyState
           icon={Target}

@@ -82,7 +82,7 @@ export function Dialog({
         <header className="flex shrink-0 items-center gap-2 border-b border-line px-3 py-2.5 sm:px-5 sm:py-3.5">
           {leading}
           <div className={`min-w-0 flex-1 ${leading ? '' : 'pl-1 sm:pl-0'}`}>
-            <h2 id={titleId} className="truncate text-base font-semibold text-white sm:text-lg">
+            <h2 id={titleId} className="truncate text-xl font-semibold text-white sm:text-[22px]">
               {title}
             </h2>
             {subtitle && <p className="truncate text-xs text-slate-400 sm:text-sm">{subtitle}</p>}

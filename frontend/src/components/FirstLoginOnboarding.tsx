@@ -96,17 +96,18 @@ export function FirstLoginOnboarding({ onComplete, onSkip }: FirstLoginOnboardin
       {!started ? (
         <div className="flex min-h-full flex-col justify-center px-6 py-10 sm:px-10">
           <LogoMark className="h-14 w-14" />
-          <h3 className="mt-6 text-2xl font-semibold tracking-tight text-white sm:text-[28px]">
-            Let's set up your finances
+          <p className="eyebrow mt-6">Welcome to AaryaAI Finance</p>
+          <h3 className="mt-2 text-[32px] leading-[1.1] font-semibold text-white sm:text-[38px]">
+            Let's set up your <span className="heading-gradient">finances</span>
           </h3>
-          <p className="mt-2 max-w-md text-[15px] leading-relaxed text-slate-400">
+          <p className="mt-2 max-w-md text-base leading-relaxed text-slate-400">
             Aarya will ask a few short questions so your dashboard, categories and goals fit how you actually
             manage money.
           </p>
 
           <ul className="mt-8 space-y-3">
             {TOPICS.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex items-center gap-3 text-[15px] text-slate-200">
+              <li key={label} className="flex items-center gap-3 text-base text-slate-200">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand/15 text-brand-soft">
                   <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
                 </span>

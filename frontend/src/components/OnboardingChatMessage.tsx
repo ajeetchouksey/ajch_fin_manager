@@ -12,7 +12,7 @@ export function OnboardingChatMessage({ message }: OnboardingChatMessageProps) {
     return (
       <div className="flex items-start gap-2.5 animate-fade-in">
         <LogoMark className="mt-0.5 h-7 w-7 shrink-0" />
-        <div className="max-w-[85%] rounded-2xl rounded-tl-md border border-line bg-surface-2 px-4 py-2.5 text-[15px] leading-relaxed text-slate-100 sm:max-w-[75%]">
+        <div className="max-w-[85%] rounded-2xl rounded-tl-md border border-line bg-surface-2 px-4 py-2.5 text-base leading-relaxed text-slate-100 sm:max-w-[75%]">
           <p className="whitespace-pre-wrap break-words">{message.content}</p>
         </div>
       </div>
@@ -21,7 +21,7 @@ export function OnboardingChatMessage({ message }: OnboardingChatMessageProps) {
 
   return (
     <div className="flex justify-end animate-fade-in">
-      <div className="max-w-[85%] rounded-2xl rounded-tr-md bg-brand px-4 py-2.5 text-[15px] leading-relaxed text-white sm:max-w-[75%]">
+      <div className="max-w-[85%] rounded-2xl rounded-tr-md bg-brand px-4 py-2.5 text-base leading-relaxed text-white sm:max-w-[75%]">
         <p className="whitespace-pre-wrap break-words">{message.content}</p>
       </div>
     </div>

@@ -7,7 +7,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-canvas/80 pt-safe backdrop-blur-xl backdrop-saturate-150">
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-6 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] sm:h-16 lg:px-8">
-        <Link to="/dashboard" className="shrink-0 rounded-lg" aria-label="Aarya Finance home">
+        <Link to="/dashboard" className="shrink-0 rounded-lg" aria-label="AaryaAI Finance home">
           <Logo />
         </Link>
 
@@ -18,8 +18,8 @@ export function Header() {
               key={to}
               to={to}
               className={({ isActive }) =>
-                `rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive ? 'bg-white/8 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                `rounded-lg px-3 py-2 text-[15px] font-medium transition-colors ${
+                  isActive ? 'bg-brand/15 text-brand-tint' : 'text-slate-400 hover:bg-slate-800/70 hover:text-white'
                 }`
               }
             >

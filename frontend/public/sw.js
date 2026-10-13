@@ -1,10 +1,10 @@
-/* Aarya Finance service worker
+/* AaryaAI Finance service worker
  * - Makes the app installable and lets the shell open instantly / offline.
  * - Pages: network first, fall back to the cached shell when offline.
  * - Hashed build assets (/assets/*): cache first (filenames change on every deploy).
  * - Never caches API calls or third-party requests (auth, Google, AI).
  */
-const CACHE = 'aarya-finance-v1'
+const CACHE = 'aarya-finance-v2'
 const SHELL = ['/', '/manifest.webmanifest', '/favicon.svg', '/icons/icon-192.png']
 
 self.addEventListener('install', (event) => {

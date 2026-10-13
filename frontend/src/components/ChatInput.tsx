@@ -76,7 +76,7 @@ export function ChatInput({
         rows={1}
         enterKeyHint="send"
         autoComplete="off"
-        className="max-h-[140px] min-h-[40px] flex-1 resize-none bg-transparent py-2 text-base leading-6 pointer-fine:text-[15px] text-white placeholder:text-slate-500 focus:outline-none"
+        className="max-h-[140px] min-h-[40px] flex-1 resize-none bg-transparent py-2 text-base leading-6 text-white placeholder:text-slate-500 focus:outline-none"
       />
       <button
         type="submit"

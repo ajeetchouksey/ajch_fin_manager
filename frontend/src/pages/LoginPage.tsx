@@ -2,7 +2,7 @@ import { Navigate } from 'react-router-dom'
 import { BarChart3, MessagesSquare, ShieldCheck, Target } from 'lucide-react'
 import { getGoogleAuthUrl } from '../utils/oauth'
 import { useAuth } from '../hooks/useAuth'
-import { Logo, LogoMark } from '../components/Logo'
+import { Logo } from '../components/Logo'
 
 const FEATURES = [
   { icon: BarChart3, title: 'Everything in one view', text: 'Accounts, spending and savings side by side.' },
@@ -19,15 +19,16 @@ export function LoginPage() {
       <div
         aria-hidden
         className="pointer-events-none fixed inset-0 -z-10"
-        style={{ background: 'radial-gradient(70% 50% at 20% 0%, rgb(124 58 237 / 0.22), transparent 70%)' }}
+        style={{ background: 'radial-gradient(ellipse 100% 60% at 50% -5%, rgba(91,75,214,0.22) 0%, transparent 65%), radial-gradient(ellipse 70% 50% at 85% 85%, rgba(169,155,255,0.14) 0%, transparent 55%), radial-gradient(ellipse 50% 40% at 10% 60%, rgba(91,75,214,0.08) 0%, transparent 50%), radial-gradient(ellipse 55% 45% at 100% 45%, rgba(169,155,255,0.10) 0%, transparent 60%), radial-gradient(ellipse 45% 35% at 0% 95%, rgba(91,75,214,0.09) 0%, transparent 55%)' }}
       />
 
       {/* Brand panel — desktop/tablet landscape only */}
       <aside className="hidden flex-1 flex-col justify-between border-r border-line p-12 lg:flex xl:p-16">
         <Logo />
         <div className="max-w-md">
-          <h2 className="text-4xl font-semibold leading-tight tracking-tight text-white">
-            Your money, clearly organised.
+          <p className="eyebrow mb-3">AaryaAI Finance</p>
+          <h2 className="text-5xl font-semibold leading-[1.05] text-white">
+            Your money, <span className="heading-gradient">clearly organised.</span>
           </h2>
           <ul className="mt-10 space-y-6">
             {FEATURES.map(({ icon: Icon, title, text }) => (
@@ -49,21 +50,25 @@ export function LoginPage() {
       {/* Sign-in */}
       <main className="flex flex-1 flex-col items-center justify-center pt-safe pb-safe pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] lg:px-12">
         <div className="w-full max-w-sm py-12 animate-fade-in">
-          <LogoMark className="h-14 w-14 lg:hidden" />
-          <h1 className="mt-8 text-[28px] font-semibold tracking-tight text-white lg:mt-0">Sign in to Aarya Finance</h1>
-          <p className="mt-2 text-[15px] text-slate-400">Track spending, plan goals and get answers about your money.</p>
+          <div className="lg:hidden">
+            <Logo />
+          </div>
+          <h1 className="mt-10 text-[34px] leading-tight font-semibold text-white lg:mt-0">
+            Sign in to <span className="heading-gradient">Finance</span>
+          </h1>
+          <p className="mt-2 text-base text-slate-400">Track spending, plan goals and get answers about your money.</p>
 
           <button
             type="button"
             onClick={() => (window.location.href = getGoogleAuthUrl())}
-            className="btn mt-10 h-12 w-full border border-slate-300 bg-white text-[15px] font-semibold text-slate-800 hover:bg-slate-100"
+            className="btn mt-10 h-12 w-full border border-slate-300 bg-white text-base font-semibold text-slate-800 hover:bg-slate-100"
           >
             <GoogleIcon />
             Continue with Google
           </button>
 
           <div className="mt-8 flex gap-3 rounded-2xl border border-line bg-surface/60 p-4 text-sm text-slate-400">
-            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" strokeWidth={1.75} />
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-brand-success" strokeWidth={1.75} />
             <p>
               Aarya only requests <span className="text-slate-200">read-only</span> access to your Google data. You can
               revoke it at any time from your Google Account.

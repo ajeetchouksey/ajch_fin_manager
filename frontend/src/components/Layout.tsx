@@ -9,13 +9,13 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   return (
     <div className="relative flex min-h-dvh flex-col">
-      {/* Soft brand glow — fixed so it doesn't repaint on scroll */}
+      {/* AaryaAI ambient glow (same layers as ajch_platform body) — fixed so it doesn't repaint on scroll */}
       <div
         aria-hidden
         className="pointer-events-none fixed inset-0 -z-10"
         style={{
           background:
-            'radial-gradient(60% 40% at 50% -10%, rgb(124 58 237 / 0.18), transparent 70%), radial-gradient(40% 30% at 100% 100%, rgb(56 189 248 / 0.06), transparent 70%)',
+            'radial-gradient(ellipse 100% 60% at 50% -5%, rgba(91,75,214,0.22) 0%, transparent 65%), radial-gradient(ellipse 70% 50% at 85% 85%, rgba(169,155,255,0.14) 0%, transparent 55%), radial-gradient(ellipse 50% 40% at 10% 60%, rgba(91,75,214,0.08) 0%, transparent 50%), radial-gradient(ellipse 55% 45% at 100% 45%, rgba(169,155,255,0.10) 0%, transparent 60%), radial-gradient(ellipse 45% 35% at 0% 95%, rgba(91,75,214,0.09) 0%, transparent 55%)',
         }}
       />
 
