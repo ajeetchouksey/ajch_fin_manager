@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 interface DialogProps {
@@ -63,7 +64,9 @@ export function Dialog({
   const height = fitContent ? 'sm:h-auto sm:max-h-[min(760px,calc(100dvh-3rem))]' : 'sm:h-[min(760px,calc(100dvh-3rem))]'
   const width = size === 'lg' ? 'sm:max-w-3xl lg:max-w-4xl' : 'sm:max-w-xl'
 
-  return (
+  // Portal to <body> so a dialog opened inside a page is never covered by the tab bar
+  // or clipped by a parent's stacking context.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-stretch justify-center sm:items-center sm:p-6">
       <div
         className="absolute inset-0 hidden bg-slate-950/70 backdrop-blur-sm animate-fade-in sm:block"
@@ -102,6 +105,7 @@ export function Dialog({
           </footer>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

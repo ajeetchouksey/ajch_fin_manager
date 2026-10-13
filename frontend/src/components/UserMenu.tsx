@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { HardDrive, LogOut, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useSetup } from '../context/SetupContext'
 
@@ -73,6 +73,7 @@ export function UserMenu() {
             <MenuItem icon={Sparkles} label="Complete quick setup" onClick={run(openQuickSetup)} />
           )}
           <MenuItem icon={SlidersHorizontal} label="Financial setup" onClick={run(() => openDetailedSetup())} />
+          <MenuItem icon={HardDrive} label="Storage (Google Drive)" onClick={run(() => navigate('/settings/storage'))} />
           <div className="my-1 h-px bg-line" />
           <MenuItem
             icon={LogOut}

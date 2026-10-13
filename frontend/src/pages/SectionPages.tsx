@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Target, Wallet } from 'lucide-react'
+import { Target, Wallet } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
 import { useSetup } from '../context/SetupContext'
@@ -16,27 +16,6 @@ export function AccountsPage() {
           action={(
             <button type="button" className="btn btn-primary" onClick={() => openDetailedSetup('investments')}>
               Set up investments
-            </button>
-          )}
-        />
-      </div>
-    </>
-  )
-}
-
-export function TransactionsPage() {
-  const { aiEnabled, openDetailedSetup } = useSetup()
-  return (
-    <>
-      <PageHeader eyebrow="Finance" title="Transactions" description="Every payment in and out, categorised automatically." />
-      <div className="card">
-        <EmptyState
-          icon={ArrowLeftRight}
-          title="No transactions yet"
-          description={aiEnabled ? "Transactions appear here once your accounts are added. You can already choose how spending should be categorised." : "Transactions appear here once your accounts are added. You can already choose how spending should be grouped."}
-          action={(
-            <button type="button" className="btn btn-primary" onClick={() => openDetailedSetup('categories')}>
-              Choose categories
             </button>
           )}
         />

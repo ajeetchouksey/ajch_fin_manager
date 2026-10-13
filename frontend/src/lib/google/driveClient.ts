@@ -1,0 +1,272 @@
+/**
+ * Minimal Google Drive + Sheets REST client used by the Ledger (runs in the browser).
+ * Files are found again by `appProperties` (aaryaKind), so nothing about them needs to be
+ * stored on our server. All writes use valueInputOption=RAW so imported text can never be
+ * turned into a spreadsheet formula (CSV/formula injection).
+ */
+
+import {
+  CONTRACT_VERSION,
+  DOCUMENT_COLUMNS,
+  TRANSACTION_COLUMNS,
+  documentToRow,
+  rowToDocument,
+  rowToTransaction,
+  transactionToRow,
+  type LedgerDocument,
+  type LedgerLocation,
+  type Transaction,
+} from '../ledger/types'
+
+const DRIVE = 'https://www.googleapis.com/drive/v3'
+const UPLOAD = 'https://www.googleapis.com/upload/drive/v3'
+const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets'
+const FOLDER_MIME = 'application/vnd.google-apps.folder'
+const SHEET_MIME = 'application/vnd.google-apps.spreadsheet'
+
+export const TX_SHEET = 'Transactions'
+export const DOC_SHEET = 'Documents'
+const META_SHEET = 'Meta'
+
+export class DriveError extends Error {
+  status: number
+  reason?: string
+  constructor(message: string, status: number, reason?: string) {
+    super(message)
+    this.name = 'DriveError'
+    this.status = status
+    this.reason = reason
+  }
+}
+
+type TokenGetter = () => Promise<string>
+
+function friendly(status: number, reason: string | undefined, raw: string): string {
+  if (status === 401) return 'Your Google Drive connection expired. Please reconnect.'
+  if (reason === 'accessNotConfigured' || /has not been used in project|is disabled/i.test(raw))
+    return raw.includes('sheets') || raw.includes('Sheets')
+      ? 'The Google Sheets API is not enabled for this app yet (Google Cloud console → APIs & Services → enable "Google Sheets API").'
+      : 'The Google Drive API is not enabled for this app yet (Google Cloud console → APIs & Services → enable "Google Drive API").'
+  if (status === 403) return "Google Drive refused the request. Reconnect Drive and make sure the app's permission is ticked."
+  if (status === 404) return 'A Ledger file could not be found in your Drive. It may have been deleted or moved to the bin.'
+  if (status === 429 || status >= 500) return 'Google is busy right now. Please try again in a moment.'
+  return 'Google Drive returned an error. Please try again.'
+}
+
+export class LedgerClient {
+  private getToken: TokenGetter
+  constructor(getToken: TokenGetter) {
+    this.getToken = getToken
+  }
+
+  private async call<T>(url: string, init: RequestInit = {}): Promise<T> {
+    const token = await this.getToken()
+    let res: Response
+    try {
+      res = await fetch(url, {
+        ...init,
+        headers: { Authorization: `Bearer ${token}`, ...(init.body && !(init.body instanceof Blob) ? { 'Content-Type': 'application/json' } : {}), ...(init.headers || {}) },
+      })
+    } catch {
+      throw new DriveError("Couldn't reach Google Drive. Check your internet connection.", 0)
+    }
+    if (!res.ok) {
+      const raw = await res.text().catch(() => '')
+      let reason: string | undefined
+      try {
+        reason = JSON.parse(raw)?.error?.errors?.[0]?.reason ?? JSON.parse(raw)?.error?.status
+      } catch {
+        /* not JSON */
+      }
+      throw new DriveError(friendly(res.status, reason, raw), res.status, reason)
+    }
+    if (res.status === 204) return undefined as T
+    return (await res.json()) as T
+  }
+
+  // ---------- locating / creating the Ledger ----------
+
+  private async findByKind(kind: string): Promise<{ id: string; name: string; webViewLink?: string; parents?: string[] } | null> {
+    const q = `appProperties has { key='aaryaKind' and value='${kind}' } and trashed=false`
+    const data = await this.call<{ files: Array<{ id: string; name: string; webViewLink?: string; parents?: string[] }> }>(
+      `${DRIVE}/files?${new URLSearchParams({ q, spaces: 'drive', fields: 'files(id,name,webViewLink,parents)', pageSize: '5', orderBy: 'createdTime' })}`,
+    )
+    return data.files?.[0] ?? null
+  }
+
+  private async createFile(meta: Record<string, unknown>): Promise<{ id: string; name: string; webViewLink?: string }> {
+    return this.call(`${DRIVE}/files?fields=id,name,webViewLink`, { method: 'POST', body: JSON.stringify(meta) })
+  }
+
+  /** Returns the existing Ledger if this app already created one in the user's Drive. */
+  async find(): Promise<LedgerLocation | null> {
+    const [folder, ledger, docs] = await Promise.all([this.findByKind('root'), this.findByKind('ledger'), this.findByKind('documents')])
+    if (!ledger) return null
+    return {
+      folderId: folder?.id ?? ledger.parents?.[0] ?? '',
+      folderName: folder?.name ?? 'AaryaAI Finance',
+      folderLink: folder?.webViewLink ?? '',
+      documentsFolderId: docs?.id ?? folder?.id ?? '',
+      spreadsheetId: ledger.id,
+      spreadsheetLink: ledger.webViewLink ?? `https://docs.google.com/spreadsheets/d/${ledger.id}/edit`,
+    }
+  }
+
+  /** Create the folder, Documents sub-folder and Ledger Sheet (idempotent per kind). */
+  async create(folderName: string): Promise<LedgerLocation> {
+    const name = folderName.trim().slice(0, 80) || 'AaryaAI Finance'
+    const folder =
+      (await this.findByKind('root')) ??
+      (await this.createFile({ name, mimeType: FOLDER_MIME, appProperties: { aaryaKind: 'root' } }))
+    const docs =
+      (await this.findByKind('documents')) ??
+      (await this.createFile({ name: 'Documents', mimeType: FOLDER_MIME, parents: [folder.id], appProperties: { aaryaKind: 'documents' } }))
+    let ledger = await this.findByKind('ledger')
+    if (!ledger) {
+      ledger = await this.createFile({
+        name: 'Ledger',
+        mimeType: SHEET_MIME,
+        parents: [folder.id],
+        appProperties: { aaryaKind: 'ledger', aaryaContract: CONTRACT_VERSION },
+      })
+      await this.initialiseSheet(ledger.id)
+    }
+    return {
+      folderId: folder.id,
+      folderName: folder.name,
+      folderLink: folder.webViewLink ?? `https://drive.google.com/drive/folders/${folder.id}`,
+      documentsFolderId: docs.id,
+      spreadsheetId: ledger.id,
+      spreadsheetLink: ledger.webViewLink ?? `https://docs.google.com/spreadsheets/d/${ledger.id}/edit`,
+    }
+  }
+
+  private async initialiseSheet(spreadsheetId: string) {
+    const info = await this.call<{ sheets: Array<{ properties: { sheetId: number; title: string } }> }>(
+      `${SHEETS}/${spreadsheetId}?fields=sheets.properties(sheetId,title)`,
+    )
+    const firstId = info.sheets[0].properties.sheetId
+    const header = (sheetId: number, n: number) => ({
+      repeatCell: {
+        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: n },
+        cell: { userEnteredFormat: { textFormat: { bold: true }, backgroundColor: { red: 0.93, green: 0.92, blue: 0.99 } } },
+        fields: 'userEnteredFormat(textFormat,backgroundColor)',
+      },
+    })
+    await this.call(`${SHEETS}/${spreadsheetId}:batchUpdate`, {
+      method: 'POST',
+      body: JSON.stringify({
+        requests: [
+          { updateSheetProperties: { properties: { sheetId: firstId, title: TX_SHEET, gridProperties: { frozenRowCount: 1 } }, fields: 'title,gridProperties.frozenRowCount' } },
+          { addSheet: { properties: { sheetId: 2, title: DOC_SHEET, gridProperties: { frozenRowCount: 1 } } } },
+          { addSheet: { properties: { sheetId: 3, title: META_SHEET } } },
+          header(firstId, TRANSACTION_COLUMNS.length),
+          header(2, DOCUMENT_COLUMNS.length),
+        ],
+      }),
+    })
+    await this.call(`${SHEETS}/${spreadsheetId}/values:batchUpdate`, {
+      method: 'POST',
+      body: JSON.stringify({
+        valueInputOption: 'RAW',
+        data: [
+          { range: `${TX_SHEET}!A1`, values: [Array.from(TRANSACTION_COLUMNS)] },
+          { range: `${DOC_SHEET}!A1`, values: [Array.from(DOCUMENT_COLUMNS)] },
+          {
+            range: `${META_SHEET}!A1`,
+            values: [
+              ['key', 'value'],
+              ['contract_version', CONTRACT_VERSION],
+              ['created_by', 'AaryaAI Finance'],
+              ['created_at', new Date().toISOString()],
+              ['note', 'Edit rows freely. Keep the header row and column order; the app reads them.'],
+            ],
+          },
+        ],
+      }),
+    })
+  }
+
+  // ---------- reading ----------
+
+  async listTransactions(spreadsheetId: string): Promise<Transaction[]> {
+    const data = await this.call<{ values?: unknown[][] }>(
+      `${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(`${TX_SHEET}!A2:M`)}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`,
+    )
+    return (data.values ?? []).map((r, i) => rowToTransaction(r, i + 2)).filter((t): t is Transaction => t !== null)
+  }
+
+  async listDocuments(spreadsheetId: string): Promise<LedgerDocument[]> {
+    const data = await this.call<{ values?: unknown[][] }>(
+      `${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(`${DOC_SHEET}!A2:K`)}?valueRenderOption=UNFORMATTED_VALUE`,
+    )
+    return (data.values ?? []).map((r, i) => rowToDocument(r, i + 2)).filter((d): d is LedgerDocument => d !== null)
+  }
+
+  // ---------- writing ----------
+
+  async appendTransactions(spreadsheetId: string, rows: Transaction[]) {
+    if (!rows.length) return
+    await this.call(
+      `${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(`${TX_SHEET}!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+      { method: 'POST', body: JSON.stringify({ values: rows.map(transactionToRow) }) },
+    )
+  }
+
+  async appendDocuments(spreadsheetId: string, docs: LedgerDocument[]) {
+    if (!docs.length) return
+    await this.call(
+      `${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(`${DOC_SHEET}!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+      { method: 'POST', body: JSON.stringify({ values: docs.map(documentToRow) }) },
+    )
+  }
+
+  async updateTransaction(spreadsheetId: string, t: Transaction) {
+    if (!t.row) throw new DriveError('This row can no longer be found. Reload and try again.', 409)
+    await this.call(
+      `${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(`${TX_SHEET}!A${t.row}:M${t.row}`)}?valueInputOption=RAW`,
+      { method: 'PUT', body: JSON.stringify({ values: [transactionToRow(t)] }) },
+    )
+  }
+
+  /** Delete one row after checking it still holds the expected id (guards against concurrent edits). */
+  async deleteRow(spreadsheetId: string, sheet: typeof TX_SHEET | typeof DOC_SHEET, row: number, expectedId: string) {
+    const check = await this.call<{ values?: unknown[][] }>(
+      `${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(`${sheet}!A${row}`)}`,
+    )
+    if (String(check.values?.[0]?.[0] ?? '') !== expectedId) {
+      throw new DriveError('The Ledger changed since it was loaded. Reload and try again.', 409)
+    }
+    const info = await this.call<{ sheets: Array<{ properties: { sheetId: number; title: string } }> }>(
+      `${SHEETS}/${spreadsheetId}?fields=sheets.properties(sheetId,title)`,
+    )
+    const sheetId = info.sheets.find((s) => s.properties.title === sheet)?.properties.sheetId
+    if (sheetId === undefined) throw new DriveError(`The "${sheet}" tab is missing from your Ledger.`, 404)
+    await this.call(`${SHEETS}/${spreadsheetId}:batchUpdate`, {
+      method: 'POST',
+      body: JSON.stringify({
+        requests: [{ deleteDimension: { range: { sheetId, dimension: 'ROWS', startIndex: row - 1, endIndex: row } } }],
+      }),
+    })
+  }
+
+  /** Upload a file into the Documents folder (multipart; fine for receipts and statements). */
+  async uploadFile(folderId: string, file: File, name?: string): Promise<{ id: string; name: string; mimeType: string; webViewLink: string }> {
+    const boundary = `aarya${Math.random().toString(36).slice(2)}`
+    const meta = { name: (name || file.name).slice(0, 200), parents: [folderId], appProperties: { aaryaKind: 'document' } }
+    const body = new Blob(
+      [
+        `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
+        `--${boundary}\r\nContent-Type: ${file.type || 'application/octet-stream'}\r\n\r\n`,
+        file,
+        `\r\n--${boundary}--`,
+      ],
+      { type: `multipart/related; boundary=${boundary}` },
+    )
+    const res = await this.call<{ id: string; name: string; mimeType: string; webViewLink?: string }>(
+      `${UPLOAD}/files?uploadType=multipart&fields=id,name,mimeType,webViewLink`,
+      { method: 'POST', body, headers: { 'Content-Type': `multipart/related; boundary=${boundary}` } },
+    )
+    return { ...res, webViewLink: res.webViewLink ?? `https://drive.google.com/file/d/${res.id}/view` }
+  }
+}
