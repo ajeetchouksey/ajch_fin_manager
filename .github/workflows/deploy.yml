@@ -215,7 +215,7 @@ jobs:
             printf '%s' "$GEMINI_API_KEY" | npx wrangler secret put GEMINI_API_KEY --env production
             echo "✅ GEMINI_API_KEY secret updated"
           else
-            echo "::warning::GEMINI_API_KEY GitHub secret not set — onboarding AI will report it is unavailable"
+            echo "GEMINI_API_KEY not set — skipping (AI onboarding is on hold)"
           fi
 
       - name: Verify deployment

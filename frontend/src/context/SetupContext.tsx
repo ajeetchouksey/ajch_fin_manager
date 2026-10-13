@@ -2,8 +2,11 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { FirstLoginOnboarding } from '../components/FirstLoginOnboarding'
 import { ProgressiveOnboardingModal, type FocusArea } from '../components/ProgressiveOnboardingModal'
 import { useOnboarding } from '../hooks/useOnboarding'
+import { AI_ENABLED } from '../config'
 
 interface SetupContextValue {
+  /** False while AI onboarding is on hold — hide every setup entry point */
+  aiEnabled: boolean
   /** null while the status is loading or unavailable */
   hasProfile: boolean | null
   openQuickSetup: () => void
@@ -27,6 +30,7 @@ export function SetupProvider({ children }: { children: ReactNode }) {
 
   // First sign-in: offer the quick setup once per session
   useEffect(() => {
+    if (!AI_ENABLED) return
     let cancelled = false
     refresh().then((status) => {
       if (cancelled || !status || status.hasSchema) return
@@ -58,9 +62,10 @@ export function SetupProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<SetupContextValue>(
     () => ({
+      aiEnabled: AI_ENABLED,
       hasProfile,
-      openQuickSetup: () => setOpen({ kind: 'quick' }),
-      openDetailedSetup: (focus) => setOpen({ kind: 'detailed', focus }),
+      openQuickSetup: () => AI_ENABLED && setOpen({ kind: 'quick' }),
+      openDetailedSetup: (focus) => AI_ENABLED && setOpen({ kind: 'detailed', focus }),
     }),
     [hasProfile],
   )

@@ -3,12 +3,14 @@ import { BarChart3, MessagesSquare, ShieldCheck, Target } from 'lucide-react'
 import { getGoogleAuthUrl } from '../utils/oauth'
 import { useAuth } from '../hooks/useAuth'
 import { Logo } from '../components/Logo'
+import { AI_ENABLED } from '../config'
 
-const FEATURES = [
+const ALL_FEATURES = [
   { icon: BarChart3, title: 'Everything in one view', text: 'Accounts, spending and savings side by side.' },
   { icon: MessagesSquare, title: 'An assistant that knows your setup', text: 'Ask Aarya questions in plain language.' },
   { icon: Target, title: 'Goals with a plan', text: 'See what it takes to reach each one, and when.' },
 ]
+const FEATURES = ALL_FEATURES.filter((f) => AI_ENABLED || f.icon !== MessagesSquare)
 
 export function LoginPage() {
   const { isAuthenticated, loading } = useAuth()
@@ -56,7 +58,7 @@ export function LoginPage() {
           <h1 className="mt-10 text-[34px] leading-tight font-semibold text-white lg:mt-0">
             Sign in to <span className="heading-gradient">Finance</span>
           </h1>
-          <p className="mt-2 text-base text-slate-400">Track spending, plan goals and get answers about your money.</p>
+          <p className="mt-2 text-base text-slate-400">{AI_ENABLED ? 'Track spending, plan goals and get answers about your money.' : 'Track spending and plan your goals in one place.'}</p>
 
           <button
             type="button"

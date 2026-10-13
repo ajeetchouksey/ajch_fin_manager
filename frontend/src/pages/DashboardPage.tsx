@@ -15,7 +15,7 @@ function greeting(date = new Date()) {
 
 export function DashboardPage() {
   const { user } = useAuth()
-  const { hasProfile, openQuickSetup, openDetailedSetup } = useSetup()
+  const { aiEnabled, hasProfile, openQuickSetup, openDetailedSetup } = useSetup()
   const firstName = user?.name?.split(' ')[0]
   const today = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
 
@@ -47,9 +47,10 @@ export function DashboardPage() {
 
   return (
     <>
-      <PageHeader eyebrow={today} title={firstName ? <>{greeting()}, <span className="heading-gradient">{firstName}</span></> : greeting()} description="Let's get your finances organised." />
+      <PageHeader eyebrow={today} title={firstName ? <>{greeting()}, <span className="heading-gradient">{firstName}</span></> : greeting()} description={aiEnabled ? "Let's get your finances organised." : 'Your accounts and activity will appear here.'} />
 
-      {/* Getting started */}
+      {/* Getting started (AI setup flows) */}
+      {aiEnabled && (
       <section aria-labelledby="getting-started" className="card card-accent-top overflow-hidden">
         <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
           <div>
@@ -97,8 +98,9 @@ export function DashboardPage() {
           ))}
         </ol>
       </section>
+      )}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className={`grid gap-6 lg:grid-cols-2 ${aiEnabled ? 'mt-6' : ''}`}>
         <section aria-labelledby="accounts-heading" className="card">
           <SectionHeader id="accounts-heading" title="Accounts" to="/accounts" />
           <EmptyState
