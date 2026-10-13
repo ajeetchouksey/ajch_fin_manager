@@ -191,16 +191,18 @@ export class LedgerClient {
 
   async listTransactions(spreadsheetId: string): Promise<Transaction[]> {
     const data = await this.call<{ values?: unknown[][] }>(
-      `${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(`${TX_SHEET}!A2:M`)}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`,
+      `${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(TX_SHEET)}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`,
     )
-    return (data.values ?? []).map((r, i) => rowToTransaction(r, i + 2)).filter((t): t is Transaction => t !== null)
+    // Row 1 is the header; values[i] is sheet row i + 1.
+    return (data.values ?? []).slice(1).map((r, i) => rowToTransaction(r, i + 2)).filter((t): t is Transaction => t !== null)
   }
 
   async listDocuments(spreadsheetId: string): Promise<LedgerDocument[]> {
     const data = await this.call<{ values?: unknown[][] }>(
-      `${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(`${DOC_SHEET}!A2:K`)}?valueRenderOption=UNFORMATTED_VALUE`,
+      `${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(DOC_SHEET)}?valueRenderOption=UNFORMATTED_VALUE`,
     )
-    return (data.values ?? []).map((r, i) => rowToDocument(r, i + 2)).filter((d): d is LedgerDocument => d !== null)
+    // Row 1 is the header; values[i] is sheet row i + 1.
+    return (data.values ?? []).slice(1).map((r, i) => rowToDocument(r, i + 2)).filter((d): d is LedgerDocument => d !== null)
   }
 
   // ---------- writing ----------
