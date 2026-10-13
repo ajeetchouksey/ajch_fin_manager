@@ -28,12 +28,6 @@ export function FirstLoginOnboarding({
   useEffect(() => {
     if (!hasShownInitialMessage && !loading && messages.length === 0) {
       setHasShownInitialMessage(true)
-      // Simulate initial message
-      const initialMessage = {
-        role: 'assistant' as const,
-        content:
-          "Welcome to Finance Manager! 👋 I'm here to help you set up your financial profile in just a few minutes. Let's start with the basics.\n\nWhat countries do you live in or have financial activities in? (e.g., US, UK, etc.)",
-      }
       // This would normally come from AI, but we can use sendMessage to continue
     }
   }, [hasShownInitialMessage, loading, messages.length])

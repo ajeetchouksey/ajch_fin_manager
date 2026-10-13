@@ -1,5 +1,7 @@
 import { useSlashCommands, type SlashCommand } from '../hooks/useSlashCommands'
 
+export type { SlashCommand }
+
 interface SlashCommandPaletteProps {
   onCommandExecuted?: (command: SlashCommand) => void
   handlers?: Partial<Record<SlashCommand, () => void>>

@@ -9,7 +9,6 @@ import { useOnboarding } from '../hooks/useOnboarding'
 export function DashboardPage() {
   const [showFirstLogin, setShowFirstLogin] = useState(false)
   const [showProgressiveOnboarding, setShowProgressiveOnboarding] = useState(false)
-  const [activeCommand, setActiveCommand] = useState<SlashCommand | null>(null)
 
   const { checkStatus } = useOnboarding()
 

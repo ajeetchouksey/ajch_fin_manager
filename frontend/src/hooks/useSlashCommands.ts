@@ -2,12 +2,6 @@ import { useEffect, useState, useCallback } from 'react'
 
 export type SlashCommand = 'onboarding-help' | 'reset-setup' | 'settings'
 
-interface CommandHandler {
-  command: SlashCommand
-  description: string
-  handler: () => void
-}
-
 export function useSlashCommands(handlers: Partial<Record<SlashCommand, () => void>>) {
   const [input, setInput] = useState('')
   const [isOpen, setIsOpen] = useState(false)
