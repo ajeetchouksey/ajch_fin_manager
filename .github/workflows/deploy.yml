@@ -357,4 +357,4 @@ jobs:
           echo "| Smoke Tests | ${{ needs.smoke-tests.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Backend:** https://ajch-fin-manager.workers.dev" >> $GITHUB_STEP_SUMMARY
-          echo "**Frontend:** https://ajch-fin-manager-frontend.pages.dev" >> $GITHUB_STEP_SUMMARY
+          echo "**Frontend:** https://ajch-fin-manager.pages.dev" >> $GITHUB_STEP_SUMMARY
