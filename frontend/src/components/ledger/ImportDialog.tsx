@@ -4,6 +4,7 @@ import { Dialog } from '../Dialog'
 import { useLedger } from '../../context/LedgerContext'
 import { useLedgerOptions, writeLastEntry } from '../../hooks/useLedgerOptions'
 import { guessColumns, parseAmount, parseCsv, parseDate, type DateFormat } from '../../lib/ledger/csv'
+import { DEFAULT_MATCH_DAYS, matchToLedger, type LedgerMatch } from '../../lib/ledger/reconcile'
 import { isExtractable, parseStatement, readFileText, rowsToCsv, type ExtractProgress } from '../../lib/ledger/extract'
 import { CURRENCIES, dedupeKey, formatMoney, parseTags, todayIso, type Direction } from '../../lib/ledger/types'
 import { ErrorNote, Field, TagInput, inputClass, selectClass } from './ui'
@@ -39,6 +40,9 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
   const [tags, setTags] = useState('')
   const [notes, setNotes] = useState('')
   const [skipDuplicates, setSkipDuplicates] = useState(true)
+  const [matchDays, setMatchDays] = useState(DEFAULT_MATCH_DAYS)
+  /** Rows the user chose to import although they match an entry already in the Ledger */
+  const [keep, setKeep] = useState<Set<number>>(new Set())
   const [localError, setLocalError] = useState<string | null>(null)
   const [done, setDone] = useState<number | null>(null)
   // Set when rows were extracted from a PDF or image rather than read from CSV
@@ -46,6 +50,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
   const [saveSource, setSaveSource] = useState(true)
   const [extracting, setExtracting] = useState<ExtractProgress | null>(null)
   const [sourceSaveFailed, setSourceSaveFailed] = useState(false)
+  const [skippedMatches, setSkippedMatches] = useState(0)
 
   const table = useMemo(() => (raw.trim() ? parseCsv(raw) : []), [raw])
   const header = hasHeader ? table[0] ?? [] : []
@@ -53,8 +58,13 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
   const width = Math.max(0, ...table.map((r) => r.length))
   const columnNames = Array.from({ length: width }, (_, i) => (header[i] ? `${header[i]}` : `Column ${i + 1}`))
 
-  const goToMapping = (text: string, name = '') => {
+  const editRaw = (text: string) => {
     setRaw(text)
+    setKeep(new Set())
+  }
+
+  const goToMapping = (text: string, name = '') => {
+    editRaw(text)
     setFileName(name)
     const t = parseCsv(text)
     if (t.length < 1) {
@@ -76,10 +86,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     setStep('map')
   }
 
-  const existingKeys = useMemo(() => new Set(transactions.map(dedupeKey)), [transactions])
-
-  const preview = useMemo(() => {
-    const seen = new Set<string>()
+  const parsed = useMemo(() => {
     return body.slice(0, MAX_ROWS).map((r) => {
       const date = map.date !== undefined ? parseDate(r[map.date] ?? '', dateFormat) : null
       const value = map.amount !== undefined ? parseAmount(r[map.amount] ?? '') : null
@@ -106,16 +113,31 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
         notes: [rowNotes, notes.trim()].filter(Boolean).join(' — ').slice(0, 2000),
         tags: parseTags(tags),
       }
-      const key = dedupeKey(tx)
-      const duplicate = existingKeys.has(key) || seen.has(key)
-      seen.add(key)
-      return { ok: true as const, duplicate, tx }
+      return { ok: true as const, tx }
     })
-  }, [body, map, dateFormat, sign, currency, account, category, tags, notes, existingKeys])
+  }, [body, map, dateFormat, sign, currency, account, category, tags, notes])
+
+  // Rows already in the Ledger: exact copies, or the user's own entry for the same payment
+  const matches = useMemo(() => matchToLedger(parsed.map((p) => (p.ok ? p.tx : null)), transactions, matchDays), [parsed, transactions, matchDays])
+
+  const preview = useMemo(() => {
+    const seen = new Set<string>()
+    return parsed.map((p, i) => {
+      if (!p.ok) return { ...p, i }
+      const match: LedgerMatch | undefined = matches[i]
+      const key = dedupeKey(p.tx)
+      // The same row twice in this file (only when it isn't already matched to the Ledger)
+      const inFileDuplicate = !match && seen.has(key)
+      seen.add(key)
+      const skipped = skipDuplicates && (inFileDuplicate || (!!match && !keep.has(i)))
+      return { ...p, i, match, inFileDuplicate, skipped }
+    })
+  }, [parsed, matches, skipDuplicates, keep])
 
   const valid = preview.filter((p) => p.ok)
-  const toImport = valid.filter((p) => !(skipDuplicates && p.duplicate))
-  const dupCount = valid.filter((p) => p.duplicate).length
+  const toImport = valid.filter((p) => !p.skipped)
+  const matched = valid.filter((p) => p.match)
+  const dupCount = valid.filter((p) => p.inFileDuplicate).length
   const badCount = preview.length - valid.length
   const totals = toImport.reduce(
     (acc, p) => {
@@ -130,6 +152,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     if (!toImport.length) return
     try {
       const n = await importTransactions(toImport.map((p) => p.tx))
+      setSkippedMatches(matched.filter((p) => p.skipped).length)
       writeLastEntry({ currency, account: account.trim() || undefined })
       if (sourceFile && saveSource) {
         const dates = toImport.map((p) => p.tx.date).sort()
@@ -178,6 +201,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
           </div>
           <p className="text-xl font-semibold text-white">{done} transactions added</p>
           <p className="mt-1 text-sm text-slate-400">They are in the Transactions tab of your Ledger. You can add notes or tags to any of them.</p>
+          {skippedMatches > 0 && <p className="mt-2 text-sm text-slate-400">{skippedMatches} {skippedMatches === 1 ? 'payment was' : 'payments were'} already in your Ledger and kept as you entered them.</p>}
           {sourceSaveFailed && <p className="mt-3 text-sm text-amber-200/90">The statement file could not be saved to Documents. You can upload it from the Documents page.</p>}
         </div>
       </Dialog>
@@ -272,7 +296,8 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-400">
             <b className="text-white">{toImport.length}</b> to import
-            {dupCount > 0 && <> · {dupCount} {skipDuplicates ? 'duplicates skipped' : 'possible duplicates'}</>}
+            {matched.length > 0 && <> · {matched.length} already in your Ledger</>}
+            {dupCount > 0 && <> · {dupCount} {skipDuplicates ? 'repeated rows skipped' : 'repeated rows'}</>}
             {badCount > 0 && <> · {badCount} unreadable</>}
             {body.length > MAX_ROWS && <> · only the first {MAX_ROWS}</>}
           </p>
@@ -345,19 +370,72 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
           </div>
           <label className="mt-3 flex items-center gap-2 text-sm text-slate-300">
             <input type="checkbox" checked={skipDuplicates} onChange={(e) => setSkipDuplicates(e.target.checked)} className="h-4 w-4 accent-[var(--color-brand)]" />
-            Skip rows already in my Ledger (same date, amount and description)
+            Skip payments I already added myself
           </label>
+          {skipDuplicates && (
+            <p className="ml-6 mt-1 text-xs text-slate-500">
+              Same amount and money in/out, dated within{' '}
+              <select aria-label="Days apart" className="rounded border border-line-strong bg-transparent px-1 text-slate-300" value={matchDays} onChange={(e) => setMatchDays(Number(e.target.value))}>
+                {[0, 1, 2, 4, 7, 10].map((d) => <option key={d} value={d} className="bg-slate-900">{d}</option>)}
+              </select>{' '}
+              days. Your own entry is kept with its notes, tags and receipts.
+            </p>
+          )}
         </section>
 
         {sourceFile && (
           <section>
             <h3 className="mb-1 font-semibold text-white">Rows read from {sourceFile.name}</h3>
             <p className="mb-3 text-sm text-slate-400">Read on this device. Check them against the statement and fix any mistakes here; the preview updates as you type.</p>
-            <textarea rows={8} className={`${inputClass} py-3 font-mono text-xs`} value={raw} onChange={(e) => setRaw(e.target.value)} aria-label="Extracted rows" spellCheck={false} />
+            <textarea rows={8} className={`${inputClass} py-3 font-mono text-xs`} value={raw} onChange={(e) => editRaw(e.target.value)} aria-label="Extracted rows" spellCheck={false} />
             <label className="mt-3 flex items-center gap-2 text-sm text-slate-300">
               <input type="checkbox" checked={saveSource} onChange={(e) => setSaveSource(e.target.checked)} className="h-4 w-4 accent-[var(--color-brand)]" />
               Also save the file to my Documents as a bank statement
             </label>
+          </section>
+        )}
+
+        {skipDuplicates && matched.length > 0 && (
+          <section>
+            <h3 className="mb-1 font-semibold text-white">Already in your Ledger ({matched.length})</h3>
+            <p className="mb-3 text-sm text-slate-400">These look like payments you added yourself, so they will be skipped. Tick “Import anyway” if one is a different payment.</p>
+            <ul className="max-h-80 divide-y divide-line overflow-y-auto rounded-xl border border-line">
+              {matched.slice(0, 200).map((p) => (
+                <li key={p.i} className={`grid gap-2 px-3 py-2.5 text-sm sm:grid-cols-[1fr_1fr_auto] sm:items-center ${keep.has(p.i) ? '' : 'opacity-80'}`}>
+                  <div className="min-w-0">
+                    <div className="text-xs text-slate-500">Statement · {p.tx.date}</div>
+                    <div className="truncate text-white">{p.tx.description}</div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs text-slate-500">
+                      Your entry · {p.match!.tx.date}
+                      {p.match!.kind === 'exact' ? ' · identical' : p.match!.days > 0 ? ` · ${p.match!.days} day${p.match!.days > 1 ? 's' : ''} apart` : ''}
+                    </div>
+                    <div className="truncate text-slate-200">{p.match!.tx.description}</div>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 sm:justify-end">
+                    <span className={`whitespace-nowrap font-medium ${p.tx.direction === 'in' ? 'text-brand-success' : 'text-white'}`}>{formatMoney(p.tx.amount, p.tx.currency, p.tx.direction)}</span>
+                    <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-slate-300">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-[var(--color-brand)]"
+                        checked={keep.has(p.i)}
+                        onChange={(e) =>
+                          setKeep((k) => {
+                            const next = new Set(k)
+                            if (e.target.checked) next.add(p.i)
+                            else next.delete(p.i)
+                            return next
+                          })
+                        }
+                      />
+                      Import anyway
+                    </label>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {matched.length > 200 && <p className="mt-2 text-xs text-slate-500">Showing 200 of {matched.length}.</p>}
           </section>
         )}
 
@@ -376,12 +454,12 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
               <tbody className="divide-y divide-line">
                 {preview.slice(0, 50).map((p, i) =>
                   p.ok ? (
-                    <tr key={i} className={p.duplicate && skipDuplicates ? 'opacity-45' : ''}>
+                    <tr key={i} className={p.skipped ? 'opacity-45' : ''}>
                       <td className="whitespace-nowrap px-3 py-2 text-slate-300">{p.tx.date}</td>
                       <td className="max-w-[220px] truncate px-3 py-2 text-white">{p.tx.description}</td>
                       <td className="px-3 py-2 text-slate-300">{p.tx.category}</td>
                       <td className={`whitespace-nowrap px-3 py-2 text-right font-medium ${p.tx.direction === 'in' ? 'text-brand-success' : 'text-white'}`}>{formatMoney(p.tx.amount, p.tx.currency, p.tx.direction)}</td>
-                      <td className="px-3 py-2 text-xs text-slate-400">{p.duplicate ? 'Duplicate' : 'Ready'}</td>
+                      <td className="px-3 py-2 text-xs text-slate-400">{p.match ? (p.skipped ? 'Already added' : 'Import anyway') : p.inFileDuplicate ? 'Repeated row' : 'Ready'}</td>
                     </tr>
                   ) : (
                     <tr key={i} className="text-amber-200/80">
