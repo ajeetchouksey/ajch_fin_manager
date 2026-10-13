@@ -9,7 +9,7 @@
  *   POST /api/onboarding/reset
  */
 
-import type { CloudflareEnv, OnboardingStatusResponse } from "../lib/types";
+import type { CloudflareEnv } from "../lib/types";
 import { buildResponse, buildErrorResponse, log } from "../lib/utils";
 import { SchemaService } from "../services/schemaService";
 import { GeminiService } from "../services/geminiService";
@@ -134,14 +134,11 @@ async function handleChat(
 
     // Stream AI response
     const aiResponse = await geminiService.streamOnboardingResponse(
-      body.messages,
+      body.messages as Array<{ role: "user" | "assistant" | "system"; content: string }>,
       type,
       focus,
       currentSchema
     );
-
-    // Create or update session
-    const schemaService = new SchemaService(env.DB);
 
     // For now, return AI response directly
     // In Phase 2.5b, we'll implement proper session tracking
@@ -284,13 +281,13 @@ async function handleGetSchema(
       canAdd.push("categories");
     }
 
-    if (schema.declaredGoals?.length > 0) {
+    if (schema.declaredGoals && schema.declaredGoals.length > 0) {
       completedSections.push("goals");
     } else if (!completedSections.includes("goals")) {
       canAdd.push("goals");
     }
 
-    if (schema.householdMembers?.length > 0) {
+    if (schema.householdMembers && schema.householdMembers.length > 0) {
       completedSections.push("household");
     } else if (!canAdd.includes("household")) {
       canAdd.push("household");
@@ -328,12 +325,10 @@ async function handleGetSchema(
  * Delete schema and start fresh (optional)
  */
 async function handleReset(
-  env: CloudflareEnv,
+  _env: CloudflareEnv,
   userId: string
 ): Promise<Response> {
   try {
-    const schemaService = new SchemaService(env.DB);
-
     // In a real implementation, we would delete from the database
     // For now, we'll just return a success response
     // This would be implemented in Phase 2.5a when we have full DB access

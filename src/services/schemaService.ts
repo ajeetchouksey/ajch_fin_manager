@@ -6,7 +6,6 @@
 import type {
   UserSchemaDefinition,
   OnboardingSession,
-  CloudflareEnv,
 } from "../lib/types";
 import { log } from "../lib/utils";
 import { validateSchema } from "../utils/schemaValidator";
@@ -149,12 +148,12 @@ export class SchemaService {
         investmentPreferences: this.mergeObjectField(
           currentSchema.investmentPreferences,
           updates.investmentPreferences
-        ),
+        ) as { hasInvestments: boolean; types?: string[] | undefined; } | undefined,
 
         taxSettings: this.mergeObjectField(
           currentSchema.taxSettings,
           updates.taxSettings
-        ),
+        ) as { country: string; fillingStatus?: string | undefined; } | undefined,
       };
 
       // Validate merged schema
@@ -277,11 +276,11 @@ export class SchemaService {
       completed.push("categories");
     }
 
-    if (schema.declaredGoals?.length > 0) {
+    if (schema.declaredGoals && schema.declaredGoals.length > 0) {
       completed.push("goals");
     }
 
-    if (schema.householdMembers?.length > 0) {
+    if (schema.householdMembers && schema.householdMembers.length > 0) {
       completed.push("household");
     }
 
