@@ -14,11 +14,11 @@ GOOGLE_CLIENT_ID = "939308613423-nj666hdbq0et0vt893ubmhebvssfhua5.apps.googleuse
 DEFAULT_AI_PROVIDER = "gemini"
 ENVIRONMENT = "production"
 
-# Cloudflare D1 database for finance data and onboarding
+# Cloudflare D1 database — created with jurisdiction "eu" (storage locked to the EU, GDPR)
 [[d1_databases]]
 binding = "DB"
-database_name = "finance-manager-db"
-database_id = "077138b5-baf3-46e7-83d1-fcc555112a17"
+database_name = "finance-manager-db-eu"
+database_id = "067ace86-223e-4e83-a131-d987a98867ee"
 migrations_dir = "db/migrations"
 
 # Cloudflare KV namespace for user sessions
@@ -47,8 +47,8 @@ vars = { ENVIRONMENT = "production", GOOGLE_CLIENT_ID = "939308613423-nj666hdbq0
 # Bindings are not inherited from the top level — production needs its own D1 binding
 [[env.production.d1_databases]]
 binding = "DB"
-database_name = "finance-manager-db"
-database_id = "077138b5-baf3-46e7-83d1-fcc555112a17"
+database_name = "finance-manager-db-eu"
+database_id = "067ace86-223e-4e83-a131-d987a98867ee"
 migrations_dir = "db/migrations"
 [[env.production.kv_namespaces]]
 binding = "SESSIONS"
