@@ -13,6 +13,16 @@ interface UseOnboardingOptions {
   focus?: string
 }
 
+/** Turn low-level failures into messages a person can act on. */
+function friendlyError(err: unknown, fallback: string): string {
+  if (err instanceof TypeError) {
+    // fetch() network/CORS failure — the browser reports "Failed to fetch" / "Load failed" (Safari)
+    return "Couldn't reach the AaryaAI service. Check your internet connection and try again."
+  }
+  if (err instanceof Error && err.message && !err.message.trim().startsWith('{')) return err.message
+  return fallback
+}
+
 export function useOnboarding(options?: UseOnboardingOptions) {
   const { user } = useAuth()
   const [messages, setMessages] = useState<OnboardingMessage[]>([])
@@ -115,11 +125,17 @@ export function useOnboarding(options?: UseOnboardingOptions) {
         })
 
         if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(errorText || 'Failed to send message')
+          throw new Error(
+            response.status >= 500
+              ? 'The AaryaAI assistant hit a problem. Please try again in a moment.'
+              : 'Your message could not be sent. Please try again.',
+          )
         }
 
-        const data = await response.json() as OnboardingChatResponse
+        const data = await response.json() as OnboardingChatResponse & { fallbackToForm?: boolean }
+        if (data.fallbackToForm) {
+          throw new Error("The AaryaAI assistant isn't available right now. Please try again later.")
+        }
 
         // Add assistant message
         const assistantMessage: OnboardingMessage = {
@@ -138,8 +154,9 @@ export function useOnboarding(options?: UseOnboardingOptions) {
 
         return data
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-        setError(errorMessage)
+        // Roll back the optimistic user message so a retry doesn't duplicate it
+        setMessages((prev) => (prev[prev.length - 1]?.content === content ? prev.slice(0, -1) : prev))
+        setError(friendlyError(err, 'Your message could not be sent. Please try again.'))
         return null
       } finally {
         setLoading(false)
@@ -173,16 +190,14 @@ export function useOnboarding(options?: UseOnboardingOptions) {
         })
 
         if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(errorText || 'Failed to submit schema')
+          throw new Error('Your profile could not be saved. Please try again.')
         }
 
         const data = await response.json()
         setCurrentSchema(data.schema)
         return data
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-        setError(errorMessage)
+        setError(friendlyError(err, 'Your profile could not be saved. Please try again.'))
         return null
       } finally {
         setLoading(false)

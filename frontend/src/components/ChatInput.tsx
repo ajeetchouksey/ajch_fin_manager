@@ -40,7 +40,8 @@ export function ChatInput({
     const text = input.trim()
     if (!text || busy) return
     setInput('')
-    await onSendMessage(text)
+    const result = await onSendMessage(text)
+    if (result === null) setInput(text) // failed — restore the draft for a retry
     if (!isTouchDevice()) textareaRef.current?.focus()
   }
 

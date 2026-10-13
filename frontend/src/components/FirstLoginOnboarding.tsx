@@ -145,7 +145,7 @@ export function FirstLoginOnboarding({ onComplete, onSkip }: FirstLoginOnboardin
 export function ErrorNote({ message }: { message: string }) {
   return (
     <div role="alert" className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
-      Something went wrong: {message}. Please try again.
+      {message}
     </div>
   )
 }

@@ -233,7 +233,7 @@ export function getCORSHeaders(origin: string = "*"): Record<string, string> {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers":
-      "Content-Type, Authorization, X-Session-Token",
+      "Content-Type, Authorization, X-Session-Token, X-User-Id",
     "Access-Control-Max-Age": "86400",
   };
 }
