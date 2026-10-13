@@ -2,16 +2,43 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- viewport-fit=cover: draw under the iPhone notch/home indicator (we pad with safe-area insets).
+         interactive-widget: on Android the layout shrinks when the keyboard opens, so chat inputs stay visible. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <title>Aarya Finance</title>
+    <meta name="description" content="Track spending, plan goals and get answers about your money." />
+
+    <!-- Icons: modern browsers (SVG), Windows/older browsers (PNG), iOS home screen -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Finance Manager</title>
-    <!-- AaryaAI Brand Typography -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Installable app: Chrome/Edge on Windows, macOS, Android; Safari "Add to Dock"/"Add to Home Screen" -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0b1526" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Finance" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <!-- Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <style>
+      /* Paint the brand background before CSS/JS load — avoids a white flash on every platform */
+      html, body { background: #0b1526; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>Aarya Finance needs JavaScript enabled to run.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

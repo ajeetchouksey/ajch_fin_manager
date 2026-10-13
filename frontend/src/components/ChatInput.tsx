@@ -1,103 +1,90 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { ArrowUp, Loader2 } from 'lucide-react'
 
 interface ChatInputProps {
-  onSendMessage: (message: string) => Promise<void>
+  onSendMessage: (message: string) => Promise<unknown>
   loading?: boolean
   placeholder?: string
   disabled?: boolean
+  autoFocus?: boolean
 }
+
+const isTouchDevice = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
 
 export function ChatInput({
   onSendMessage,
   loading = false,
-  placeholder = 'Type your response...',
+  placeholder = 'Type your answer…',
   disabled = false,
+  autoFocus = false,
 }: ChatInputProps) {
   const [input, setInput] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const busy = loading || disabled
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim() || loading || isSubmitting || disabled) return
+  // Grow with content up to ~5 lines
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 140)}px`
+  }, [input])
 
-    try {
-      setIsSubmitting(true)
-      await onSendMessage(input.trim())
-      setInput('')
-    } finally {
-      setIsSubmitting(false)
-    }
+  // Focus on desktop only — on phones this would pop the keyboard unasked
+  useEffect(() => {
+    if (autoFocus && !isTouchDevice()) textareaRef.current?.focus()
+  }, [autoFocus])
+
+  const send = async () => {
+    const text = input.trim()
+    if (!text || busy) return
+    setInput('')
+    await onSendMessage(text)
+    if (!isTouchDevice()) textareaRef.current?.focus()
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    void send()
+  }
+
+  // Desktop (Windows/macOS): Enter sends, Shift+Enter = new line.
+  // Phones (iOS/Android): Return inserts a new line; use the send button.
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && !isTouchDevice()) {
       e.preventDefault()
-      handleSubmit(e as any)
+      void send()
     }
   }
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex gap-3 items-end"
+      className="flex items-end gap-2 rounded-2xl border border-line-strong bg-canvas/60 p-1.5 pl-4 transition-colors focus-within:border-brand-soft/60"
     >
-      <div className="flex-1 relative">
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          disabled={loading || disabled}
-          rows={1}
-          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/30 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 resize-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            maxHeight: '120px',
-            minHeight: '44px',
-          }}
-        />
-      </div>
-
+      <label htmlFor="chat-input" className="sr-only">
+        Your message
+      </label>
+      <textarea
+        id="chat-input"
+        ref={textareaRef}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        rows={1}
+        enterKeyHint="send"
+        autoComplete="off"
+        className="max-h-[140px] min-h-[40px] flex-1 resize-none bg-transparent py-2 text-base leading-6 pointer-fine:text-[15px] text-white placeholder:text-slate-500 focus:outline-none"
+      />
       <button
         type="submit"
-        disabled={!input.trim() || loading || isSubmitting || disabled}
-        className="flex-shrink-0 p-3 bg-gradient-to-r from-violet-600 to-violet-500 hover:shadow-lg hover:shadow-violet-500/30 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+        disabled={!input.trim() || busy}
+        aria-label="Send message"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white transition-colors hover:bg-brand-strong disabled:bg-slate-700/60 disabled:text-slate-400"
       >
-        {isSubmitting || loading ? (
-          <svg
-            className="w-5 h-5 animate-spin"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <circle
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="2"
-              fill="none"
-              opacity="0.2"
-            />
-            <path
-              fill="currentColor"
-              d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2zm0 2c-4.418 0-8 3.582-8 8s3.582 8 8 8 8-3.582 8-8-3.582-8-8-8zm0-2a10 10 0 110 20 10 10 0 010-20z"
-            />
-          </svg>
-        ) : (
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-            />
-          </svg>
-        )}
+        {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ArrowUp className="h-5 w-5" strokeWidth={2.25} />}
       </button>
     </form>
   )

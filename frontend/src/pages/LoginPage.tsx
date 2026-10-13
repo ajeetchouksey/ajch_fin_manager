@@ -1,76 +1,97 @@
+import { Navigate } from 'react-router-dom'
+import { BarChart3, MessagesSquare, ShieldCheck, Target } from 'lucide-react'
 import { getGoogleAuthUrl } from '../utils/oauth'
-import './LoginPage.css'
+import { useAuth } from '../hooks/useAuth'
+import { Logo, LogoMark } from '../components/Logo'
+
+const FEATURES = [
+  { icon: BarChart3, title: 'Everything in one view', text: 'Accounts, spending and savings side by side.' },
+  { icon: MessagesSquare, title: 'An assistant that knows your setup', text: 'Ask Aarya questions in plain language.' },
+  { icon: Target, title: 'Goals with a plan', text: 'See what it takes to reach each one, and when.' },
+]
 
 export function LoginPage() {
-  const handleGoogleSignIn = () => {
-    const authUrl = getGoogleAuthUrl()
-    window.location.href = authUrl
-  }
+  const { isAuthenticated, loading } = useAuth()
+  if (!loading && isAuthenticated) return <Navigate to="/dashboard" replace />
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <div className="login-header">
-          <h1>Finance Manager</h1>
-          <p>Take control of your finances with AI assistance</p>
-        </div>
+    <div className="relative flex min-h-dvh flex-col lg:flex-row">
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10"
+        style={{ background: 'radial-gradient(70% 50% at 20% 0%, rgb(124 58 237 / 0.22), transparent 70%)' }}
+      />
 
-        <div className="login-content">
-          <p className="login-description">
-            Sign in with your Google account to get started
-          </p>
-
-          <button
-            className="signin-button google-signin"
-            onClick={handleGoogleSignIn}
-          >
-            <svg className="google-icon" viewBox="0 0 24 24">
-              <path
-                fill="currentColor"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="currentColor"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="currentColor"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-              />
-              <path
-                fill="currentColor"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-              />
-            </svg>
-            Sign in with Google
-          </button>
-
-          <div className="signin-divider">
-            <span>or</span>
-          </div>
-
-          <p className="signin-info">
-            By signing in, you agree to our{' '}
-            <a href="/terms" target="_blank" rel="noopener noreferrer">
-              Terms of Service
-            </a>{' '}
-            and{' '}
-            <a href="/privacy" target="_blank" rel="noopener noreferrer">
-              Privacy Policy
-            </a>
-          </p>
-        </div>
-
-        <div className="login-features">
-          <h3>What you can do:</h3>
-          <ul>
-            <li>📊 Track your accounts and transactions</li>
-            <li>🤖 Get AI-powered financial insights</li>
-            <li>💡 Set and monitor financial goals</li>
-            <li>💬 Chat with your financial assistant</li>
+      {/* Brand panel — desktop/tablet landscape only */}
+      <aside className="hidden flex-1 flex-col justify-between border-r border-line p-12 lg:flex xl:p-16">
+        <Logo />
+        <div className="max-w-md">
+          <h2 className="text-4xl font-semibold leading-tight tracking-tight text-white">
+            Your money, clearly organised.
+          </h2>
+          <ul className="mt-10 space-y-6">
+            {FEATURES.map(({ icon: Icon, title, text }) => (
+              <li key={title} className="flex gap-4">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-brand-soft">
+                  <Icon className="h-5 w-5" strokeWidth={1.75} />
+                </span>
+                <div>
+                  <p className="font-medium text-white">{title}</p>
+                  <p className="mt-0.5 text-sm text-slate-400">{text}</p>
+                </div>
+              </li>
+            ))}
           </ul>
         </div>
-      </div>
+        <p className="text-xs text-slate-500">© {new Date().getFullYear()} AaryaAI</p>
+      </aside>
+
+      {/* Sign-in */}
+      <main className="flex flex-1 flex-col items-center justify-center pt-safe pb-safe pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] lg:px-12">
+        <div className="w-full max-w-sm py-12 animate-fade-in">
+          <LogoMark className="h-14 w-14 lg:hidden" />
+          <h1 className="mt-8 text-[28px] font-semibold tracking-tight text-white lg:mt-0">Sign in to Aarya Finance</h1>
+          <p className="mt-2 text-[15px] text-slate-400">Track spending, plan goals and get answers about your money.</p>
+
+          <button
+            type="button"
+            onClick={() => (window.location.href = getGoogleAuthUrl())}
+            className="btn mt-10 h-12 w-full border border-slate-300 bg-white text-[15px] font-semibold text-slate-800 hover:bg-slate-100"
+          >
+            <GoogleIcon />
+            Continue with Google
+          </button>
+
+          <div className="mt-8 flex gap-3 rounded-2xl border border-line bg-surface/60 p-4 text-sm text-slate-400">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" strokeWidth={1.75} />
+            <p>
+              Aarya only requests <span className="text-slate-200">read-only</span> access to your Google data. You can
+              revoke it at any time from your Google Account.
+            </p>
+          </div>
+
+          {/* Feature list for phones/tablets in portrait */}
+          <ul className="mt-10 space-y-4 lg:hidden">
+            {FEATURES.map(({ icon: Icon, title }) => (
+              <li key={title} className="flex items-center gap-3 text-sm text-slate-300">
+                <Icon className="h-[18px] w-[18px] text-brand-soft" strokeWidth={1.75} />
+                {title}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </main>
     </div>
+  )
+}
+
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z" />
+      <path fill="#FBBC05" d="M5.84 14.09A6.6 6.6 0 0 1 5.49 12c0-.73.13-1.43.35-2.09V7.07H2.18A11 11 0 0 0 1 12c0 1.78.43 3.45 1.18 4.93l3.66-2.84z" />
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z" />
+    </svg>
   )
 }

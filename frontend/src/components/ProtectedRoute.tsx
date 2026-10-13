@@ -1,27 +1,12 @@
-import React from 'react'
+import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import './LoadingSpinner.css'
+import { FullScreenStatus } from './FullScreenStatus'
 
-interface ProtectedRouteProps {
-  children: React.ReactNode
-}
-
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
+export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading } = useAuth()
 
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading...</p>
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
-  }
-
+  if (loading) return <FullScreenStatus title="Loading your workspace…" />
+  if (!isAuthenticated) return <Navigate to="/login" replace />
   return <>{children}</>
 }

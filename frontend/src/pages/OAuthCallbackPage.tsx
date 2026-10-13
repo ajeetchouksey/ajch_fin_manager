@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { getCodeFromUrl, getErrorFromUrl, exchangeCodeForToken } from '../utils/oauth'
-import './OAuthCallbackPage.css'
+import { FullScreenStatus } from '../components/FullScreenStatus'
 
 export function OAuthCallbackPage() {
   const navigate = useNavigate()
@@ -53,23 +53,19 @@ export function OAuthCallbackPage() {
     handleCallback()
   }, [login, navigate])
 
-  return (
-    <div className="callback-container">
-      <div className="callback-card">
-        {loading ? (
-          <>
-            <div className="spinner"></div>
-            <h1>Signing you in...</h1>
-            <p>Please wait while we authenticate your account</p>
-          </>
-        ) : (
-          <>
-            <h1>Authentication Error</h1>
-            <p className="error-message">{error}</p>
-            <p className="redirect-message">Redirecting you to login...</p>
-          </>
-        )}
-      </div>
-    </div>
+  return loading ? (
+    <FullScreenStatus title="Signing you in…" description="Securely connecting your Google account." />
+  ) : (
+    <FullScreenStatus
+      tone="error"
+      title="We couldn't sign you in"
+      description={
+        <>
+          {error}
+          <br />
+          <span className="text-slate-400">Taking you back to the sign-in page…</span>
+        </>
+      }
+    />
   )
 }

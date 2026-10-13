@@ -1,270 +1,180 @@
-import { useState, useEffect } from 'react'
-import { OnboardingChatMessage } from './OnboardingChatMessage'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, FileText, Tags, Target, TrendingUp, Users, type LucideIcon } from 'lucide-react'
+import { Dialog } from './Dialog'
+import { OnboardingChatMessage, TypingIndicator } from './OnboardingChatMessage'
 import { ChatInput } from './ChatInput'
+import { ErrorNote } from './FirstLoginOnboarding'
 import { useOnboarding } from '../hooks/useOnboarding'
-import { TrendUpIcon, UsersIcon, TargetIcon, DocumentIcon, TagIcon } from './Icons'
 
-type FocusArea = 'investments' | 'household' | 'goals' | 'tax' | 'categories'
+export type FocusArea = 'investments' | 'household' | 'goals' | 'tax' | 'categories'
 
 interface ProgressiveOnboardingModalProps {
   onClose: () => void
   initialFocus?: FocusArea
 }
 
-const FOCUS_AREAS: Array<{
-  id: FocusArea
-  label: string
-  description: string
-  icon: React.ReactNode
-}> = [
-  {
-    id: 'investments',
-    label: 'Investment Setup',
-    description: 'Configure your investment accounts and preferences',
-    icon: <TrendUpIcon className="w-5 h-5" />,
-  },
-  {
-    id: 'household',
-    label: 'Household Members',
-    description: 'Add family members and dependents',
-    icon: <UsersIcon className="w-5 h-5" />,
-  },
-  {
-    id: 'goals',
-    label: 'Financial Goals',
-    description: 'Set and track your financial goals',
-    icon: <TargetIcon className="w-5 h-5" />,
-  },
-  {
-    id: 'tax',
-    label: 'Tax Settings',
-    description: 'Configure tax-related information',
-    icon: <DocumentIcon className="w-5 h-5" />,
-  },
-  {
-    id: 'categories',
-    label: 'Expense Categories',
-    description: 'Customize your expense tracking categories',
-    icon: <TagIcon className="w-5 h-5" />,
-  },
+const FOCUS_AREAS: Array<{ id: FocusArea; label: string; description: string; icon: LucideIcon }> = [
+  { id: 'investments', label: 'Investments', description: 'Investment accounts, risk profile and preferences', icon: TrendingUp },
+  { id: 'household', label: 'Household', description: 'Partner, children and other dependents', icon: Users },
+  { id: 'goals', label: 'Goals', description: 'What you are saving for, and by when', icon: Target },
+  { id: 'tax', label: 'Tax', description: 'Residency, filing status and allowances', icon: FileText },
+  { id: 'categories', label: 'Spending categories', description: 'How your expenses should be grouped', icon: Tags },
 ]
 
-export function ProgressiveOnboardingModal({
-  onClose,
-  initialFocus,
-}: ProgressiveOnboardingModalProps) {
-  const [selectedFocus, setSelectedFocus] = useState<FocusArea | null>(
-    initialFocus || null
+export function ProgressiveOnboardingModal({ onClose, initialFocus }: ProgressiveOnboardingModalProps) {
+  const [focus, setFocus] = useState<FocusArea | null>(initialFocus ?? null)
+  const area = FOCUS_AREAS.find((f) => f.id === focus)
+
+  return (
+    <Dialog
+      onClose={onClose}
+      size="lg"
+      fitContent={!area}
+      title={area ? area.label : 'Financial setup'}
+      subtitle={area ? area.description : 'Pick an area to set up or refine with Aarya'}
+      leading={
+        area ? (
+          <button type="button" onClick={() => setFocus(null)} className="icon-btn shrink-0 lg:hidden" aria-label="Back to all areas">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        ) : undefined
+      }
+    >
+      {!area ? (
+        <AreaGrid onSelect={setFocus} />
+      ) : (
+        <div className="flex h-full">
+          {/* Desktop/tablet-landscape: area list stays visible */}
+          <nav aria-label="Setup areas" className="hidden w-60 shrink-0 overflow-y-auto border-r border-line p-3 lg:block">
+            {FOCUS_AREAS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setFocus(id)}
+                aria-current={id === focus ? 'page' : undefined}
+                className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                  id === focus ? 'bg-brand/15 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                <Icon className={`h-[18px] w-[18px] ${id === focus ? 'text-brand-soft' : ''}`} strokeWidth={1.75} />
+                {label}
+              </button>
+            ))}
+          </nav>
+          {/* key → each area gets its own conversation */}
+          <FocusChat key={area.id} focus={area.id} label={area.label} icon={area.icon} onSaved={onClose} />
+        </div>
+      )}
+    </Dialog>
   )
-  const [isSubmitting, setIsSubmitting] = useState(false)
+}
 
-  const {
-    messages,
-    loading,
-    error,
-    currentSchema,
-    sendMessage,
-    submitSchema,
-    getCurrentSchema,
-  } = useOnboarding({
+function AreaGrid({ onSelect }: { onSelect: (f: FocusArea) => void }) {
+  return (
+    <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-6">
+      {FOCUS_AREAS.map(({ id, label, description, icon: Icon }) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => onSelect(id)}
+          className="group flex min-h-[76px] items-center gap-4 rounded-2xl border border-line bg-surface-2/60 p-4 text-left transition-colors hover:border-brand-soft/40 hover:bg-surface-2"
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-brand-soft">
+            <Icon className="h-5 w-5" strokeWidth={1.75} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-semibold text-white">{label}</span>
+            <span className="mt-0.5 block text-sm leading-snug text-slate-400">{description}</span>
+          </span>
+          <ChevronRight className="h-5 w-5 shrink-0 text-slate-500 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-300" />
+        </button>
+      ))}
+    </div>
+  )
+}
+
+interface FocusChatProps {
+  focus: FocusArea
+  label: string
+  icon: LucideIcon
+  onSaved: () => void
+}
+
+function FocusChat({ focus, label, icon: Icon, onSaved }: FocusChatProps) {
+  const { messages, loading, error, currentSchema, sendMessage, submitSchema, getCurrentSchema } = useOnboarding({
     type: 'progressive',
-    focus: selectedFocus || undefined,
+    focus,
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const endRef = useRef<HTMLDivElement>(null)
+  const started = messages.length > 0
 
-  // Load current schema on mount
   useEffect(() => {
     getCurrentSchema()
   }, [getCurrentSchema])
 
-  const handleFocusSelect = (focus: FocusArea) => {
-    setSelectedFocus(focus)
-  }
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [messages.length, loading])
 
-  const handleSubmit = async (message: string) => {
-    await sendMessage(message)
-  }
-
-  const handleComplete = async () => {
+  const handleSave = async () => {
     if (!currentSchema || isSubmitting) return
-
+    setIsSubmitting(true)
     try {
-      setIsSubmitting(true)
-      await submitSchema(currentSchema, true)
-      onClose()
+      const result = await submitSchema(currentSchema, true)
+      if (result) onSaved()
     } finally {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 sm:p-6">
-      {/* Mobile: Full screen, Tablet+: Modal */}
-      <div className="bg-slate-800 rounded-xl sm:rounded-2xl border border-slate-700/50 w-full h-[100dvh] sm:h-auto sm:max-w-2xl lg:max-w-5xl sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-700/30 flex items-center justify-between flex-shrink-0">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-lg sm:text-xl font-bold text-white truncate">Enhanced Setup</h2>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1 truncate">
-              {selectedFocus
-                ? `Setting up: ${FOCUS_AREAS.find((f) => f.id === selectedFocus)?.label}`
-                : 'Choose what to set up'}
+    <div className="flex min-w-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {!started ? (
+          <div className="flex h-full min-h-[280px] flex-col items-center justify-center px-6 py-10 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/15 text-brand-soft">
+              <Icon className="h-7 w-7" strokeWidth={1.75} />
+            </span>
+            <h3 className="mt-5 text-lg font-semibold text-white">Set up {label.toLowerCase()}</h3>
+            <p className="mt-1.5 max-w-sm text-[15px] leading-relaxed text-slate-400">
+              Aarya will ask a few questions and update your profile. Nothing is saved until you choose Save.
             </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="ml-3 flex-shrink-0 text-slate-400 hover:text-slate-300 transition-colors"
-            aria-label="Close setup"
-          >
-            <svg
-              className="w-5 h-5 sm:w-6 sm:h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+            <button
+              type="button"
+              onClick={() => sendMessage(`I'd like to set up ${label.toLowerCase()}.`)}
+              disabled={loading}
+              className="btn btn-primary mt-6 min-w-40"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+              {loading ? 'Starting…' : 'Start'}
+            </button>
+            {error && <ErrorNote message={error} />}
+          </div>
+        ) : (
+          <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-5 sm:px-6">
+            {messages.map((msg, idx) => (
+              <OnboardingChatMessage key={idx} message={msg} />
+            ))}
+            {loading && <TypingIndicator />}
+            {error && <ErrorNote message={error} />}
+            <div ref={endRef} />
+          </div>
+        )}
+      </div>
+
+      {started && (
+        <div className="shrink-0 space-y-2.5 border-t border-line px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 sm:pb-4">
+          <ChatInput onSendMessage={sendMessage} loading={loading} placeholder="Type your answer…" autoFocus />
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!currentSchema || isSubmitting || loading}
+            className="btn btn-secondary w-full"
+          >
+            {isSubmitting ? 'Saving…' : `Save ${label.toLowerCase()}`}
           </button>
         </div>
-
-        {/* Mobile: Stack, Tablet+: Side-by-side */}
-        <div className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-6 overflow-hidden">
-          {/* Focus Area Menu - Hidden on mobile if focus selected */}
-          {!selectedFocus && (
-            <div className="flex-1 lg:flex-none lg:w-64 border-b lg:border-b-0 lg:border-r border-slate-700/30 overflow-y-auto flex-shrink-0">
-              <div className="p-4 sm:p-6">
-                <h3 className="text-xs sm:text-sm font-semibold text-slate-300 mb-4">
-                  Focus Areas
-                </h3>
-                <div className="space-y-2">
-                  {FOCUS_AREAS.map((area) => (
-                    <button
-                      key={area.id}
-                      onClick={() => handleFocusSelect(area.id)}
-                      className="w-full text-left px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg transition-all bg-slate-700/30 text-slate-300 hover:bg-slate-700/50 hover:text-white"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="text-violet-400 flex-shrink-0">{area.icon}</div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-xs sm:text-sm leading-tight">{area.label}</p>
-                          <p className="text-xs opacity-75 hidden sm:block mt-0.5 line-clamp-2">
-                            {area.description}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Chat Area */}
-          {selectedFocus && (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Back button on mobile */}
-              <div className="lg:hidden px-4 py-2 border-b border-slate-700/30 flex-shrink-0">
-                <button
-                  onClick={() => setSelectedFocus(null)}
-                  className="text-sm text-slate-400 hover:text-slate-300 transition-colors flex items-center gap-1"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  Back
-                </button>
-              </div>
-
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-                {messages.length === 0 ? (
-                  <div className="flex items-center justify-center h-full min-h-[300px] sm:min-h-[400px]">
-                    <div className="text-center">
-                      <div className="flex justify-center mb-4">
-                        <div className="text-violet-400">
-                          {FOCUS_AREAS.find((f) => f.id === selectedFocus)?.icon}
-                        </div>
-                      </div>
-                      <p className="text-sm sm:text-base text-slate-300 mb-2 font-medium">
-                        {FOCUS_AREAS.find((f) => f.id === selectedFocus)?.label}
-                      </p>
-                      <p className="text-xs sm:text-sm text-slate-400 max-w-xs mx-auto">
-                        Let's help you set this up. Start by telling me a bit about your situation.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  messages.map((msg, idx) => (
-                    <OnboardingChatMessage key={idx} message={msg} />
-                  ))
-                )}
-
-                {error && (
-                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm">
-                    <p className="text-red-400">{error}</p>
-                  </div>
-                )}
-
-                {loading && (
-                  <div className="flex gap-2 items-center justify-center py-4">
-                    <div className="w-2 h-2 bg-violet-500 rounded-full animate-bounce" />
-                    <div
-                      className="w-2 h-2 bg-violet-500 rounded-full animate-bounce"
-                      style={{ animationDelay: '0.2s' }}
-                    />
-                    <div
-                      className="w-2 h-2 bg-violet-500 rounded-full animate-bounce"
-                      style={{ animationDelay: '0.4s' }}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Input Area */}
-              <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-700/30 flex-shrink-0 space-y-2">
-                {messages.length === 0 ? (
-                  <button
-                    onClick={() =>
-                      handleSubmit(
-                        `I'd like to set up ${FOCUS_AREAS.find((f) => f.id === selectedFocus)?.label.toLowerCase()}.`
-                      )
-                    }
-                    disabled={loading}
-                    className="w-full px-4 py-2 sm:py-2.5 bg-gradient-to-r from-violet-600 to-violet-500 hover:shadow-lg hover:shadow-violet-500/30 text-white text-sm sm:text-base font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Start
-                  </button>
-                ) : (
-                  <>
-                    <ChatInput
-                      onSendMessage={handleSubmit}
-                      loading={loading}
-                      placeholder="Continue describing your setup..."
-                    />
-                    <button
-                      onClick={handleComplete}
-                      disabled={isSubmitting}
-                      className="w-full px-4 py-2 sm:py-2.5 bg-gradient-to-r from-violet-600 to-violet-500 hover:shadow-lg hover:shadow-violet-500/30 text-white text-sm sm:text-base font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isSubmitting ? 'Saving...' : 'Save & Continue'}
-                    </button>
-                    <button
-                      onClick={() => setSelectedFocus(null)}
-                      className="w-full px-4 py-2 sm:py-2.5 border border-slate-600 hover:border-slate-500 text-slate-300 hover:text-white text-sm sm:text-base font-medium rounded-lg transition-all hidden sm:block"
-                    >
-                      Choose Another Area
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   )
 }

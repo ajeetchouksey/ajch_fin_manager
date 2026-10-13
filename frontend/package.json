@@ -12,6 +12,7 @@
   "dependencies": {
     "@aaryaai/brand": "github:ajeetchouksey/ajch_brand#main",
     "@tailwindcss/postcss": "^4.3.3",
+    "lucide-react": "^0.469.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.0.0"

@@ -1,75 +1,45 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
-export type SlashCommand = 'onboarding-help' | 'reset-setup' | 'settings'
+export type SlashCommand = 'setup' | 'overview' | 'accounts' | 'transactions' | 'goals'
 
-export function useSlashCommands(handlers: Partial<Record<SlashCommand, () => void>>) {
-  const [input, setInput] = useState('')
+export const COMMANDS: Record<SlashCommand, string> = {
+  setup: 'Open financial setup',
+  overview: 'Go to Overview',
+  accounts: 'Go to Accounts',
+  transactions: 'Go to Transactions',
+  goals: 'Go to Goals',
+}
+
+const isTyping = (target: EventTarget | null) =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+
+/** "/" opens the palette (desktop keyboards); Ctrl+K / ⌘K also works on Windows and macOS. */
+export function useSlashCommands() {
   const [isOpen, setIsOpen] = useState(false)
-  const [suggestions, setSuggestions] = useState<SlashCommand[]>([])
+  const [input, setInput] = useState('')
 
-  const commands: Record<SlashCommand, string> = {
-    'onboarding-help': 'Enhanced financial setup',
-    'reset-setup': 'Reset onboarding and start over',
-    'settings': 'App settings and preferences',
-  }
-
-  // Listen for slash key
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Only trigger on "/" when not in an input field
-      if (
-        e.key === '/' &&
-        !(
-          e.target instanceof HTMLInputElement ||
-          e.target instanceof HTMLTextAreaElement
-        )
-      ) {
+    const onKey = (e: KeyboardEvent) => {
+      const cmdK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k'
+      if ((e.key === '/' && !isTyping(e.target) && !document.querySelector('[role="dialog"]')) || cmdK) {
         e.preventDefault()
+        setInput('')
         setIsOpen(true)
-        setInput('')
-      }
-
-      // Close on Escape
-      if (e.key === 'Escape' && isOpen) {
+      } else if (e.key === 'Escape') {
         setIsOpen(false)
-        setInput('')
       }
     }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen])
-
-  // Update suggestions based on input
-  useEffect(() => {
-    if (!input) {
-      setSuggestions(Object.keys(commands) as SlashCommand[])
-    } else {
-      const filtered = (Object.keys(commands) as SlashCommand[]).filter((cmd) =>
-        cmd.includes(input.toLowerCase())
-      )
-      setSuggestions(filtered)
-    }
+  const suggestions = useMemo(() => {
+    const q = input.trim().toLowerCase().replace(/^\//, '')
+    return (Object.keys(COMMANDS) as SlashCommand[]).filter(
+      (cmd) => !q || cmd.includes(q) || COMMANDS[cmd].toLowerCase().includes(q),
+    )
   }, [input])
 
-  const executeCommand = useCallback(
-    (command: SlashCommand) => {
-      if (handlers[command]) {
-        handlers[command]!()
-      }
-      setIsOpen(false)
-      setInput('')
-    },
-    [handlers]
-  )
-
-  return {
-    isOpen,
-    setIsOpen,
-    input,
-    setInput,
-    suggestions,
-    executeCommand,
-    commands,
-  }
+  return { isOpen, setIsOpen, input, setInput, suggestions }
 }
