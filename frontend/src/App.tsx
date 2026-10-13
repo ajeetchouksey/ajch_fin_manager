@@ -4,6 +4,7 @@ import { OAuthCallbackPage } from './pages/OAuthCallbackPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import './App.css'
+import './styles/onboarding.css'
 
 function App() {
   return (

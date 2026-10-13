@@ -5,7 +5,7 @@
  * Frontend: http://localhost:5173
  */
 
-module.exports = {
+export default {
   // Use TypeScript support
   preset: 'ts-jest',
   testEnvironment: 'node',

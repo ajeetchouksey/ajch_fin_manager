@@ -1,7 +1,29 @@
+import { useEffect, useState } from 'react'
 import { Layout } from '../components/Layout'
 import { StatsCard } from '../components/StatsCard'
+import { FirstLoginOnboarding } from '../components/FirstLoginOnboarding'
+import { ProgressiveOnboardingModal } from '../components/ProgressiveOnboardingModal'
+import { SlashCommandPalette, type SlashCommand } from '../components/SlashCommandPalette'
+import { useOnboarding } from '../hooks/useOnboarding'
 
 export function DashboardPage() {
+  const [showFirstLogin, setShowFirstLogin] = useState(false)
+  const [showProgressiveOnboarding, setShowProgressiveOnboarding] = useState(false)
+  const [activeCommand, setActiveCommand] = useState<SlashCommand | null>(null)
+
+  const { checkStatus } = useOnboarding()
+
+  // Check onboarding status on mount
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      const status = await checkStatus()
+      if (status && !status.hasSchema) {
+        setShowFirstLogin(true)
+      }
+    }
+
+    checkOnboardingStatus()
+  }, [checkStatus])
   // Placeholder data - will be replaced with actual API calls
   const stats = [
     {
@@ -36,8 +58,25 @@ export function DashboardPage() {
     },
   ]
 
+  const handleCommandExecuted = (command: SlashCommand) => {
+    switch (command) {
+      case 'onboarding-help':
+        setShowProgressiveOnboarding(true)
+        break
+      case 'reset-setup':
+        // Would need to implement reset functionality
+        console.log('Reset setup')
+        break
+      case 'settings':
+        // Would navigate to settings
+        console.log('Open settings')
+        break
+    }
+  }
+
   return (
-    <Layout>
+    <>
+      <Layout>
       {/* Page Header */}
       <div className="mb-8">
         <p className="page-eyebrow">Welcome back</p>
@@ -197,5 +236,30 @@ export function DashboardPage() {
         </div>
       </section>
     </Layout>
+
+      {/* Modals */}
+      {showFirstLogin && (
+        <FirstLoginOnboarding
+          onComplete={() => setShowFirstLogin(false)}
+          onSkip={() => setShowFirstLogin(false)}
+        />
+      )}
+
+      {showProgressiveOnboarding && (
+        <ProgressiveOnboardingModal
+          onClose={() => setShowProgressiveOnboarding(false)}
+        />
+      )}
+
+      {/* Slash Command Palette */}
+      <SlashCommandPalette
+        onCommandExecuted={handleCommandExecuted}
+        handlers={{
+          'onboarding-help': () => setShowProgressiveOnboarding(true),
+          'reset-setup': () => console.log('Reset setup'),
+          'settings': () => console.log('Open settings'),
+        }}
+      />
+    </>
   )
 }

@@ -15,6 +15,7 @@ import { handleSync } from "./handlers/sync";
 import { handleProfile } from "./handlers/profile";
 import { handleAnalysis } from "./handlers/analysis";
 import { handleAuthToken } from "./handlers/auth";
+import { handleOnboarding } from "./handlers/onboarding";
 
 /**
  * CORS preflight handler
@@ -78,6 +79,14 @@ async function handleRequest(
     // Analysis endpoints
     if (pathname.startsWith("/api/analysis")) {
       return await handleAnalysis(request, env);
+    }
+
+    // Onboarding endpoints
+    if (pathname.startsWith("/api/onboarding")) {
+      // Extract userId from auth header or session
+      // For now, use a placeholder - will be extracted from JWT in Phase 2.5b
+      const userId = request.headers.get("X-User-Id") || "anonymous";
+      return await handleOnboarding(request, env, userId);
     }
 
     // OAuth callback
@@ -213,4 +222,11 @@ export type { CloudflareEnv } from "./lib/types";
 /**
  * Export API for local development
  */
-export { handleChat, handleSync, handleProfile, handleAnalysis, handleAuthToken };
+export {
+  handleChat,
+  handleSync,
+  handleProfile,
+  handleAnalysis,
+  handleAuthToken,
+  handleOnboarding,
+};

@@ -13,11 +13,23 @@ OPENAI_API_KEY = ""
 DEFAULT_AI_PROVIDER = "gemini"
 ENVIRONMENT = "production"
 
+# Cloudflare D1 database for finance data and onboarding
+[[d1_databases]]
+binding = "DB"
+database_name = "finance-manager-db"
+database_id = "d1-database-id"
+
 # Cloudflare KV namespace for user sessions
 [[kv_namespaces]]
 binding = "SESSIONS"
 id = "b95f19c9673e457c9faea59f81bf1a03"
 preview_id = "b95f19c9673e457c9faea59f81bf1a03"
+
+# KV namespace for AI token cache (optional, for performance)
+[[kv_namespaces]]
+binding = "TOKEN_CACHE"
+id = "token-cache-namespace-id"
+preview_id = "token-cache-preview-id"
 
 # Development environment
 [env.development]

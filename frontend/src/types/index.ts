@@ -53,3 +53,56 @@ export interface FinancialGoal {
   deadline: string
   category: string
 }
+
+// Onboarding Types
+export interface UserSchemaDefinition {
+  residenceCountries: string[]
+  accountTypes: string[]
+  expenseCategories: string[]
+  declaredGoals?: string[]
+  householdMembers?: Array<{ name: string; relationship: string }>
+  investmentPreferences?: {
+    hasInvestments: boolean
+    types?: string[]
+  }
+  taxSettings?: {
+    country: string
+    fillingStatus?: string
+  }
+}
+
+export interface OnboardingMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface OnboardingStatusResponse {
+  hasSchema: boolean
+  stage?: string
+  completedSections?: string[]
+  redirectTo?: 'first-login-onboarding' | null
+}
+
+export interface OnboardingChatResponse {
+  message: string
+  schemaUpdate?: Partial<UserSchemaDefinition>
+  fallbackToForm?: boolean
+}
+
+export interface OnboardingSubmitRequest {
+  schema: Partial<UserSchemaDefinition>
+  merge?: boolean
+}
+
+export interface OnboardingCurrentSchemaResponse {
+  schema?: UserSchemaDefinition
+  completedSections: string[]
+  canAdd: string[]
+}
+
+export interface OnboardingSession {
+  type: 'initial' | 'progressive'
+  focus?: string
+  messages: OnboardingMessage[]
+  currentSchema?: UserSchemaDefinition
+}

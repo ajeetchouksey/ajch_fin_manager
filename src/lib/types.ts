@@ -209,9 +209,69 @@ export interface AppError {
   details?: Record<string, unknown>;
 }
 
+// Onboarding-specific types
+export interface UserSchemaDefinition {
+  residenceCountries: string[];
+  accountTypes: string[];
+  expenseCategories: string[];
+  declaredGoals?: string[];
+  householdMembers?: Array<{ name: string; relationship: string }>;
+  investmentPreferences?: {
+    hasInvestments: boolean;
+    types?: string[];
+  };
+  taxSettings?: {
+    country: string;
+    fillingStatus?: string;
+  };
+}
+
+export interface OnboardingSession {
+  id: string;
+  userId: string;
+  type: "initial" | "progressive";
+  focus?: "investments" | "household" | "goals" | "tax" | "categories";
+  messages: AIMessage[];
+  schemaSnapshot?: UserSchemaDefinition;
+  schemaProposed?: Partial<UserSchemaDefinition>;
+  status: "in_progress" | "completed" | "abandoned";
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface OnboardingMessage {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+}
+
+export interface OnboardingStatusResponse {
+  hasSchema: boolean;
+  stage?: "initial" | "intermediate" | "advanced";
+  completedSections?: string[];
+  redirectTo?: "first-login-onboarding" | null;
+}
+
+export interface OnboardingChatRequest {
+  messages: AIMessage[];
+  type: "initial" | "progressive";
+  focus?: string;
+  context?: {
+    currentSchema?: UserSchemaDefinition;
+    step?: string;
+  };
+}
+
+export interface OnboardingSubmitRequest {
+  schema: UserSchemaDefinition;
+  merge?: boolean;
+}
+
 // Cloudflare Worker environment bindings
 export interface CloudflareEnv {
+  DB: any; // D1Database for user schemas and onboarding
   SESSIONS: any; // KVNamespace for user sessions
+  TOKEN_CACHE?: any; // KVNamespace for AI token cache
   ENVIRONMENT: string;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
