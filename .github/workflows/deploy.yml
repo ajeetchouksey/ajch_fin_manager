@@ -36,6 +36,30 @@ jobs:
       - name: Run TypeScript check
         run: npm run type-check
 
+  # ===== FINBUDDY CONNECTOR (MCP) =====
+  # Type-checks the connector together with the shared frontend/src/lib code it imports.
+  # Deployment is manual for now (needs the OAUTH_KV namespace and GOOGLE_CLIENT_SECRET): see mcp/README.md.
+  connector-check:
+    name: Connector Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: mcp/package-lock.json
+
+      - name: Install dependencies
+        run: cd mcp && npm ci
+
+      - name: Run TypeScript check
+        run: cd mcp && npm run type-check
+
   # ===== FULL TEST PHASE (runs on schedule) =====
   test:
     name: Run Full Test Suite

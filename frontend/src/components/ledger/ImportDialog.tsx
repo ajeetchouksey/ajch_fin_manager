@@ -3,16 +3,16 @@ import { ArrowLeft, Check, ClipboardPaste, FileUp, Loader2, ShieldCheck, Sparkle
 import { Dialog } from '../Dialog'
 import { useLedger } from '../../context/LedgerContext'
 import { useLedgerOptions, writeLastEntry } from '../../hooks/useLedgerOptions'
-import { analyzeTable, parseAmount, parseCsv, parseDate, readCsvFile, type ColumnMap, type DateFormat } from '../../lib/ledger/csv'
-import { TRANSFER_CATEGORY, suggestCategory } from '../../lib/ledger/categorize'
+import { analyzeTable, parseCsv, readCsvFile, type ColumnMap, type DateFormat } from '../../lib/ledger/csv'
+import { TRANSFER_CATEGORY } from '../../lib/ledger/categorize'
+import { statementRow, type Sign } from '../../lib/ledger/statement'
 import { DEFAULT_MATCH_DAYS, matchToLedger, type LedgerMatch } from '../../lib/ledger/reconcile'
 import { isExtractable, parseStatement, readFileText, rowsToCsv, type ExtractProgress } from '../../lib/ledger/extract'
-import { CURRENCIES, dedupeKey, formatMoney, parseTags, todayIso, type Direction } from '../../lib/ledger/types'
+import { CURRENCIES, dedupeKey, formatMoney, parseTags, todayIso } from '../../lib/ledger/types'
 import { CategorySelect, ErrorNote, Field, TagInput, inputClass, selectClass } from './ui'
 
 const MAX_ROWS = 2000
 type Step = 'source' | 'map'
-type Sign = 'negative-out' | 'positive-out' | 'all-out' | 'all-in'
 
 /** Bulk add: CSV from a bank export, a PDF statement or a photo/scan (read on the device), or pasted rows. */
 export function ImportDialog({ onClose, initialFile }: { onClose: () => void; initialFile?: File }) {
@@ -120,64 +120,11 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialFile])
 
-  const cell = (r: string[], i: number | undefined) => (i !== undefined ? (r[i] ?? '').trim() : '')
-
   const parsed = useMemo(() => {
-    return body.slice(0, MAX_ROWS).map((r, i) => {
-      const date = map.date !== undefined ? parseDate(r[map.date] ?? '', dateFormat) : null
-      let value: number | null
-      let direction: Direction
-      if (map.credit !== undefined) {
-        // Separate columns: money out in `amount`, money in in `credit`
-        const out = parseAmount(cell(r, map.amount))
-        const inn = parseAmount(cell(r, map.credit))
-        if (inn) {
-          value = Math.abs(inn)
-          direction = 'in'
-        } else {
-          value = out
-          direction = out !== null && out < 0 ? 'in' : 'out' // a negative debit is a reversal
-        }
-      } else {
-        value = map.amount !== undefined ? parseAmount(r[map.amount] ?? '') : null
-        if (sign === 'all-out') direction = 'out'
-        else if (sign === 'all-in') direction = 'in'
-        else if (sign === 'negative-out') direction = (value ?? 0) < 0 ? 'out' : 'in'
-        else direction = (value ?? 0) < 0 ? 'in' : 'out'
-      }
-      if (!date || value === null || value === 0) {
-        return { ok: false as const, reason: !date ? 'No valid date' : 'No amount', cells: r }
-      }
-      const amount = Math.round(Math.abs(value) * 100) / 100
-      // Who the money went to or came from, plus what it was for
-      const party = direction === 'out' && map.recipient !== undefined ? cell(r, map.recipient) : cell(r, map.payee)
-      const purpose = cell(r, map.description)
-      const text = (party && !purpose.toLowerCase().includes(party.toLowerCase()) ? [party, purpose].filter(Boolean).join(' — ') : purpose || party).replace(/\s+/g, ' ')
-      const bankCategory = cell(r, map.category).slice(0, 60)
-      const rowCurrency = cell(r, map.currency).toUpperCase()
-
-      let rowCategory = overrides.get(i) || category
-      let suggested = false
-      if (!rowCategory) {
-        const hit = suggestCategory([party, purpose, cell(r, map.kind), bankCategory].join(' '), direction, opts.learned)
-        const knownBank = [...opts.expenseCategories, ...opts.incomeCategories].find((c) => c.toLowerCase() === bankCategory.toLowerCase())
-        rowCategory = hit?.category ?? knownBank ?? (direction === 'out' ? 'Other' : 'Other income')
-        suggested = !!hit
-      }
-      const tx = {
-        date,
-        direction,
-        amount,
-        currency: /^[A-Z]{3}$/.test(rowCurrency) ? rowCurrency : currency,
-        account: account.trim(),
-        category: rowCategory,
-        description: text.slice(0, 200) || '(no description)',
-        notes: [cell(r, map.notes), notes.trim()].filter(Boolean).join(' — ').slice(0, 2000),
-        tags: parseTags(tags),
-      }
-      return { ok: true as const, tx, suggested }
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const knownCategories = [...opts.expenseCategories, ...opts.incomeCategories]
+    return body.slice(0, MAX_ROWS).map((r, i) =>
+      statementRow(r, map, { dateFormat, sign, currency, account, category: overrides.get(i) || category, tags, notes, learned: opts.learned, knownCategories }),
+    )
   }, [body, map, dateFormat, sign, currency, account, category, overrides, tags, notes, opts])
 
   // Rows already in the Ledger: exact copies, or the user's own entry for the same payment
