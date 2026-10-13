@@ -277,6 +277,8 @@ export interface CloudflareEnv {
   GOOGLE_CLIENT_SECRET: string;
   CLAUDE_API_KEY?: string;
   GEMINI_API_KEY?: string;
+  /** Gemini model id for onboarding chat, e.g. gemini-2.5-flash */
+  GEMINI_MODEL?: string;
   OPENAI_API_KEY?: string;
   DEFAULT_AI_PROVIDER: AIProvider;
 }

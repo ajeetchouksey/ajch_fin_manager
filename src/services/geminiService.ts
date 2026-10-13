@@ -11,6 +11,8 @@ import {
 } from "../utils/schemaValidator";
 
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+/** gemini-2.0-flash was shut down by Google on 2026-06-01. Override with the GEMINI_MODEL var. */
+const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 
 export interface GeminiStreamResponse {
   text: string;
@@ -19,9 +21,11 @@ export interface GeminiStreamResponse {
 
 export class GeminiService {
   private apiKey: string;
+  private model: string;
 
   constructor(env: CloudflareEnv) {
     this.apiKey = env.GEMINI_API_KEY || "";
+    this.model = env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
 
     if (!this.apiKey) {
       log("warn", "Gemini API key not configured");
@@ -46,84 +50,71 @@ export class GeminiService {
 
     try {
       const systemPrompt = this.buildSystemPrompt(type, focus, currentSchema);
-      const formattedMessages = [...messages];
-
-      // Add system message at beginning
-      formattedMessages.unshift({
-        role: "system",
-        content: systemPrompt,
-      });
 
       log("debug", "Sending request to Gemini API", {
-        model: "gemini-2.0-flash",
-        messageCount: formattedMessages.length,
+        model: this.model,
+        messageCount: messages.length,
         type,
       });
 
-      const response = await fetch(
-        `${GEMINI_API_URL}/gemini-2.0-flash:generateContent?key=${this.apiKey}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: formattedMessages.map((msg) => ({
-              role: msg.role === "system" ? "user" : msg.role,
+      const response = await fetch(`${GEMINI_API_URL}/${this.model}:generateContent`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // Header rather than ?key= so the key never appears in URLs or logs
+          "x-goog-api-key": this.apiKey,
+        },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          // Gemini only accepts the roles "user" and "model"
+          contents: messages
+            .filter((msg) => msg.role !== "system")
+            .map((msg) => ({
+              role: msg.role === "assistant" ? "model" : "user",
               parts: [{ text: msg.content }],
             })),
-            generationConfig: {
-              temperature: 0.7,
-              topP: 0.9,
-              topK: 40,
-              maxOutputTokens: 500, // Keep responses concise for chat
-            },
-            safetySettings: [
-              {
-                category: "HARM_CATEGORY_HARASSMENT",
-                threshold: "BLOCK_MEDIUM_AND_ABOVE",
-              },
-              {
-                category: "HARM_CATEGORY_HATE_SPEECH",
-                threshold: "BLOCK_MEDIUM_AND_ABOVE",
-              },
-              {
-                category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                threshold: "BLOCK_MEDIUM_AND_ABOVE",
-              },
-              {
-                category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-                threshold: "BLOCK_MEDIUM_AND_ABOVE",
-              },
-            ],
-          }),
-        }
-      );
+          generationConfig: {
+            temperature: 0.7,
+            topP: 0.9,
+            maxOutputTokens: 800,
+            // 2.5 Flash "thinks" by default and counts it against maxOutputTokens,
+            // which can leave the visible answer empty. Short chat replies don't need it.
+            thinkingConfig: { thinkingBudget: 0 },
+          },
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+          ],
+        }),
+      });
 
       if (!response.ok) {
         const error = await response.text();
         log("error", "Gemini API error", {
           status: response.status,
-          error,
+          model: this.model,
+          error: error.slice(0, 500),
         });
-
-        return {
-          text: "Error communicating with AI service. Please try again.",
-        };
+        throw new Error(`Gemini API returned ${response.status}`);
       }
 
       const data = await response.json() as any;
 
       if (!data.candidates || data.candidates.length === 0) {
-        log("warn", "No candidates in Gemini response");
-        return {
-          text: "AI service returned empty response. Please try again.",
-        };
+        log("warn", "No candidates in Gemini response", { promptFeedback: data.promptFeedback });
+        throw new Error("Gemini returned no candidates");
       }
 
-      const aiText =
-        data.candidates[0].content?.parts[0]?.text ||
-        "No response from AI service.";
+      const aiText: string = (data.candidates[0].content?.parts ?? [])
+        .map((part: { text?: string }) => part.text ?? "")
+        .join("")
+        .trim();
+      if (!aiText) {
+        log("warn", "Empty Gemini answer", { finishReason: data.candidates[0].finishReason });
+        throw new Error("Gemini returned an empty answer");
+      }
 
       // Try to extract schema updates from response
       const schemaUpdate = extractSchemaFromAIResponse(aiText);
@@ -139,10 +130,8 @@ export class GeminiService {
       log("error", "Gemini service error", {
         error: error instanceof Error ? error.message : "Unknown error",
       });
-
-      return {
-        text: "Error contacting AI service. Please use form-based setup.",
-      };
+      // Let the handler answer with HTTP 500 so the app shows a real error instead of a fake reply
+      throw error;
     }
   }
 
