@@ -102,6 +102,7 @@ export class LedgerClient {
   async find(): Promise<LedgerLocation | null> {
     const [folder, ledger, docs] = await Promise.all([this.findByKind('root'), this.findByKind('ledger'), this.findByKind('documents')])
     if (!ledger) return null
+    await this.initialiseSheet(ledger.id)
     return {
       folderId: folder?.id ?? ledger.parents?.[0] ?? '',
       folderName: folder?.name ?? 'AaryaAI Finance',
@@ -129,8 +130,8 @@ export class LedgerClient {
         parents: [folder.id],
         appProperties: { aaryaKind: 'ledger', aaryaContract: CONTRACT_VERSION },
       })
-      await this.initialiseSheet(ledger.id)
     }
+    await this.initialiseSheet(ledger.id)
     return {
       folderId: folder.id,
       folderName: folder.name,
@@ -141,11 +142,17 @@ export class LedgerClient {
     }
   }
 
+  /**
+   * Makes sure the Ledger has its Transactions, Documents and Meta tabs with headers.
+   * Only adds what is missing, so it is safe to run on every connect. This repairs a Ledger
+   * whose first setup stopped partway (for example, while the Sheets API was not enabled).
+   */
   private async initialiseSheet(spreadsheetId: string) {
     const info = await this.call<{ sheets: Array<{ properties: { sheetId: number; title: string } }> }>(
       `${SHEETS}/${spreadsheetId}?fields=sheets.properties(sheetId,title)`,
     )
-    const firstId = info.sheets[0].properties.sheetId
+    const have = new Map(info.sheets.map((s) => [s.properties.title, s.properties.sheetId]))
+    let nextId = Math.max(0, ...info.sheets.map((s) => s.properties.sheetId)) + 1
     const header = (sheetId: number, n: number) => ({
       repeatCell: {
         range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: n },
@@ -153,37 +160,36 @@ export class LedgerClient {
         fields: 'userEnteredFormat(textFormat,backgroundColor)',
       },
     })
-    await this.call(`${SHEETS}/${spreadsheetId}:batchUpdate`, {
-      method: 'POST',
-      body: JSON.stringify({
-        requests: [
-          { updateSheetProperties: { properties: { sheetId: firstId, title: TX_SHEET, gridProperties: { frozenRowCount: 1 } }, fields: 'title,gridProperties.frozenRowCount' } },
-          { addSheet: { properties: { sheetId: 2, title: DOC_SHEET, gridProperties: { frozenRowCount: 1 } } } },
-          { addSheet: { properties: { sheetId: 3, title: META_SHEET } } },
-          header(firstId, TRANSACTION_COLUMNS.length),
-          header(2, DOCUMENT_COLUMNS.length),
+    const requests: unknown[] = []
+    const data: Array<{ range: string; values: unknown[][] }> = []
+    if (!have.has(TX_SHEET)) {
+      const sheetId = nextId++
+      requests.push({ addSheet: { properties: { sheetId, title: TX_SHEET, gridProperties: { frozenRowCount: 1 } } } }, header(sheetId, TRANSACTION_COLUMNS.length))
+      data.push({ range: `${TX_SHEET}!A1`, values: [Array.from(TRANSACTION_COLUMNS)] })
+    }
+    if (!have.has(DOC_SHEET)) {
+      const sheetId = nextId++
+      requests.push({ addSheet: { properties: { sheetId, title: DOC_SHEET, gridProperties: { frozenRowCount: 1 } } } }, header(sheetId, DOCUMENT_COLUMNS.length))
+      data.push({ range: `${DOC_SHEET}!A1`, values: [Array.from(DOCUMENT_COLUMNS)] })
+    }
+    if (!have.has(META_SHEET)) {
+      requests.push({ addSheet: { properties: { sheetId: nextId++, title: META_SHEET } } })
+      data.push({
+        range: `${META_SHEET}!A1`,
+        values: [
+          ['key', 'value'],
+          ['contract_version', CONTRACT_VERSION],
+          ['created_by', 'AaryaAI Finance'],
+          ['created_at', new Date().toISOString()],
+          ['note', 'Edit rows freely. Keep the header row and column order; the app reads them.'],
         ],
-      }),
-    })
+      })
+    }
+    if (requests.length === 0) return
+    await this.call(`${SHEETS}/${spreadsheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) })
     await this.call(`${SHEETS}/${spreadsheetId}/values:batchUpdate`, {
       method: 'POST',
-      body: JSON.stringify({
-        valueInputOption: 'RAW',
-        data: [
-          { range: `${TX_SHEET}!A1`, values: [Array.from(TRANSACTION_COLUMNS)] },
-          { range: `${DOC_SHEET}!A1`, values: [Array.from(DOCUMENT_COLUMNS)] },
-          {
-            range: `${META_SHEET}!A1`,
-            values: [
-              ['key', 'value'],
-              ['contract_version', CONTRACT_VERSION],
-              ['created_by', 'AaryaAI Finance'],
-              ['created_at', new Date().toISOString()],
-              ['note', 'Edit rows freely. Keep the header row and column order; the app reads them.'],
-            ],
-          },
-        ],
-      }),
+      body: JSON.stringify({ valueInputOption: 'RAW', data }),
     })
   }
 
