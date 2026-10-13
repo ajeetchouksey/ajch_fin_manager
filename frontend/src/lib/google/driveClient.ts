@@ -17,6 +17,20 @@ import {
   type LedgerLocation,
   type Transaction,
 } from '../ledger/types'
+import {
+  ACCOUNT_COLUMNS,
+  BALANCE_COLUMNS,
+  GOAL_COLUMNS,
+  accountToRow,
+  balanceToRow,
+  goalToRow,
+  rowToAccount,
+  rowToBalance,
+  rowToGoal,
+  type Account,
+  type BalanceEntry,
+  type Goal,
+} from '../ledger/portfolio'
 
 const DRIVE = 'https://www.googleapis.com/drive/v3'
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3'
@@ -26,7 +40,23 @@ const SHEET_MIME = 'application/vnd.google-apps.spreadsheet'
 
 export const TX_SHEET = 'Transactions'
 export const DOC_SHEET = 'Documents'
+export const ACCOUNT_SHEET = 'Accounts'
+export const BALANCE_SHEET = 'Balances'
+export const GOAL_SHEET = 'Goals'
 const META_SHEET = 'Meta'
+
+/** Tabs with a header row, created when missing (in this order, after Transactions). */
+const DATA_TABS: Array<[string, readonly string[]]> = [
+  [DOC_SHEET, DOCUMENT_COLUMNS],
+  [ACCOUNT_SHEET, ACCOUNT_COLUMNS],
+  [BALANCE_SHEET, BALANCE_COLUMNS],
+  [GOAL_SHEET, GOAL_COLUMNS],
+]
+
+type RowSheet = typeof TX_SHEET | typeof DOC_SHEET | typeof ACCOUNT_SHEET | typeof GOAL_SHEET
+
+/** Last column letter for a table of n columns (n ≤ 26). */
+const lastCol = (n: number) => String.fromCharCode(64 + n)
 
 export class DriveError extends Error {
   status: number
@@ -143,11 +173,11 @@ export class LedgerClient {
   }
 
   /**
-   * Makes sure the Ledger has its Transactions, Documents and Meta tabs with headers.
+   * Makes sure the Ledger has all its tabs (Transactions, Documents, Accounts, Balances, Goals, Meta) with headers.
    * Only adds what is missing, so it is safe to run on every connect. This repairs a Ledger
    * whose first setup stopped partway (for example, while the Sheets API was not enabled).
    */
-  private async initialiseSheet(spreadsheetId: string) {
+  async initialiseSheet(spreadsheetId: string) {
     const info = await this.call<{ sheets: Array<{ properties: { sheetId: number; title: string } }> }>(
       `${SHEETS}/${spreadsheetId}?fields=sheets.properties(sheetId,title)`,
     )
@@ -175,10 +205,11 @@ export class LedgerClient {
       requests.push({ addSheet: { properties: { sheetId, title: TX_SHEET, gridProperties: { frozenRowCount: 1 } } } }, header(sheetId, TRANSACTION_COLUMNS.length))
       data.push({ range: `${TX_SHEET}!A1`, values: [Array.from(TRANSACTION_COLUMNS)] })
     }
-    if (!have.has(DOC_SHEET)) {
+    for (const [title, columns] of DATA_TABS) {
+      if (have.has(title)) continue
       const sheetId = nextId++
-      requests.push({ addSheet: { properties: { sheetId, title: DOC_SHEET, gridProperties: { frozenRowCount: 1 } } } }, header(sheetId, DOCUMENT_COLUMNS.length))
-      data.push({ range: `${DOC_SHEET}!A1`, values: [Array.from(DOCUMENT_COLUMNS)] })
+      requests.push({ addSheet: { properties: { sheetId, title, gridProperties: { frozenRowCount: 1 } } } }, header(sheetId, columns.length))
+      data.push({ range: `${title}!A1`, values: [Array.from(columns)] })
     }
     if (!have.has(META_SHEET)) {
       requests.push({ addSheet: { properties: { sheetId: nextId++, title: META_SHEET } } })
@@ -219,7 +250,52 @@ export class LedgerClient {
     return (data.values ?? []).slice(1).map((r, i) => rowToDocument(r, i + 2)).filter((d): d is LedgerDocument => d !== null)
   }
 
+  private async readTab(spreadsheetId: string, sheet: string): Promise<unknown[][]> {
+    const data = await this.call<{ values?: unknown[][] }>(
+      `${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(sheet)}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`,
+    )
+    // Row 1 is the header; the returned array's index i is sheet row i + 2.
+    return (data.values ?? []).slice(1)
+  }
+
+  async listAccounts(spreadsheetId: string): Promise<Account[]> {
+    return (await this.readTab(spreadsheetId, ACCOUNT_SHEET)).map((r, i) => rowToAccount(r, i + 2)).filter((a): a is Account => a !== null)
+  }
+
+  async listBalances(spreadsheetId: string): Promise<BalanceEntry[]> {
+    return (await this.readTab(spreadsheetId, BALANCE_SHEET)).map((r) => rowToBalance(r)).filter((b): b is BalanceEntry => b !== null)
+  }
+
+  async listGoals(spreadsheetId: string): Promise<Goal[]> {
+    return (await this.readTab(spreadsheetId, GOAL_SHEET)).map((r, i) => rowToGoal(r, i + 2)).filter((g): g is Goal => g !== null)
+  }
+
   // ---------- writing ----------
+
+  private async append(spreadsheetId: string, sheet: string, values: (string | number)[][]) {
+    if (!values.length) return
+    await this.call(
+      `${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(`${sheet}!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+      { method: 'POST', body: JSON.stringify({ values }) },
+    )
+  }
+
+  /** Overwrite one row after checking it still holds the expected id. */
+  private async replaceRow(spreadsheetId: string, sheet: string, row: number | undefined, id: string, values: (string | number)[]) {
+    if (!row) throw new DriveError('This row can no longer be found. Reload and try again.', 409)
+    const check = await this.call<{ values?: unknown[][] }>(`${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(`${sheet}!A${row}`)}`)
+    if (String(check.values?.[0]?.[0] ?? '') !== id) throw new DriveError('The Ledger changed since it was loaded. Reload and try again.', 409)
+    await this.call(
+      `${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(`${sheet}!A${row}:${lastCol(values.length)}${row}`)}?valueInputOption=RAW`,
+      { method: 'PUT', body: JSON.stringify({ values: [values] }) },
+    )
+  }
+
+  appendAccounts = (spreadsheetId: string, rows: Account[]) => this.append(spreadsheetId, ACCOUNT_SHEET, rows.map(accountToRow))
+  appendBalances = (spreadsheetId: string, rows: BalanceEntry[]) => this.append(spreadsheetId, BALANCE_SHEET, rows.map(balanceToRow))
+  appendGoals = (spreadsheetId: string, rows: Goal[]) => this.append(spreadsheetId, GOAL_SHEET, rows.map(goalToRow))
+  updateAccount = (spreadsheetId: string, a: Account) => this.replaceRow(spreadsheetId, ACCOUNT_SHEET, a.row, a.id, accountToRow(a))
+  updateGoal = (spreadsheetId: string, g: Goal) => this.replaceRow(spreadsheetId, GOAL_SHEET, g.row, g.id, goalToRow(g))
 
   async appendTransactions(spreadsheetId: string, rows: Transaction[]) {
     if (!rows.length) return
@@ -246,7 +322,7 @@ export class LedgerClient {
   }
 
   /** Delete one row after checking it still holds the expected id (guards against concurrent edits). */
-  async deleteRow(spreadsheetId: string, sheet: typeof TX_SHEET | typeof DOC_SHEET, row: number, expectedId: string) {
+  async deleteRow(spreadsheetId: string, sheet: RowSheet, row: number, expectedId: string) {
     const check = await this.call<{ values?: unknown[][] }>(
       `${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(`${sheet}!A${row}`)}`,
     )
