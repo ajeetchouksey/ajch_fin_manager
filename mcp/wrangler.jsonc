@@ -1,0 +1,23 @@
+// FinBuddy connector (remote MCP server). See README.md for setup.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "finbuddy-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  // nodejs_compat: request-scoped auth context (AsyncLocalStorage)
+  // global_fetch_strictly_public: required to fetch Client ID Metadata Documents safely
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "observability": { "enabled": true },
+  "kv_namespaces": [
+    // OAuth grants and tokens (stored hashed; user props encrypted). Create with:
+    //   npx wrangler kv namespace create OAUTH_KV
+    { "binding": "OAUTH_KV", "id": "REPLACE_WITH_OAUTH_KV_ID" }
+  ],
+  "vars": {
+    // Same Google OAuth client as the web app, so drive.file covers the Ledger it created
+    "GOOGLE_CLIENT_ID": "939308613423-nj666hdbq0et0vt893ubmhebvssfhua5.apps.googleusercontent.com",
+    "PUBLIC_URL": "https://mcp.finbuddy.aaryaai.dev"
+  },
+  "routes": [{ "pattern": "mcp.finbuddy.aaryaai.dev", "custom_domain": true }]
+  // Secret (not in this file): npx wrangler secret put GOOGLE_CLIENT_SECRET
+}

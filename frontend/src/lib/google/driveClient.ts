@@ -313,12 +313,54 @@ export class LedgerClient {
     )
   }
 
-  async updateTransaction(spreadsheetId: string, t: Transaction) {
-    if (!t.row) throw new DriveError('This row can no longer be found. Reload and try again.', 409)
-    await this.call(
-      `${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(`${TX_SHEET}!A${t.row}:M${t.row}`)}?valueInputOption=RAW`,
-      { method: 'PUT', body: JSON.stringify({ values: [transactionToRow(t)] }) },
+  /** Overwrite a transaction's row after checking it still holds that transaction (the Ledger may be edited elsewhere). */
+  updateTransaction = (spreadsheetId: string, t: Transaction) => this.replaceRow(spreadsheetId, TX_SHEET, t.row, t.id, transactionToRow(t))
+
+  /** The id column of a tab, so many rows can be checked with one read. Index i is sheet row i + 1. */
+  private async idColumn(spreadsheetId: string, sheet: string): Promise<string[]> {
+    const data = await this.call<{ values?: unknown[][] }>(`${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(`${sheet}!A:A`)}`)
+    return (data.values ?? []).map((r) => String(r[0] ?? ''))
+  }
+
+  private async sheetIdOf(spreadsheetId: string, sheet: string): Promise<number> {
+    const info = await this.call<{ sheets: Array<{ properties: { sheetId: number; title: string } }> }>(
+      `${SHEETS}/${spreadsheetId}?fields=sheets.properties(sheetId,title)`,
     )
+    const sheetId = info.sheets.find((s) => s.properties.title === sheet)?.properties.sheetId
+    if (sheetId === undefined) throw new DriveError(`The "${sheet}" tab is missing from your Ledger.`, 404)
+    return sheetId
+  }
+
+  /** Update many transactions in one request, after checking every row still holds its transaction. */
+  async updateTransactions(spreadsheetId: string, txs: Transaction[]) {
+    if (!txs.length) return
+    const ids = await this.idColumn(spreadsheetId, TX_SHEET)
+    for (const t of txs) {
+      if (!t.row || ids[t.row - 1] !== t.id) throw new DriveError('The Ledger changed since it was loaded. Reload and try again.', 409)
+    }
+    await this.call(`${SHEETS}/${spreadsheetId}/values:batchUpdate`, {
+      method: 'POST',
+      body: JSON.stringify({
+        valueInputOption: 'RAW',
+        data: txs.map((t) => ({ range: `${TX_SHEET}!A${t.row}:${lastCol(TRANSACTION_COLUMNS.length)}${t.row}`, values: [transactionToRow(t)] })),
+      }),
+    })
+  }
+
+  /** Delete many rows of one tab in one request, after checking each still holds the expected id. */
+  async deleteRows(spreadsheetId: string, sheet: RowSheet, rows: Array<{ row?: number; id: string }>) {
+    if (!rows.length) return
+    const ids = await this.idColumn(spreadsheetId, sheet)
+    for (const r of rows) {
+      if (!r.row || ids[r.row - 1] !== r.id) throw new DriveError('The Ledger changed since it was loaded. Reload and try again.', 409)
+    }
+    const sheetId = await this.sheetIdOf(spreadsheetId, sheet)
+    // Bottom-up, so deleting one row doesn't shift the others
+    const sorted = [...new Set(rows.map((r) => r.row!))].sort((a, b) => b - a)
+    await this.call(`${SHEETS}/${spreadsheetId}:batchUpdate`, {
+      method: 'POST',
+      body: JSON.stringify({ requests: sorted.map((row) => ({ deleteDimension: { range: { sheetId, dimension: 'ROWS', startIndex: row - 1, endIndex: row } } })) }),
+    })
   }
 
   /** Delete one row after checking it still holds the expected id (guards against concurrent edits). */
