@@ -93,6 +93,66 @@ export class SchemaService {
   }
 
   /**
+   * Replace the given top-level fields of the existing schema (fields not sent are kept).
+   * Used by form-based setup, where removing an item must stick — unlike the additive merge.
+   */
+  async replaceFields(
+    userId: string,
+    updates: Partial<UserSchemaDefinition>
+  ): Promise<UserSchemaDefinition | null> {
+    try {
+      const currentSchema = await this.getCurrentSchema(userId);
+      if (!currentSchema) return null;
+
+      const allowed: Array<keyof UserSchemaDefinition> = [
+        "residenceCountries",
+        "accountTypes",
+        "expenseCategories",
+        "declaredGoals",
+        "householdMembers",
+        "investmentPreferences",
+        "taxSettings",
+      ];
+      const next: UserSchemaDefinition = { ...currentSchema };
+      for (const key of allowed) {
+        if (updates[key] !== undefined) {
+          (next as any)[key] = updates[key];
+        }
+      }
+
+      const validation = validateSchema(next);
+      if (!validation.valid) {
+        log("error", "Replaced schema validation failed", { userId, errors: validation.errors });
+        return null;
+      }
+
+      const now = new Date().toISOString();
+      await this.db
+        .prepare(
+          `
+        UPDATE user_schema_definitions
+        SET schema_data = ?, version = version + 1, completed_sections = ?, updated_at = ?
+        WHERE user_id = ?
+      `
+        )
+        .bind(JSON.stringify(next), JSON.stringify(this.getCompletedSections(next)), now, userId)
+        .run();
+
+      await this.logAudit(userId, "schema_updated", {
+        mode: "replace",
+        fields: Object.keys(updates).filter((k) => allowed.includes(k as keyof UserSchemaDefinition)),
+      });
+      return next;
+    } catch (error) {
+      log("error", "Error replacing schema fields", {
+        userId,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      return null;
+    }
+  }
+
+  /**
    * Merge new schema updates with existing schema
    * Strategy: Additive updates, preserve existing data, no overwrites unless explicitly provided
    */

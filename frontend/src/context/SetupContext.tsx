@@ -3,12 +3,16 @@ import { FirstLoginOnboarding } from '../components/FirstLoginOnboarding'
 import { ProgressiveOnboardingModal, type FocusArea } from '../components/ProgressiveOnboardingModal'
 import { useOnboarding } from '../hooks/useOnboarding'
 import { AI_ENABLED } from '../config'
+import { QuickSetup } from '../components/setup/QuickSetup'
+import { AreaSetup } from '../components/setup/AreaSetup'
 
 interface SetupContextValue {
-  /** False while AI onboarding is on hold — hide every setup entry point */
+  /** True when the AI chat onboarding is on; otherwise setup uses guided forms */
   aiEnabled: boolean
   /** null while the status is loading or unavailable */
   hasProfile: boolean | null
+  /** Profile sections that have data, e.g. 'goals', 'household' */
+  completedSections: string[]
   openQuickSetup: () => void
   openDetailedSetup: (focus?: FocusArea) => void
 }
@@ -20,17 +24,20 @@ type OpenDialog = { kind: 'quick' } | { kind: 'detailed'; focus?: FocusArea } | 
 export function SetupProvider({ children }: { children: ReactNode }) {
   const { checkStatus } = useOnboarding()
   const [hasProfile, setHasProfile] = useState<boolean | null>(null)
+  const [completedSections, setCompletedSections] = useState<string[]>([])
   const [open, setOpen] = useState<OpenDialog>(null)
 
   const refresh = useCallback(async () => {
     const status = await checkStatus()
-    if (status) setHasProfile(status.hasSchema)
+    if (status) {
+      setHasProfile(status.hasSchema)
+      setCompletedSections(status.completedSections ?? [])
+    }
     return status
   }, [checkStatus])
 
   // First sign-in: offer the quick setup once per session
   useEffect(() => {
-    if (!AI_ENABLED) return
     let cancelled = false
     refresh().then((status) => {
       if (cancelled || !status || status.hasSchema) return
@@ -64,18 +71,41 @@ export function SetupProvider({ children }: { children: ReactNode }) {
     () => ({
       aiEnabled: AI_ENABLED,
       hasProfile,
-      openQuickSetup: () => AI_ENABLED && setOpen({ kind: 'quick' }),
-      openDetailedSetup: (focus) => AI_ENABLED && setOpen({ kind: 'detailed', focus }),
+      completedSections,
+      openQuickSetup: () => setOpen({ kind: 'quick' }),
+      openDetailedSetup: (focus) => setOpen({ kind: 'detailed', focus }),
     }),
-    [hasProfile],
+    [hasProfile, completedSections],
   )
 
   return (
     <SetupContext.Provider value={value}>
       {children}
-      {open?.kind === 'quick' && <FirstLoginOnboarding onComplete={completed} onSkip={dismissQuick} />}
-      {open?.kind === 'detailed' && (
-        <ProgressiveOnboardingModal initialFocus={open.focus} onClose={() => { close(); void refresh() }} />
+      {AI_ENABLED ? (
+        <>
+          {open?.kind === 'quick' && <FirstLoginOnboarding onComplete={completed} onSkip={dismissQuick} />}
+          {open?.kind === 'detailed' && (
+            <ProgressiveOnboardingModal initialFocus={open.focus} onClose={() => { close(); void refresh() }} />
+          )}
+        </>
+      ) : (
+        <>
+          {/* AI on hold (ADR-001): guided forms, same dialogs, same profile */}
+          {open?.kind === 'quick' && (
+            <QuickSetup
+              onComplete={completed}
+              onSkip={dismissQuick}
+              onAddDetail={() => { void refresh(); setOpen({ kind: 'detailed' }) }}
+            />
+          )}
+          {open?.kind === 'detailed' && (
+            <AreaSetup
+              initialFocus={open.focus}
+              onClose={() => { close(); void refresh() }}
+              onNeedQuickSetup={() => setOpen({ kind: 'quick' })}
+            />
+          )}
+        </>
       )}
     </SetupContext.Provider>
   )

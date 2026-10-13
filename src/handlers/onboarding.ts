@@ -169,6 +169,8 @@ async function handleSubmit(
     const body = (await request.json()) as {
       schema: any;
       merge?: boolean;
+      /** "replace": overwrite only the fields sent (lets a form remove items); default is additive merge */
+      mode?: "merge" | "replace";
     };
 
     // Validate schema
@@ -194,7 +196,10 @@ async function handleSubmit(
     const existing = await schemaService.getCurrentSchema(userId);
 
     let result;
-    if (body.merge && existing) {
+    if (body.mode === "replace" && existing) {
+      // Form-based setup: the user edited these fields, so their value replaces the stored one
+      result = await schemaService.replaceFields(userId, body.schema);
+    } else if (body.merge && existing) {
       // Merge with existing schema
       result = await schemaService.mergeSchema(userId, body.schema);
     } else if (existing) {

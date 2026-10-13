@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AI_ENABLED } from '../config'
 
 export type SlashCommand = 'setup' | 'overview' | 'accounts' | 'transactions' | 'goals'
 
@@ -38,7 +37,7 @@ export function useSlashCommands() {
   const suggestions = useMemo(() => {
     const q = input.trim().toLowerCase().replace(/^\//, '')
     return (Object.keys(COMMANDS) as SlashCommand[]).filter(
-      (cmd) => (AI_ENABLED || cmd !== 'setup') && (!q || cmd.includes(q) || COMMANDS[cmd].toLowerCase().includes(q)),
+      (cmd) => !q || cmd.includes(q) || COMMANDS[cmd].toLowerCase().includes(q),
     )
   }, [input])
 

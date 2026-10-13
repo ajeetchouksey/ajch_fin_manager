@@ -12,8 +12,8 @@ export function AccountsPage() {
         <EmptyState
           icon={Wallet}
           title="No accounts yet"
-          description={aiEnabled ? "Account connections are on the way. Meanwhile, tell Aarya about your investments so your profile is ready when they arrive." : "Account connections are on the way. Your bank, card and investment accounts will appear here."}
-          action={aiEnabled && (
+          description={aiEnabled ? "Account connections are on the way. Meanwhile, tell Aarya about your investments so your profile is ready when they arrive." : "Account connections are on the way. Meanwhile, add the kinds of investments you hold so your profile is ready."}
+          action={(
             <button type="button" className="btn btn-primary" onClick={() => openDetailedSetup('investments')}>
               Set up investments
             </button>
@@ -33,8 +33,8 @@ export function TransactionsPage() {
         <EmptyState
           icon={ArrowLeftRight}
           title="No transactions yet"
-          description={aiEnabled ? "Transactions appear here once your accounts are added. You can already choose how spending should be categorised." : "Transactions appear here once your accounts are added."}
-          action={aiEnabled && (
+          description={aiEnabled ? "Transactions appear here once your accounts are added. You can already choose how spending should be categorised." : "Transactions appear here once your accounts are added. You can already choose how spending should be grouped."}
+          action={(
             <button type="button" className="btn btn-primary" onClick={() => openDetailedSetup('categories')}>
               Choose categories
             </button>
@@ -54,8 +54,8 @@ export function GoalsPage() {
         <EmptyState
           icon={Target}
           title="No goals yet"
-          description={aiEnabled ? "Tell Aarya what you are saving for — a deadline and an amount is all it needs to plan the path." : "Goal tracking is on the way. Your savings goals and progress will appear here."}
-          action={aiEnabled && (
+          description={aiEnabled ? "Tell Aarya what you are saving for — a deadline and an amount is all it needs to plan the path." : "Pick what you are saving for. Amounts, dates and progress tracking come next."}
+          action={(
             <button type="button" className="btn btn-primary" onClick={() => openDetailedSetup('goals')}>
               Set up goals
             </button>

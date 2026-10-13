@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowLeftRight, ArrowRight, Check, Tags, Target, UserRound, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, ArrowRight, Check, Tags, Target, UserRound, Users, Wallet, type LucideIcon } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
 import { useAuth } from '../hooks/useAuth'
@@ -15,42 +15,72 @@ function greeting(date = new Date()) {
 
 export function DashboardPage() {
   const { user } = useAuth()
-  const { aiEnabled, hasProfile, openQuickSetup, openDetailedSetup } = useSetup()
+  const { aiEnabled, hasProfile, completedSections, openQuickSetup, openDetailedSetup } = useSetup()
   const firstName = user?.name?.split(' ')[0]
   const today = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
 
-  const steps: Array<{ icon: LucideIcon; title: string; description: string; done?: boolean; cta: string; onClick: () => void }> = [
-    {
-      icon: UserRound,
-      title: 'Create your financial profile',
-      description: 'A short conversation with Aarya about your household, income and priorities.',
-      done: hasProfile === true,
-      cta: 'Start',
-      onClick: openQuickSetup,
-    },
-    {
-      icon: Target,
-      title: 'Set your goals',
-      description: 'An emergency fund, a home, retirement — tell Aarya what you are working towards.',
-      cta: 'Set goals',
-      onClick: () => openDetailedSetup('goals'),
-    },
-    {
-      icon: Tags,
-      title: 'Choose spending categories',
-      description: 'Decide how expenses are grouped so reports match the way you think about money.',
-      cta: 'Choose',
-      onClick: () => openDetailedSetup('categories'),
-    },
-  ]
+  type Step = { icon: LucideIcon; title: string; description: string; done?: boolean; cta: string; onClick: () => void }
+  const steps: Step[] = aiEnabled
+    ? [
+        {
+          icon: UserRound,
+          title: 'Create your financial profile',
+          description: 'A short conversation with Aarya about your household, income and priorities.',
+          done: hasProfile === true,
+          cta: 'Start',
+          onClick: openQuickSetup,
+        },
+        {
+          icon: Target,
+          title: 'Set your goals',
+          description: 'An emergency fund, a home, retirement — tell Aarya what you are working towards.',
+          done: completedSections.includes('goals'),
+          cta: 'Set goals',
+          onClick: () => openDetailedSetup('goals'),
+        },
+        {
+          icon: Tags,
+          title: 'Choose spending categories',
+          description: 'Decide how expenses are grouped so reports match the way you think about money.',
+          done: completedSections.includes('categories'),
+          cta: 'Choose',
+          onClick: () => openDetailedSetup('categories'),
+        },
+      ]
+    : [
+        {
+          icon: UserRound,
+          title: 'Create your financial profile',
+          description: 'Three quick questions: where you live, your account types and spending categories.',
+          done: hasProfile === true,
+          cta: 'Start',
+          onClick: openQuickSetup,
+        },
+        {
+          icon: Target,
+          title: 'Set your goals',
+          description: 'An emergency fund, a home, retirement — pick what you are working towards.',
+          done: completedSections.includes('goals'),
+          cta: 'Set goals',
+          onClick: () => (hasProfile ? openDetailedSetup('goals') : openQuickSetup()),
+        },
+        {
+          icon: Users,
+          title: 'Add your household',
+          description: 'Partner, children or others whose costs you share. Skip it if it is just you.',
+          done: completedSections.includes('household'),
+          cta: 'Add',
+          onClick: () => (hasProfile ? openDetailedSetup('household') : openQuickSetup()),
+        },
+      ]
   const doneCount = steps.filter((s) => s.done).length
 
   return (
     <>
-      <PageHeader eyebrow={today} title={firstName ? <>{greeting()}, <span className="heading-gradient">{firstName}</span></> : greeting()} description={aiEnabled ? "Let's get your finances organised." : 'Your accounts and activity will appear here.'} />
+      <PageHeader eyebrow={today} title={firstName ? <>{greeting()}, <span className="heading-gradient">{firstName}</span></> : greeting()} description={doneCount === steps.length ? 'Your profile is set up. Accounts and activity will appear here.' : "Let's get your finances organised."} />
 
-      {/* Getting started (AI setup flows) */}
-      {aiEnabled && (
+      {/* Getting started */}
+      {doneCount < steps.length && (
       <section aria-labelledby="getting-started" className="card card-accent-top overflow-hidden">
         <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
           <div>
@@ -100,7 +130,7 @@ export function DashboardPage() {
       </section>
       )}
 
-      <div className={`grid gap-6 lg:grid-cols-2 ${aiEnabled ? 'mt-6' : ''}`}>
+      <div className={`grid gap-6 lg:grid-cols-2 ${doneCount < steps.length ? 'mt-6' : ''}`}>
         <section aria-labelledby="accounts-heading" className="card">
           <SectionHeader id="accounts-heading" title="Accounts" to="/accounts" />
           <EmptyState

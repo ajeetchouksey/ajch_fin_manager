@@ -6,7 +6,7 @@ import { useSetup } from '../context/SetupContext'
 
 export function UserMenu() {
   const { user, logout } = useAuth()
-  const { aiEnabled, hasProfile, openQuickSetup, openDetailedSetup } = useSetup()
+  const { hasProfile, openQuickSetup, openDetailedSetup } = useSetup()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [imgFailed, setImgFailed] = useState(false)
@@ -69,15 +69,11 @@ export function UserMenu() {
             <p className="truncate text-xs text-slate-400">{user.email}</p>
           </div>
           <div className="my-1 h-px bg-line" />
-          {aiEnabled && hasProfile === false && (
+          {hasProfile === false && (
             <MenuItem icon={Sparkles} label="Complete quick setup" onClick={run(openQuickSetup)} />
           )}
-          {aiEnabled && (
-            <>
-              <MenuItem icon={SlidersHorizontal} label="Financial setup" onClick={run(() => openDetailedSetup())} />
-              <div className="my-1 h-px bg-line" />
-            </>
-          )}
+          <MenuItem icon={SlidersHorizontal} label="Financial setup" onClick={run(() => openDetailedSetup())} />
+          <div className="my-1 h-px bg-line" />
           <MenuItem
             icon={LogOut}
             label="Sign out"
