@@ -1,7 +1,6 @@
-import { Link } from 'react-router-dom'
-import { ArrowLeftRight, ArrowRight, Check, Tags, Target, UserRound, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowRight, Check, Tags, Target, UserRound, Users, type LucideIcon } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
-import { EmptyState } from '../components/EmptyState'
+import { LedgerOverview } from '../components/overview/LedgerOverview'
 import { useAuth } from '../hooks/useAuth'
 import { useSetup } from '../context/SetupContext'
 
@@ -77,7 +76,7 @@ export function DashboardPage() {
 
   return (
     <>
-      <PageHeader eyebrow={today} title={firstName ? <>{greeting()}, <span className="heading-gradient">{firstName}</span></> : greeting()} description={doneCount === steps.length ? 'Your profile is set up. Accounts and activity will appear here.' : "Let's get your finances organised."} />
+      <PageHeader eyebrow={today} title={firstName ? <>{greeting()}, <span className="heading-gradient">{firstName}</span></> : greeting()} description={doneCount === steps.length ? 'Here is where your money went.' : "Let's get your finances organised."} />
 
       {/* Getting started */}
       {doneCount < steps.length && (
@@ -130,38 +129,9 @@ export function DashboardPage() {
       </section>
       )}
 
-      <div className={`grid gap-6 lg:grid-cols-2 ${doneCount < steps.length ? 'mt-6' : ''}`}>
-        <section aria-labelledby="accounts-heading" className="card">
-          <SectionHeader id="accounts-heading" title="Accounts" to="/accounts" />
-          <EmptyState
-            icon={Wallet}
-            title="No accounts yet"
-            description="Your bank, card and investment accounts will appear here with their balances."
-          />
-        </section>
-
-        <section aria-labelledby="activity-heading" className="card">
-          <SectionHeader id="activity-heading" title="Recent activity" to="/transactions" />
-          <EmptyState
-            icon={ArrowLeftRight}
-            title="No transactions yet"
-            description="Once accounts are added, your latest income and spending shows up here."
-          />
-        </section>
+      <div className={doneCount < steps.length ? 'mt-6' : ''}>
+        <LedgerOverview />
       </div>
     </>
-  )
-}
-
-function SectionHeader({ id, title, to }: { id: string; title: string; to: string }) {
-  return (
-    <div className="flex items-center justify-between border-b border-line px-5 py-3.5 sm:px-6">
-      <h2 id={id} className="text-xl font-semibold text-white">
-        {title}
-      </h2>
-      <Link to={to} className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-soft hover:text-white pointer-fine:min-h-0">
-        View all <ArrowRight className="h-4 w-4" />
-      </Link>
-    </div>
   )
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, FileUp, Paperclip, Plus, RefreshCw, Search } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
@@ -28,7 +29,8 @@ function monthLabel(ym: string) {
 export function TransactionsPage() {
   const { status, transactions, refresh, busy, error } = useLedger()
   const [open, setOpen] = useState<Open>(null)
-  const [query, setQuery] = useState('')
+  const [params] = useSearchParams()
+  const [query, setQuery] = useState(params.get('q') ?? '')
   const [dir, setDir] = useState<'all' | 'out' | 'in'>('all')
 
   const filtered = useMemo(() => {

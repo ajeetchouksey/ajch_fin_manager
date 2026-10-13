@@ -21,6 +21,9 @@
   --color-brand-paper: #f2f2f3;
   --color-brand-bg: #0e1a2d;
   --color-brand-success: #2fbf71;
+  /* Chart series (validated for CVD + contrast on the dark card surface) */
+  --color-viz-in: #22a6b3;
+  --color-viz-out: #7c6cf0;
 
   /* Semantic aliases used across components */
   --color-brand: var(--color-brand-indigo);           /* primary actions */
