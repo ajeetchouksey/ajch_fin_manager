@@ -16,6 +16,8 @@ import { handleProfile } from "./handlers/profile";
 import { handleAnalysis } from "./handlers/analysis";
 import { handleAuthToken } from "./handlers/auth";
 import { handleOnboarding } from "./handlers/onboarding";
+import { authenticate, AuthError } from "./lib/auth";
+import { handleFlags } from "./handlers/flags";
 
 /**
  * CORS preflight handler
@@ -61,6 +63,28 @@ async function handleRequest(
       return await handleAuthToken(request, env);
     }
 
+    // Everything else under /api requires a verified Google sign-in (ADR-001 Inc 0).
+    // The user id comes from the verified token, never from a client header.
+    let auth: { userId: string; email?: string } | null = null;
+    if (pathname.startsWith("/api/")) {
+      try {
+        auth = await authenticate(request, env);
+      } catch (error) {
+        if (error instanceof AuthError) {
+          return buildResponse(
+            { error: { code: error.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN", message: error.message } },
+            error.status
+          );
+        }
+        throw error;
+      }
+    }
+
+    // Feature flags for the signed-in user
+    if (pathname === "/api/flags" && method === "GET") {
+      return await handleFlags(env, auth!.userId);
+    }
+
     // Chat endpoint
     if (pathname === "/api/chat" && method === "POST") {
       return await handleChat(request, env);
@@ -83,10 +107,7 @@ async function handleRequest(
 
     // Onboarding endpoints
     if (pathname.startsWith("/api/onboarding")) {
-      // Extract userId from auth header or session
-      // For now, use a placeholder - will be extracted from JWT in Phase 2.5b
-      const userId = request.headers.get("X-User-Id") || "anonymous";
-      return await handleOnboarding(request, env, userId);
+      return await handleOnboarding(request, env, auth!.userId);
     }
 
     // OAuth callback

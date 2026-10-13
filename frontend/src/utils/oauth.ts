@@ -1,13 +1,9 @@
 // OAuth configuration for Google Sign-In
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 const REDIRECT_URI = `${window.location.origin}/oauth/callback`
-const SCOPES = [
-  'openid',
-  'email',
-  'profile',
-  'https://www.googleapis.com/auth/drive.readonly',
-  'https://www.googleapis.com/auth/gmail.readonly',
-]
+// ADR-001 Inc 0: sign-in asks only for basic identity. Drive access (drive.file) will be
+// requested separately, when the user chooses to link Drive (Inc 1). No Gmail access.
+const SCOPES = ['openid', 'email', 'profile']
 
 export function getGoogleAuthUrl(): string {
   const params = new URLSearchParams({
@@ -15,8 +11,7 @@ export function getGoogleAuthUrl(): string {
     redirect_uri: REDIRECT_URI,
     response_type: 'code',
     scope: SCOPES.join(' '),
-    access_type: 'offline',
-    prompt: 'consent',
+    prompt: 'select_account',
   })
 
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`

@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import type { OnboardingCurrentSchemaResponse, UserSchemaDefinition } from '../types'
 import { useAuth } from './useAuth'
+import { isSessionExpired } from '../utils/session'
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8787'
 
@@ -16,7 +17,6 @@ export function useProfile() {
     (): Record<string, string> => ({
       'Content-Type': 'application/json',
       Authorization: `Bearer ${user?.accessToken ?? ''}`,
-      'X-User-Id': user?.id ?? '',
     }),
     [user],
   )
@@ -25,7 +25,7 @@ export function useProfile() {
     if (!user) return null
     try {
       const res = await fetch(`${apiUrl}/api/onboarding/current-schema`, { headers: headers() })
-      if (!res.ok) return null
+      if (isSessionExpired(res) || !res.ok) return null
       const data = (await res.json()) as OnboardingCurrentSchemaResponse
       return data.schema ?? null
     } catch {
@@ -48,6 +48,7 @@ export function useProfile() {
           headers: headers(),
           body: JSON.stringify({ schema: fields, merge: !opts.complete, mode: 'replace' }),
         })
+        if (isSessionExpired(res)) return null
         if (!res.ok) {
           throw new Error(
             res.status === 400

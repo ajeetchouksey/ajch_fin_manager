@@ -6,6 +6,7 @@ import {
   clearAuthData,
   getUserProfile,
 } from '../utils/oauth'
+import { SESSION_EXPIRED_EVENT } from '../utils/session'
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
@@ -76,6 +77,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
     clearAuthData()
     setError(null)
+  }, [])
+
+  // The API answered 401: Google token expired or was revoked — sign out cleanly
+  useEffect(() => {
+    const onExpired = () => {
+      setUser(null)
+      clearAuthData()
+      setError('Your session has expired. Please sign in again.')
+    }
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired)
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired)
   }, [])
 
   const value: AuthContextType = {

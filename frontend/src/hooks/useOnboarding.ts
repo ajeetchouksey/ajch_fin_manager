@@ -7,6 +7,7 @@ import type {
   OnboardingCurrentSchemaResponse,
 } from '../types'
 import { useAuth } from './useAuth'
+import { isSessionExpired } from '../utils/session'
 
 interface UseOnboardingOptions {
   type?: 'initial' | 'progressive'
@@ -45,9 +46,9 @@ export function useOnboarding(options?: UseOnboardingOptions) {
       const response = await fetch(`${apiUrl}/api/onboarding/status`, {
         headers: {
           'Authorization': `Bearer ${user.accessToken}`,
-          'X-User-Id': user.id,
         },
       })
+        if (isSessionExpired(response)) return null
 
       if (!response.ok) throw new Error('Failed to check onboarding status')
       const data = await response.json() as OnboardingStatusResponse
@@ -72,9 +73,9 @@ export function useOnboarding(options?: UseOnboardingOptions) {
       const response = await fetch(`${apiUrl}/api/onboarding/current-schema`, {
         headers: {
           'Authorization': `Bearer ${user.accessToken}`,
-          'X-User-Id': user.id,
         },
       })
+        if (isSessionExpired(response)) return null
 
       if (!response.ok) throw new Error('Failed to fetch current schema')
       const data = await response.json() as OnboardingCurrentSchemaResponse
@@ -119,10 +120,10 @@ export function useOnboarding(options?: UseOnboardingOptions) {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${user.accessToken}`,
-            'X-User-Id': user.id,
           },
           body: JSON.stringify(requestBody),
         })
+        if (isSessionExpired(response)) return null
 
         if (!response.ok) {
           throw new Error(
@@ -184,10 +185,10 @@ export function useOnboarding(options?: UseOnboardingOptions) {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${user.accessToken}`,
-            'X-User-Id': user.id,
           },
           body: JSON.stringify({ schema, merge }),
         })
+        if (isSessionExpired(response)) return null
 
         if (!response.ok) {
           throw new Error('Your profile could not be saved. Please try again.')
@@ -223,9 +224,9 @@ export function useOnboarding(options?: UseOnboardingOptions) {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${user.accessToken}`,
-          'X-User-Id': user.id,
         },
       })
+        if (isSessionExpired(response)) return null
 
       if (!response.ok) throw new Error('Failed to reset onboarding')
 

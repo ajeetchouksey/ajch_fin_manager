@@ -13,7 +13,7 @@ const ALL_FEATURES = [
 const FEATURES = ALL_FEATURES.filter((f) => AI_ENABLED || f.icon !== MessagesSquare)
 
 export function LoginPage() {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, loading, error } = useAuth()
   if (!loading && isAuthenticated) return <Navigate to="/dashboard" replace />
 
   return (
@@ -59,6 +59,12 @@ export function LoginPage() {
             Sign in to <span className="heading-gradient">Finance</span>
           </h1>
           <p className="mt-2 text-base text-slate-400">{AI_ENABLED ? 'Track spending, plan goals and get answers about your money.' : 'Track spending and plan your goals in one place.'}</p>
+
+          {error && (
+            <p role="status" className="mt-6 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+              {error}
+            </p>
+          )}
 
           <button
             type="button"
