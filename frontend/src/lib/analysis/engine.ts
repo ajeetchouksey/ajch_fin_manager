@@ -330,6 +330,29 @@ export interface ForecastPoint {
   netWorth: number
 }
 
+/** Expenses are padded by this share in every forecast, so the estimate errs on the cautious side. */
+export const FORECAST_SAFETY_MARGIN = 0.1
+
+/** The monthly changes behind the forecast, so each one can be shown and questioned. */
+export interface ForecastDrivers {
+  /** Complete months the averages come from */
+  basisMonths: number
+  /** Average money in per month */
+  income: number
+  /** Average spending per month, before the margin */
+  spending: number
+  /** Safety margin on spending per month */
+  margin: number
+  /** Moved from cash into savings and investments per month */
+  saving: number
+  /** Interest on cash per month */
+  interest: number
+  /** Change in cash per month (the middle case) */
+  net: number
+  /** Cash today */
+  cashNow: number
+}
+
 export interface Forecast {
   currency: string
   months: number
@@ -338,6 +361,7 @@ export interface Forecast {
   assumptions: string[]
   /** First month the cash buffer is projected to drop below zero (pessimistic case) */
   cashRunsOutMonth: string | null
+  drivers: ForecastDrivers
 }
 
 /**
@@ -364,9 +388,11 @@ export function forecast(input: ReviewInput, months = 12): Forecast {
   const liquidInterest = interest(['savings', 'current'])
   const lockedInterest = interest(['fixed_deposit'])
 
-  const netMid = flow.avgIncome - flow.avgSpending - contrib
-  const netLow = flow.incomeRange[0] - flow.spendingRange[1] - contrib
-  const netHigh = flow.incomeRange[1] - flow.spendingRange[0] - contrib
+  // Spending is padded by the safety margin; income is never inflated, so the estimate errs on the cautious side
+  const margin = flow.avgSpending * FORECAST_SAFETY_MARGIN
+  const netMid = flow.avgIncome - flow.avgSpending - margin - contrib
+  const netLow = flow.incomeRange[0] - flow.spendingRange[1] * (1 + FORECAST_SAFETY_MARGIN) - contrib
+  const netHigh = flow.incomeRange[1] - flow.spendingRange[0] * (1 + FORECAST_SAFETY_MARGIN) - contrib
 
   let liquid = nw.liquid
   let low = nw.liquid
@@ -414,11 +440,22 @@ export function forecast(input: ReviewInput, months = 12): Forecast {
     flow.months.length
       ? `Income and spending follow your average of the last ${flow.months.length} complete month${flow.months.length > 1 ? 's' : ''} (in ${Math.round(flow.avgIncome)} / out ${Math.round(flow.avgSpending)} ${currency} a month).`
       : 'No complete month of transactions yet, so cash only changes by planned contributions.',
+    `Spending is padded by ${Math.round(FORECAST_SAFETY_MARGIN * 100)}% (${Math.round(margin)} ${currency} a month) so the estimate errs on the cautious side.`,
     contrib > 0 ? `${Math.round(contrib)} ${currency} a month moves from cash into savings and investments${plannedContrib ? ' (from your accounts)' : ' (as seen in your Ledger)'}.` : 'No regular saving or investing is planned.',
     growth.length ? 'Investments grow at each account’s rate, or a cautious default for its type; real returns go up and down.' : 'No investment accounts recorded.',
     'The range shows your best and worst recent months repeated. Nothing is adjusted for inflation or tax.',
   ]
-  return { currency, months, points, assumptions, cashRunsOutMonth }
+  const drivers: ForecastDrivers = {
+    basisMonths: flow.months.length,
+    income: flow.avgIncome,
+    spending: flow.avgSpending,
+    margin: r2(margin),
+    saving: r2(contrib),
+    interest: r2(liquidInterest),
+    net: r2(netMid + liquidInterest),
+    cashNow: nw.liquid,
+  }
+  return { currency, months, points, assumptions, cashRunsOutMonth, drivers }
 }
 
 // ---------------------------------------------------------------------------------------------
