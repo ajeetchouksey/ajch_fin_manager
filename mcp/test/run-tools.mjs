@@ -38,7 +38,7 @@ const init = await rpc('initialize', { protocolVersion: '2025-06-18', capabiliti
 check('initialize', !!init.serverInfo, `${init.serverInfo?.name} · instructions ${init.instructions ? 'present' : 'missing'}`)
 
 const tools = (await rpc('tools/list', {})).tools
-check('tools/list', tools.length === 16, tools.map((t) => t.name).join(', '))
+check('tools/list', tools.length === 17, tools.map((t) => t.name).join(', '))
 const del = tools.find((t) => t.name === 'delete_transactions')
 check('delete is marked destructive', del?.annotations?.destructiveHint === true)
 check('review is read-only', tools.find((t) => t.name === 'financial_review')?.annotations?.readOnlyHint === true)
@@ -103,6 +103,13 @@ check('review sections filter', r.data && !('gaps' in r.data) && 'cash_flow' in 
 
 r = await call('forecast_what_if', { extra_spending_per_month: 800 })
 check('forecast_what_if', !r.error && r.data?.scenario?.length === 12 && r.data.scenario[11].cash < r.data.base[11].cash)
+check('forecast_what_if says it is an estimate and gives drivers', r.data?.estimate === true && typeof r.data?.drivers?.net === 'number')
+
+r = await call('month_summary', {})
+check('month_summary defaults to the latest period with data', !r.error && r.data?.period?.kind === 'calendar' && r.data.totals.transactions > 0, r.text.split('\n')[0])
+check('month_summary has series, categories, budgets and basis', Array.isArray(r.data?.series) && r.data.series.length >= 1 && Array.isArray(r.data?.categories) && Array.isArray(r.data?.budgets) && /1st to last day/.test(r.data?.basis ?? ''))
+r = await call('month_summary', { mode: 'salary' })
+check('month_summary salary mode returns a salary cycle or falls back', !r.error && ['salary', 'calendar'].includes(r.data?.period?.kind) && typeof r.data?.fell_back_to_calendar === 'boolean', r.text.split('\n')[0])
 
 r = await call('spending_breakdown', { group_by: 'category' })
 check('spending_breakdown', !r.error && r.data?.groups?.[0]?.name === 'Housing', r.data?.groups?.map((g) => `${g.name} ${g.total}`).join(', '))

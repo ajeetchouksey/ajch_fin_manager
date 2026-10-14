@@ -14,7 +14,9 @@ import { dedupeKey, INCOME_CATEGORIES, MORE_EXPENSE_CATEGORIES, parseTags, today
 import { ACCOUNT_TYPES, accountType } from '../../frontend/src/lib/ledger/portfolio'
 import { DEFAULT_CATEGORIES } from '../../frontend/src/components/setup/options'
 import { baseCurrency, forecast, review, type ReviewInput } from '../../frontend/src/lib/analysis/engine'
-import { ym } from '../../frontend/src/lib/ledger/summary'
+import { change, inSpan, spendingByCategory, totalsFor, ym } from '../../frontend/src/lib/ledger/summary'
+import { buildPeriods, periodContaining, type Period } from '../../frontend/src/lib/ledger/periods'
+import { budgetProgress } from '../../frontend/src/lib/ledger/budgets'
 import { explain, LedgerSession } from './ledger'
 import { SCOPE_WRITE, type AccessProps } from './types'
 
@@ -25,6 +27,9 @@ const ACCOUNT_TYPE_VALUES = ACCOUNT_TYPES.map((t) => t.value) as [string, ...str
 const INSTRUCTIONS = `FinBuddy is the user's personal finance Ledger: a Google Sheet in their own Google Drive, also used by the FinBuddy web app.
 - Start with ledger_status. Use financial_review for "how am I doing", gaps, forecasts and advice; use find_transactions and spending_breakdown for questions about payments.
 - Numbers come from FinBuddy's own calculations. Quote them; do not recompute or invent figures.
+- For "how was this month" or "how was my salary cycle", call month_summary with the mode the user uses (calendar by default, or salary). Its periods match the FinBuddy app. Figures in it are actual, not estimates.
+- Forecasts and what-ifs are estimates. Say so, name the drivers (income, spending, the safety margin, savings) and the months they are based on.
+- When the user asks how things compare over time or asks for a picture, draw a small chart from the series or totals you were given, and label any estimate on it. Do not chart numbers you did not get from a tool.
 - To import a bank statement (CSV text from an attached file), call import_statement with apply=false first, show the user the preview, then call it again with apply=true. For PDFs or photos, read the rows yourself and use add_transactions.
 - Documents the user saved to FinBuddy (statements, payslips, tax documents, receipts) are listed by find_documents. Look there first when the user asks for a file; say so plainly if nothing matches, and give the link when one is found.
 - Amounts are always positive; "direction" says money in or out. Transfers between the user's own accounts use the category "${TRANSFER_CATEGORY}".
@@ -226,11 +231,70 @@ export function buildServer(): McpServer {
           return { month: p.month, cash: money(p.liquid + shift), cash_low: money(p.liquidLow + shift), net_worth: money(p.netWorth + shift + investedShift) }
         })
         const runsOut = scenario.find((p) => p.cash_low < 0)?.month ?? null
-        return ok(`What-if in ${base.currency} (investment growth on the extra saving is not included, to stay cautious).`, {
+        return ok(`What-if in ${base.currency}. Estimate: investment growth on the extra saving is not included, to stay cautious.`, {
+          estimate: true,
+          drivers: base.drivers,
           base: base.points.map((p) => ({ month: p.month, cash: p.liquid, net_worth: p.netWorth })),
           scenario,
           cash_may_run_out_in_scenario: runsOut,
           assumptions: base.assumptions,
+        })
+      }),
+  )
+
+  server.registerTool(
+    'month_summary',
+    {
+      title: 'Month or salary cycle summary',
+      description:
+        'How a calendar month or a salary cycle went: money in and out, change from the previous period, spending by category, budgets, and the last six periods as a series for a chart. Uses the same period boundaries as the FinBuddy app. Defaults to the latest period with data. Figures are actuals, not estimates.',
+      inputSchema: z.object({
+        mode: z.enum(['calendar', 'salary']).default('calendar').describe('calendar = 1st to last day; salary = from one salary credit to the day before the next'),
+        date: iso.optional().describe('Any date inside the period you want; default is the latest period with data'),
+        currency: z.string().length(3).optional(),
+      }),
+      annotations: RO,
+    },
+    (a) =>
+      run(false, async (l) => {
+        const d = await l.load()
+        const today = todayIso()
+        const currency = (a.currency ?? baseCurrency({ transactions: d.transactions, accounts: d.accounts })).toUpperCase()
+        const salary = a.mode === 'salary' ? buildPeriods('salary', d.transactions, today) : []
+        // No salary credits yet: calendar months, as the app does, and say so
+        const fellBack = a.mode === 'salary' && !salary.length
+        const periods: Period[] = a.mode === 'calendar' || fellBack ? buildPeriods('calendar', d.transactions, today) : salary
+        if (!periods.length) return ok('No transactions yet, so there is no period to summarise.')
+        const withData = periods.filter((p) => d.transactions.some((t) => inSpan(t.date, p)))
+        const chosen = a.date ? periodContaining(a.date, periods) : (withData.at(-1) ?? periods.at(-1))
+        if (!chosen) return ok(`No period contains ${a.date}.`)
+        const idx = periods.indexOf(chosen)
+        const prev = idx > 0 ? periods[idx - 1] : undefined
+        const span = { start: chosen.start, end: chosen.end }
+        const totals = totalsFor(d.transactions, span, currency)
+        const before = prev ? totalsFor(d.transactions, prev, currency) : null
+        const cats = spendingByCategory(d.transactions, span, currency, 7)
+        const prevCats = prev ? spendingByCategory(d.transactions, prev, currency, 1000) : []
+        const series = periods.slice(Math.max(0, idx - 5), idx + 1).map((p) => ({ start: p.start, end: p.end, ...totalsFor(d.transactions, p, currency) }))
+        const budgets = budgetProgress(d.budgets, d.transactions, span, currency)
+        const label = chosen.kind === 'salary' ? (chosen.partial ? 'Before the first salary credit' : chosen.open ? 'Salary cycle so far' : 'Salary cycle') : 'Calendar month'
+        const basis =
+          chosen.kind === 'salary'
+            ? `From the salary credit on ${chosen.start} to the day before the next one${chosen.open && chosen.expectedEnd ? `, expected to end ${chosen.expectedEnd}` : ''}. Transfers between your own accounts are left out.`
+            : 'The calendar month, 1st to last day. Transfers between your own accounts are left out.'
+        const spendChange = before ? change(totals.spending, before.spending) : null
+        return ok(`${label} ${chosen.start} to ${chosen.end}: in ${totals.income}, out ${totals.spending}, left ${totals.net} ${currency}.`, {
+          period: { kind: chosen.kind, label, start: chosen.start, end: chosen.end, partial: chosen.partial ?? false, open: chosen.open ?? false, expected_end: chosen.expectedEnd },
+          fell_back_to_calendar: fellBack,
+          currency,
+          previous_period: prev ? { start: prev.start, end: prev.end } : null,
+          totals: { income: totals.income, spending: totals.spending, net: totals.net, transactions: totals.count },
+          previous_totals: before ? { income: before.income, spending: before.spending, net: before.net } : null,
+          spending_change_percent: spendChange === null ? null : Math.round(spendChange * 100),
+          categories: cats.map((c) => ({ category: c.category, amount: c.amount, share_percent: Math.round(c.share * 100), previous_amount: prevCats.find((p) => p.category === c.category)?.amount ?? 0 })),
+          budgets: budgets.map((b) => ({ category: b.category, limit: b.limit, spent: b.spent, used_percent: Math.round(b.used * 100), remaining: b.remaining, state: b.state })),
+          series: series.map((p) => ({ start: p.start, end: p.end, income: p.income, spending: p.spending, net: p.net })),
+          basis,
         })
       }),
   )
