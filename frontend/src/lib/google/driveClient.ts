@@ -414,6 +414,19 @@ export class LedgerClient {
     return { ...res, webViewLink: res.webViewLink ?? `https://drive.google.com/file/d/${res.id}/view` }
   }
 
+  /** The bytes of a file the app created (a saved statement, payslip or receipt). */
+  async downloadFile(fileId: string): Promise<{ bytes: ArrayBuffer; mimeType: string }> {
+    const token = await this.getToken()
+    let res: Response
+    try {
+      res = await fetch(`${DRIVE}/files/${encodeURIComponent(fileId)}?alt=media`, { headers: { Authorization: `Bearer ${token}` } })
+    } catch {
+      throw new DriveError("Couldn't reach Google Drive. Check your internet connection.", 0)
+    }
+    if (!res.ok) throw new DriveError(friendly(res.status, undefined, ''), res.status)
+    return { bytes: await res.arrayBuffer(), mimeType: res.headers.get('content-type') ?? 'application/octet-stream' }
+  }
+
   /** Creates a Google Doc in a folder from HTML; Drive converts it, so it opens and shares like any Doc. */
   async createDocFromHtml(folderId: string, name: string, html: string): Promise<{ id: string; webViewLink: string }> {
     const boundary = `aarya${Math.random().toString(36).slice(2)}`
