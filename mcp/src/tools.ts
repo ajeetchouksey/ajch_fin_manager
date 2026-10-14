@@ -26,6 +26,7 @@ const INSTRUCTIONS = `FinBuddy is the user's personal finance Ledger: a Google S
 - Start with ledger_status. Use financial_review for "how am I doing", gaps, forecasts and advice; use find_transactions and spending_breakdown for questions about payments.
 - Numbers come from FinBuddy's own calculations. Quote them; do not recompute or invent figures.
 - To import a bank statement (CSV text from an attached file), call import_statement with apply=false first, show the user the preview, then call it again with apply=true. For PDFs or photos, read the rows yourself and use add_transactions.
+- Documents the user saved to FinBuddy (statements, payslips, tax documents, receipts) are listed by find_documents. Look there first when the user asks for a file; say so plainly if nothing matches, and give the link when one is found.
 - Amounts are always positive; "direction" says money in or out. Transfers between the user's own accounts use the category "${TRANSFER_CATEGORY}".
 - Ask the user before deleting anything. Recommendations are general guidance, not regulated financial advice.`
 
@@ -279,6 +280,51 @@ export function buildServer(): McpServer {
         return ok(`${hits.length} matching transaction${hits.length === 1 ? '' : 's'}${hits.length > q.limit ? `, showing ${q.limit}` : ''}.`, {
           totals,
           transactions: hits.slice(0, q.limit).map(txOut),
+        })
+      }),
+  )
+
+  server.registerTool(
+    'find_documents',
+    {
+      title: 'Find documents',
+      description:
+        'Search the documents saved in the FinBuddy Ledger (bank statements, payslips, tax documents, receipts, contracts, insurance), by text, type, date or tag. Returns title, type, date, file name and a link to open the file in Google Drive.',
+      inputSchema: z.object({
+        text: z.string().max(100).optional().describe('Matches title, notes, tags or file name'),
+        type: z.string().optional().describe('For example "Payslip", "Bank statement", "Tax document"'),
+        from: iso.optional(),
+        to: iso.optional(),
+        limit: z.number().int().min(1).max(100).default(20),
+      }),
+      annotations: RO,
+    },
+    (q) =>
+      run(false, async (l) => {
+        const { documents } = await l.load()
+        const text = q.text?.toLowerCase()
+        const type = q.type?.toLowerCase()
+        const hits = documents
+          .filter(
+            (d) =>
+              (!text || [d.title, d.notes, d.tags.join(' '), d.fileName].join(' ').toLowerCase().includes(text)) &&
+              (!type || d.type.toLowerCase() === type) &&
+              (!q.from || d.date >= q.from) &&
+              (!q.to || d.date <= q.to),
+          )
+          .sort((a, b) => b.date.localeCompare(a.date))
+        return ok(`${hits.length} matching document${hits.length === 1 ? '' : 's'}${hits.length > q.limit ? `, showing ${q.limit}` : ''}.`, {
+          documents: hits.slice(0, q.limit).map((d) => ({
+            id: d.id,
+            title: d.title,
+            type: d.type,
+            date: d.date || undefined,
+            file_name: d.fileName || undefined,
+            notes: d.notes ? mask(d.notes) : undefined,
+            tags: d.tags.length ? d.tags : undefined,
+            linked_transactions: d.transactionIds.length || undefined,
+            link: d.link || undefined,
+          })),
         })
       }),
   )

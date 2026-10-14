@@ -38,7 +38,7 @@ const init = await rpc('initialize', { protocolVersion: '2025-06-18', capabiliti
 check('initialize', !!init.serverInfo, `${init.serverInfo?.name} · instructions ${init.instructions ? 'present' : 'missing'}`)
 
 const tools = (await rpc('tools/list', {})).tools
-check('tools/list', tools.length === 15, tools.map((t) => t.name).join(', '))
+check('tools/list', tools.length === 16, tools.map((t) => t.name).join(', '))
 const del = tools.find((t) => t.name === 'delete_transactions')
 check('delete is marked destructive', del?.annotations?.destructiveHint === true)
 check('review is read-only', tools.find((t) => t.name === 'financial_review')?.annotations?.readOnlyHint === true)
@@ -57,6 +57,8 @@ check('preview categorises', r.data?.sample?.some((s) => s.category === 'Salary'
 check('IBAN masked in preview', !JSON.stringify(r.data).includes('DE89370400440532013000'))
 r = await call('ledger_status')
 check('preview saved nothing', r.data?.transactions === 0)
+r = await call('find_documents', { text: 'payslip' })
+check('find_documents on empty ledger', !r.error && r.data?.documents?.length === 0, r.text.split('\n')[0])
 
 r = await call('import_statement', { csv_text: CSV, apply: true, account: 'Commerzbank current' })
 check('import apply', !r.error && /Imported 5/.test(r.text))
