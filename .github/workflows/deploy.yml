@@ -38,7 +38,8 @@ jobs:
 
   # ===== FINBUDDY CONNECTOR (MCP) =====
   # Type-checks the connector together with the shared frontend/src/lib code it imports.
-  # Deployment is manual for now (needs the OAUTH_KV namespace and GOOGLE_CLIENT_SECRET): see mcp/README.md.
+  # The OAUTH_KV namespace and GOOGLE_CLIENT_SECRET already live in Cloudflare, so the deploy job
+  # below only uploads code. Secrets are set once with `wrangler secret put` (see mcp/README.md).
   connector-check:
     name: Connector Type Check
     runs-on: ubuntu-latest
@@ -59,6 +60,41 @@ jobs:
 
       - name: Run TypeScript check
         run: cd mcp && npm run type-check
+
+  # Runs the connector's tool tests against the in-memory Google fake (no Google or Cloudflare access needed)
+  connector-test:
+    name: Connector Tool Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: mcp/package-lock.json
+
+      - name: Install dependencies
+        run: cd mcp && npm ci
+
+      - name: Start test harness
+        run: cd mcp && npm run dev:test > "$RUNNER_TEMP/harness.log" 2>&1 &
+
+      - name: Wait for test harness
+        run: |
+          for i in $(seq 1 60); do
+            if curl -s -o /dev/null http://127.0.0.1:8799/; then exit 0; fi
+            sleep 2
+          done
+          echo "Test harness did not start"
+          cat "$RUNNER_TEMP/harness.log"
+          exit 1
+
+      - name: Run tool tests
+        run: cd mcp && npm run test:tools
 
   # ===== FULL TEST PHASE (runs on schedule) =====
   test:
@@ -300,6 +336,51 @@ jobs:
             echo "✅ Frontend deployment successful"
           else
             echo "❌ Frontend health check failed with status $RESPONSE"
+            exit 1
+          fi
+
+  # ===== DEPLOY CONNECTOR (MCP) =====
+  # Uploads mcp/ to the finbuddy-mcp Worker. Runs only after the connector checks and tests pass.
+  deploy-connector:
+    name: Deploy FinBuddy Connector (MCP)
+    needs: [connector-check, connector-test]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    environment: production
+
+    concurrency:
+      group: deploy-connector
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: mcp/package-lock.json
+
+      - name: Install dependencies
+        run: cd mcp && npm ci
+
+      - name: Deploy connector to Cloudflare Workers
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: cd mcp && npx wrangler deploy
+
+      - name: Verify connector
+        run: |
+          sleep 10
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://mcp.finbuddy.aaryaai.dev/.well-known/oauth-authorization-server)
+          if [ "$RESPONSE" == "200" ]; then
+            echo "✅ Connector deployment successful"
+          else
+            echo "❌ Connector health check failed with status $RESPONSE"
             exit 1
           fi
 
