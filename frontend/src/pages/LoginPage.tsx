@@ -78,8 +78,8 @@ export function LoginPage() {
           <div className="mt-8 flex gap-3 rounded-2xl border border-line bg-surface/60 p-4 text-sm text-slate-400">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-brand-success" strokeWidth={1.75} />
             <p>
-              Aarya only requests <span className="text-slate-200">read-only</span> access to your Google data. You can
-              revoke it at any time from your Google Account.
+              Aarya only sees the files it creates in your Google Drive, such as your Ledger and the documents you upload. It
+              never reads the rest of your Drive. You can revoke it at any time from your Google Account.
             </p>
           </div>
 
