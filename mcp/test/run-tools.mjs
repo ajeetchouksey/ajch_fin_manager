@@ -38,7 +38,7 @@ const init = await rpc('initialize', { protocolVersion: '2025-06-18', capabiliti
 check('initialize', !!init.serverInfo, `${init.serverInfo?.name} · instructions ${init.instructions ? 'present' : 'missing'}`)
 
 const tools = (await rpc('tools/list', {})).tools
-check('tools/list', tools.length === 15, tools.map((t) => t.name).join(', '))
+check('tools/list', tools.length === 16, tools.map((t) => t.name).join(', '))
 const del = tools.find((t) => t.name === 'delete_transactions')
 check('delete is marked destructive', del?.annotations?.destructiveHint === true)
 check('review is read-only', tools.find((t) => t.name === 'financial_review')?.annotations?.readOnlyHint === true)
@@ -57,6 +57,8 @@ check('preview categorises', r.data?.sample?.some((s) => s.category === 'Salary'
 check('IBAN masked in preview', !JSON.stringify(r.data).includes('DE89370400440532013000'))
 r = await call('ledger_status')
 check('preview saved nothing', r.data?.transactions === 0)
+r = await call('find_documents', { text: 'payslip' })
+check('find_documents on empty ledger', !r.error && r.data?.documents?.length === 0, r.text.split('\n')[0])
 
 r = await call('import_statement', { csv_text: CSV, apply: true, account: 'Commerzbank current' })
 check('import apply', !r.error && /Imported 5/.test(r.text))
@@ -75,6 +77,15 @@ check('add_transactions auto-category + dedupe', !r.error && r.data?.added?.leng
 r = await call('save_account', { name: 'Commerzbank current', type: 'current', balance: 2400 })
 check('save_account', !r.error, r.text.split('\n')[0])
 const accId = r.data.id
+
+r = await call('import_statement', { csv_text: CSV, update_account: 'Commerzbank current', balance: 2100, balance_as_of: '2026-10-20' })
+check('import preview plans balance update', r.data?.balance_update?.action === 'update' && r.data.balance_update.balance === 2100, JSON.stringify(r.data?.balance_update))
+r = await call('import_statement', { csv_text: CSV, apply: true, update_account: 'Commerzbank current', balance: 2100, balance_as_of: '2026-10-20' })
+check('import apply sets balance (no new rows)', !r.error && /Set the balance of Commerzbank current to 2100 on 2026-10-20/.test(r.text), r.text.split('\n')[0])
+r = await call('import_statement', { csv_text: CSV, update_account: 'Commerzbank current', balance: 1000, balance_as_of: '2026-10-01' })
+check('older balance does not overwrite newer', r.data?.balance_update?.action === 'none' && /newer balance/.test(r.data?.balance_update?.note ?? ''), r.data?.balance_update?.note)
+r = await call('import_statement', { csv_text: CSV, update_account: 'Commerzbank current' })
+check('no balance in file is reported', r.data?.balance_update?.action === 'none' && /No balance in this file/.test(r.data?.balance_update?.note ?? ''), r.data?.balance_update?.note)
 await call('save_account', { name: 'Tagesgeld', type: 'savings', balance: 3000, rate_percent: 2.5 })
 await call('save_account', { name: 'Visa', type: 'credit_card', balance: 1800, rate_percent: 19, monthly: 150 })
 r = await call('save_account', { id: accId, name: 'Commerzbank current', type: 'current', balance: 2600 })

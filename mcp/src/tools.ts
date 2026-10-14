@@ -6,7 +6,7 @@
 import { McpServer } from '@modelcontextprotocol/server'
 import { getMcpAuthContext } from 'agents/mcp'
 import { z } from 'zod'
-import { analyzeTable, parseCsv, type DateFormat } from '../../frontend/src/lib/ledger/csv'
+import { analyzeTable, findCsvBalance, parseCsv, type DateFormat } from '../../frontend/src/lib/ledger/csv'
 import { TRANSFER_CATEGORY, isTransfer, learnFromLedger, payeeKey, suggestCategory } from '../../frontend/src/lib/ledger/categorize'
 import { matchToLedger, DEFAULT_MATCH_DAYS } from '../../frontend/src/lib/ledger/reconcile'
 import { statementRow, type Sign, type TransactionDraft } from '../../frontend/src/lib/ledger/statement'
@@ -26,6 +26,7 @@ const INSTRUCTIONS = `FinBuddy is the user's personal finance Ledger: a Google S
 - Start with ledger_status. Use financial_review for "how am I doing", gaps, forecasts and advice; use find_transactions and spending_breakdown for questions about payments.
 - Numbers come from FinBuddy's own calculations. Quote them; do not recompute or invent figures.
 - To import a bank statement (CSV text from an attached file), call import_statement with apply=false first, show the user the preview, then call it again with apply=true. For PDFs or photos, read the rows yourself and use add_transactions.
+- Documents the user saved to FinBuddy (statements, payslips, tax documents, receipts) are listed by find_documents. Look there first when the user asks for a file; say so plainly if nothing matches, and give the link when one is found.
 - Amounts are always positive; "direction" says money in or out. Transfers between the user's own accounts use the category "${TRANSFER_CATEGORY}".
 - Ask the user before deleting anything. Recommendations are general guidance, not regulated financial advice.`
 
@@ -284,6 +285,51 @@ export function buildServer(): McpServer {
   )
 
   server.registerTool(
+    'find_documents',
+    {
+      title: 'Find documents',
+      description:
+        'Search the documents saved in the FinBuddy Ledger (bank statements, payslips, tax documents, receipts, contracts, insurance), by text, type, date or tag. Returns title, type, date, file name and a link to open the file in Google Drive.',
+      inputSchema: z.object({
+        text: z.string().max(100).optional().describe('Matches title, notes, tags or file name'),
+        type: z.string().optional().describe('For example "Payslip", "Bank statement", "Tax document"'),
+        from: iso.optional(),
+        to: iso.optional(),
+        limit: z.number().int().min(1).max(100).default(20),
+      }),
+      annotations: RO,
+    },
+    (q) =>
+      run(false, async (l) => {
+        const { documents } = await l.load()
+        const text = q.text?.toLowerCase()
+        const type = q.type?.toLowerCase()
+        const hits = documents
+          .filter(
+            (d) =>
+              (!text || [d.title, d.notes, d.tags.join(' '), d.fileName].join(' ').toLowerCase().includes(text)) &&
+              (!type || d.type.toLowerCase() === type) &&
+              (!q.from || d.date >= q.from) &&
+              (!q.to || d.date <= q.to),
+          )
+          .sort((a, b) => b.date.localeCompare(a.date))
+        return ok(`${hits.length} matching document${hits.length === 1 ? '' : 's'}${hits.length > q.limit ? `, showing ${q.limit}` : ''}.`, {
+          documents: hits.slice(0, q.limit).map((d) => ({
+            id: d.id,
+            title: d.title,
+            type: d.type,
+            date: d.date || undefined,
+            file_name: d.fileName || undefined,
+            notes: d.notes ? mask(d.notes) : undefined,
+            tags: d.tags.length ? d.tags : undefined,
+            linked_transactions: d.transactionIds.length || undefined,
+            link: d.link || undefined,
+          })),
+        })
+      }),
+  )
+
+  server.registerTool(
     'spending_breakdown',
     {
       title: 'Spending breakdown',
@@ -404,6 +450,13 @@ export function buildServer(): McpServer {
         amounts: z.enum(['negative-out', 'positive-out', 'all-out', 'all-in']).default('negative-out').describe('negative-out for bank accounts; positive-out for most credit cards'),
         date_format: z.enum(['auto', 'dmy', 'mdy', 'ymd']).default('auto'),
         skip_already_added: z.boolean().default(true).describe('Skip payments the user already added by hand'),
+        update_account: z
+          .string()
+          .max(80)
+          .optional()
+          .describe('Account id or name whose balance to set from this statement. A name that does not exist creates the account'),
+        balance: z.number().optional().describe('Balance on balance_as_of, when the file shows none or to override the one it shows'),
+        balance_as_of: iso.optional().describe('Date of the balance; default is the statement balance date or the latest transaction'),
       }),
       annotations: WRITE,
     },
@@ -458,14 +511,46 @@ export function buildServer(): McpServer {
           money_out: sum('out'),
           currency,
         }
+        // Balance: the one the file shows (or the one given), set on the chosen account
+        const found = findCsvBalance(table, analysis)
+        const latest = toImport.reduce((m, t) => (t.date > m ? t.date : m), '')
+        const value = a.balance ?? found?.balance
+        const asOf = a.balance_as_of ?? (a.balance === undefined ? found?.date : undefined) ?? latest ?? todayIso()
+        const wanted = a.update_account?.trim()
+        const existing = wanted ? d.accounts.find((x) => x.id === wanted || x.name.trim().toLowerCase() === wanted.toLowerCase()) : undefined
+        const isDebt = accountType(existing?.type ?? (a.amounts === 'positive-out' ? 'credit_card' : 'current')).group === 'debt'
+        let balanceUpdate: { action: 'none' | 'update' | 'create'; account?: string; balance?: number; as_of: string; note?: string } = { action: 'none', as_of: asOf }
+        if (wanted && value === undefined) balanceUpdate.note = 'No balance in this file. Pass balance (and balance_as_of) to set one.'
+        else if (wanted && value !== undefined) {
+          if (value < 0 && !isDebt) balanceUpdate.note = 'A negative balance cannot be kept on a current or savings account, so it was not updated.'
+          else if (existing && existing.asOf > asOf) balanceUpdate.note = `${existing.name} already has a newer balance (${existing.balance} on ${existing.asOf}), so it was kept.`
+          else balanceUpdate = { action: existing ? 'update' : 'create', account: existing?.name ?? wanted, balance: money(Math.abs(value)), as_of: asOf }
+        }
+        const withBalance = { ...summary, statement_balance: found, balance_update: balanceUpdate }
+
         if (!a.apply) {
           return ok('Preview only, nothing saved. Show this to the user; if they agree, call import_statement again with apply=true and the same options.', {
-            ...summary,
+            ...withBalance,
             sample: toImport.slice(0, 25).map((t) => ({ date: t.date, direction: t.direction, amount: t.amount, category: t.category, description: mask(t.description) })),
           })
         }
-        const added = await l.appendTransactions(toImport, 'import')
-        return ok(`Imported ${added.length} transactions into the Ledger.`, summary)
+        const added = toImport.length ? await l.appendTransactions(toImport, 'import') : []
+        if (balanceUpdate.action !== 'none' && balanceUpdate.balance !== undefined) {
+          const draft = {
+            name: existing?.name ?? wanted!.slice(0, 80),
+            type: existing?.type ?? (a.amounts === 'positive-out' ? 'credit_card' : 'current'),
+            institution: existing?.institution ?? '',
+            currency: existing?.currency ?? currency,
+            balance: balanceUpdate.balance,
+            asOf,
+            rate: existing?.rate ?? null,
+            monthly: existing?.monthly ?? 0,
+            notes: existing?.notes ?? 'Created from a statement import',
+          }
+          const saved = await l.saveAccount(draft, existing)
+          return ok(`Imported ${added.length} transactions into the Ledger. ${balanceUpdate.action === 'create' ? 'Created' : 'Set'} the balance of ${saved.name} to ${saved.balance} on ${saved.asOf}.`, withBalance)
+        }
+        return ok(`Imported ${added.length} transactions into the Ledger.${balanceUpdate.note ? ` ${balanceUpdate.note}` : ''}`, withBalance)
       }),
   )
 

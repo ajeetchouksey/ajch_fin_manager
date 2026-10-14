@@ -4,7 +4,7 @@
  */
 
 import { DriveError, LedgerClient } from '../../frontend/src/lib/google/driveClient'
-import { newId, type LedgerLocation, type Transaction } from '../../frontend/src/lib/ledger/types'
+import { newId, type LedgerDocument, type LedgerLocation, type Transaction } from '../../frontend/src/lib/ledger/types'
 import { newAccountId, newGoalId, type Account, type BalanceEntry, type Goal } from '../../frontend/src/lib/ledger/portfolio'
 import type { TransactionDraft } from '../../frontend/src/lib/ledger/statement'
 
@@ -20,6 +20,7 @@ export interface LedgerData {
   accounts: Account[]
   balances: BalanceEntry[]
   goals: Goal[]
+  documents: LedgerDocument[]
 }
 
 export class LedgerSession {
@@ -52,13 +53,14 @@ export class LedgerSession {
   async load(): Promise<LedgerData> {
     if (this.data) return this.data
     const { spreadsheetId: id } = await this.requireLocation()
-    const [transactions, accounts, balances, goals] = await Promise.all([
+    const [transactions, accounts, balances, goals, documents] = await Promise.all([
       this.client.listTransactions(id),
       this.client.listAccounts(id),
       this.client.listBalances(id),
       this.client.listGoals(id),
+      this.client.listDocuments(id),
     ])
-    this.data = { transactions, accounts, balances, goals }
+    this.data = { transactions, accounts, balances, goals, documents }
     return this.data
   }
 
