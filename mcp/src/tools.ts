@@ -6,7 +6,7 @@
 import { McpServer } from '@modelcontextprotocol/server'
 import { getMcpAuthContext } from 'agents/mcp'
 import { z } from 'zod'
-import { analyzeTable, parseCsv, type DateFormat } from '../../frontend/src/lib/ledger/csv'
+import { analyzeTable, findCsvBalance, parseCsv, type DateFormat } from '../../frontend/src/lib/ledger/csv'
 import { TRANSFER_CATEGORY, isTransfer, learnFromLedger, payeeKey, suggestCategory } from '../../frontend/src/lib/ledger/categorize'
 import { matchToLedger, DEFAULT_MATCH_DAYS } from '../../frontend/src/lib/ledger/reconcile'
 import { statementRow, type Sign, type TransactionDraft } from '../../frontend/src/lib/ledger/statement'
@@ -450,6 +450,13 @@ export function buildServer(): McpServer {
         amounts: z.enum(['negative-out', 'positive-out', 'all-out', 'all-in']).default('negative-out').describe('negative-out for bank accounts; positive-out for most credit cards'),
         date_format: z.enum(['auto', 'dmy', 'mdy', 'ymd']).default('auto'),
         skip_already_added: z.boolean().default(true).describe('Skip payments the user already added by hand'),
+        update_account: z
+          .string()
+          .max(80)
+          .optional()
+          .describe('Account id or name whose balance to set from this statement. A name that does not exist creates the account'),
+        balance: z.number().optional().describe('Balance on balance_as_of, when the file shows none or to override the one it shows'),
+        balance_as_of: iso.optional().describe('Date of the balance; default is the statement balance date or the latest transaction'),
       }),
       annotations: WRITE,
     },
@@ -504,14 +511,46 @@ export function buildServer(): McpServer {
           money_out: sum('out'),
           currency,
         }
+        // Balance: the one the file shows (or the one given), set on the chosen account
+        const found = findCsvBalance(table, analysis)
+        const latest = toImport.reduce((m, t) => (t.date > m ? t.date : m), '')
+        const value = a.balance ?? found?.balance
+        const asOf = a.balance_as_of ?? (a.balance === undefined ? found?.date : undefined) ?? latest ?? todayIso()
+        const wanted = a.update_account?.trim()
+        const existing = wanted ? d.accounts.find((x) => x.id === wanted || x.name.trim().toLowerCase() === wanted.toLowerCase()) : undefined
+        const isDebt = accountType(existing?.type ?? (a.amounts === 'positive-out' ? 'credit_card' : 'current')).group === 'debt'
+        let balanceUpdate: { action: 'none' | 'update' | 'create'; account?: string; balance?: number; as_of: string; note?: string } = { action: 'none', as_of: asOf }
+        if (wanted && value === undefined) balanceUpdate.note = 'No balance in this file. Pass balance (and balance_as_of) to set one.'
+        else if (wanted && value !== undefined) {
+          if (value < 0 && !isDebt) balanceUpdate.note = 'A negative balance cannot be kept on a current or savings account, so it was not updated.'
+          else if (existing && existing.asOf > asOf) balanceUpdate.note = `${existing.name} already has a newer balance (${existing.balance} on ${existing.asOf}), so it was kept.`
+          else balanceUpdate = { action: existing ? 'update' : 'create', account: existing?.name ?? wanted, balance: money(Math.abs(value)), as_of: asOf }
+        }
+        const withBalance = { ...summary, statement_balance: found, balance_update: balanceUpdate }
+
         if (!a.apply) {
           return ok('Preview only, nothing saved. Show this to the user; if they agree, call import_statement again with apply=true and the same options.', {
-            ...summary,
+            ...withBalance,
             sample: toImport.slice(0, 25).map((t) => ({ date: t.date, direction: t.direction, amount: t.amount, category: t.category, description: mask(t.description) })),
           })
         }
-        const added = await l.appendTransactions(toImport, 'import')
-        return ok(`Imported ${added.length} transactions into the Ledger.`, summary)
+        const added = toImport.length ? await l.appendTransactions(toImport, 'import') : []
+        if (balanceUpdate.action !== 'none' && balanceUpdate.balance !== undefined) {
+          const draft = {
+            name: existing?.name ?? wanted!.slice(0, 80),
+            type: existing?.type ?? (a.amounts === 'positive-out' ? 'credit_card' : 'current'),
+            institution: existing?.institution ?? '',
+            currency: existing?.currency ?? currency,
+            balance: balanceUpdate.balance,
+            asOf,
+            rate: existing?.rate ?? null,
+            monthly: existing?.monthly ?? 0,
+            notes: existing?.notes ?? 'Created from a statement import',
+          }
+          const saved = await l.saveAccount(draft, existing)
+          return ok(`Imported ${added.length} transactions into the Ledger. ${balanceUpdate.action === 'create' ? 'Created' : 'Set'} the balance of ${saved.name} to ${saved.balance} on ${saved.asOf}.`, withBalance)
+        }
+        return ok(`Imported ${added.length} transactions into the Ledger.${balanceUpdate.note ? ` ${balanceUpdate.note}` : ''}`, withBalance)
       }),
   )
 

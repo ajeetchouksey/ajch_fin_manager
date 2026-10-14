@@ -77,6 +77,15 @@ check('add_transactions auto-category + dedupe', !r.error && r.data?.added?.leng
 r = await call('save_account', { name: 'Commerzbank current', type: 'current', balance: 2400 })
 check('save_account', !r.error, r.text.split('\n')[0])
 const accId = r.data.id
+
+r = await call('import_statement', { csv_text: CSV, update_account: 'Commerzbank current', balance: 2100, balance_as_of: '2026-10-20' })
+check('import preview plans balance update', r.data?.balance_update?.action === 'update' && r.data.balance_update.balance === 2100, JSON.stringify(r.data?.balance_update))
+r = await call('import_statement', { csv_text: CSV, apply: true, update_account: 'Commerzbank current', balance: 2100, balance_as_of: '2026-10-20' })
+check('import apply sets balance (no new rows)', !r.error && /Set the balance of Commerzbank current to 2100 on 2026-10-20/.test(r.text), r.text.split('\n')[0])
+r = await call('import_statement', { csv_text: CSV, update_account: 'Commerzbank current', balance: 1000, balance_as_of: '2026-10-01' })
+check('older balance does not overwrite newer', r.data?.balance_update?.action === 'none' && /newer balance/.test(r.data?.balance_update?.note ?? ''), r.data?.balance_update?.note)
+r = await call('import_statement', { csv_text: CSV, update_account: 'Commerzbank current' })
+check('no balance in file is reported', r.data?.balance_update?.action === 'none' && /No balance in this file/.test(r.data?.balance_update?.note ?? ''), r.data?.balance_update?.note)
 await call('save_account', { name: 'Tagesgeld', type: 'savings', balance: 3000, rate_percent: 2.5 })
 await call('save_account', { name: 'Visa', type: 'credit_card', balance: 1800, rate_percent: 19, monthly: 150 })
 r = await call('save_account', { id: accId, name: 'Commerzbank current', type: 'current', balance: 2600 })
