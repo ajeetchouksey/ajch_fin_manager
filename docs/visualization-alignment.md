@@ -83,7 +83,7 @@ Keep the colours that already exist in the app's brand tokens. Do not add a seco
 1. **Period helper and tests (done).** `frontend/src/lib/ledger/periods.ts`, tested in `frontend/tests/periods.test.ts` (`npm test` in `frontend/`). Used by everything below.
 2. **Period selector and Overview (done).** Shared selector (`usePeriodMode`, saved on the device and synced across components). Overview navigates periods, shows the previous period in the tiles, and marks each category bar with its change.
 3. **Estimate style and driver breakdown (done).** Forecast lines are dashed and labelled Estimate, with a basis line. Driver rows show each monthly change (income, spending, safety margin, savings moved, interest) and the net. The 10% margin on spending now lives in the forecast engine, so the app and the connector report the same figures.
-4. **Budgets and recurring list.** Bars per category; recurring payments with next dates.
+4. **Budgets and recurring list (done).** Budgets live in a Budgets tab of the Ledger (one row per category, created automatically for existing Ledgers) and show on the Overview for the selected period, in calendar or salary-cycle mode. Recurring payments with next dates already appear on Insights ("Regular payments").
 5. **Connector alignment.** `month_summary` and `forecast_what_if` return the same period, basis and series as the app; the AI draws inline charts from those numbers.
 6. **Sheets dashboard tab.** Formula-driven charts over the same period definitions, from the earlier plan.
 

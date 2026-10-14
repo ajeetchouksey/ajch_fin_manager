@@ -6,6 +6,9 @@ import { usePeriodMode } from '../../hooks/usePeriodMode'
 import { ConnectDrive } from '../ledger/ConnectDrive'
 import { EmptyState } from '../EmptyState'
 import { AccountList, CategoryBars, KpiTiles, RecentList, SectionHeader, TrendChart } from './OverviewParts'
+import { BudgetCard } from './BudgetCard'
+import { BudgetDialog } from './BudgetDialog'
+import { budgetProgress } from '../../lib/ledger/budgets'
 import { byAccount, currenciesByUse, inSpan, monthName, spendingByCategory, totalsFor, type Span, type TrendPoint } from '../../lib/ledger/summary'
 import { buildPeriods, type Period, type PeriodMode } from '../../lib/ledger/periods'
 import { todayIso, type Transaction } from '../../lib/ledger/types'
@@ -24,11 +27,12 @@ const cycleShort = (p: Period) => shortDay(p.start)
 
 /** The Overview's money section, computed in the browser from the Ledger in the user's Drive. */
 export function LedgerOverview() {
-  const { status, transactions } = useLedger()
+  const { status, transactions, budgets } = useLedger()
   const navigate = useNavigate()
   const [mode, setMode] = usePeriodMode()
   const [picked, setPicked] = useState<{ mode: PeriodMode; key: string } | null>(null)
   const [pickedCurrency, setPickedCurrency] = useState<string | null>(null)
+  const [editingBudgets, setEditingBudgets] = useState(false)
 
   const currencies = useMemo(() => currenciesByUse(transactions), [transactions])
   const currency = pickedCurrency && currencies.includes(pickedCurrency) ? pickedCurrency : currencies[0] ?? 'EUR'
@@ -67,13 +71,14 @@ export function LedgerOverview() {
       // All categories of the previous period, so each row can be compared with it
       beforeCategories: prevSpan ? spendingByCategory(transactions, prevSpan, currency, 1000) : undefined,
       points: periods.slice(Math.max(0, index - 5), index + 1).map<TrendPoint>((p) => ({ month: p.start, ...totalsFor(transactions, spanOf(p), currency) })),
+      budgetRows: budgetProgress(budgets, transactions, span, currency),
       accounts: byAccount(transactions, span, currency),
       recent: transactions
         .filter((t: Transaction) => inSpan(t.date, span))
         .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))
         .slice(0, 6),
     }
-  }, [transactions, cur, prev, periods, index, currency])
+  }, [transactions, budgets, cur, prev, periods, index, currency])
 
   if (status !== 'ready') {
     return (
@@ -188,6 +193,17 @@ export function LedgerOverview() {
         </section>
       </div>
 
+      <section aria-labelledby="budget-heading" className="card">
+        <SectionHeader id="budget-heading" title={useSalary ? 'Budgets this cycle' : 'Budgets this month'} />
+        <BudgetCard
+          rows={data.budgetRows}
+          currency={currency}
+          noun={noun}
+          hasBudgets={budgets.some((b) => b.currency === currency)}
+          onEdit={() => setEditingBudgets(true)}
+        />
+      </section>
+
       <div className="grid gap-6 lg:grid-cols-2">
         <section aria-labelledby="recent-heading" className="card">
           <SectionHeader id="recent-heading" title="Recent activity" to="/transactions" />
@@ -198,6 +214,7 @@ export function LedgerOverview() {
           <AccountList rows={data.accounts} currency={currency} />
         </section>
       </div>
+      {editingBudgets && <BudgetDialog onClose={() => setEditingBudgets(false)} currency={currency} budgets={budgets} />}
       {currencies.length > 1 && <p className="text-center text-xs text-slate-500">Totals are shown per currency and never converted.</p>}
     </div>
   )
