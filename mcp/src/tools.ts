@@ -17,6 +17,7 @@ import { baseCurrency, forecast, review, type ReviewInput } from '../../frontend
 import { change, inSpan, spendingByCategory, totalsFor, ym } from '../../frontend/src/lib/ledger/summary'
 import { buildPeriods, periodContaining, type Period } from '../../frontend/src/lib/ledger/periods'
 import { budgetProgress } from '../../frontend/src/lib/ledger/budgets'
+import { buildReport, choosePeriod } from '../../frontend/src/lib/ledger/report'
 import { explain, LedgerSession } from './ledger'
 import { SCOPE_WRITE, type AccessProps } from './types'
 
@@ -33,6 +34,9 @@ const INSTRUCTIONS = `FinBuddy is the user's personal finance Ledger: a Google S
 - To import a bank statement (CSV text from an attached file), call import_statement with apply=false first, show the user the preview, then call it again with apply=true. For PDFs or photos, read the rows yourself and use add_transactions.
 - Documents the user saved to FinBuddy (statements, payslips, tax documents, receipts) are listed by find_documents. Look there first when the user asks for a file; say so plainly if nothing matches, and give the link when one is found.
 - Amounts are always positive; "direction" says money in or out. Transfers between the user's own accounts use the category "${TRANSFER_CATEGORY}".
+- To check spending against limits, use list_budgets; to set or change one, use set_budget (ask first).
+- To read what is in a saved statement, payslip or tax document, use read_document. Only do this when the user asks for the content.
+- If an import went wrong, use list_imports to find it, then undo_import after the user confirms.
 - Ask the user before deleting anything. Recommendations are general guidance, not regulated financial advice.`
 
 const iso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
@@ -50,6 +54,13 @@ const ok = (summary: string, data?: unknown) => ({
   content: [{ type: 'text' as const, text: data === undefined ? summary : `${summary}\n\n${JSON.stringify(data, null, 1)}` }],
 })
 const fail = (message: string) => ({ isError: true, content: [{ type: 'text' as const, text: message }] })
+
+function toBase64(bytes: ArrayBuffer): string {
+  const u8 = new Uint8Array(bytes)
+  let binary = ''
+  for (let i = 0; i < u8.length; i += 0x8000) binary += String.fromCharCode(...u8.subarray(i, i + 0x8000))
+  return btoa(binary)
+}
 
 function props(): AccessProps {
   const p = getMcpAuthContext()?.props as AccessProps | undefined
@@ -296,6 +307,230 @@ export function buildServer(): McpServer {
           series: series.map((p) => ({ start: p.start, end: p.end, income: p.income, spending: p.spending, net: p.net })),
           basis,
         })
+      }),
+  )
+
+  server.registerTool(
+    'monthly_report',
+    {
+      title: 'Monthly report',
+      description:
+        'The report for you and your partner: headline, figures against the previous period, a watch list of categories that moved beyond a threshold, budgets, and the basis. Same figures as the Report page in the app. Causes are given only where the data shows them; otherwise the note says "driver to be confirmed".',
+      inputSchema: z.object({
+        mode: z.enum(['calendar', 'salary']).default('calendar'),
+        date: iso.optional().describe('Any date inside the period; default is the latest period with data'),
+        threshold_percent: z.number().min(5).max(100).default(20).describe('Watch a category that moved at least this much'),
+        min_amount: z.number().min(0).default(50).describe('…and by at least this amount'),
+        currency: z.string().length(3).optional(),
+      }),
+      annotations: RO,
+    },
+    (a) =>
+      run(false, async (l) => {
+        const d = await l.load()
+        const currency = (a.currency ?? baseCurrency({ transactions: d.transactions, accounts: d.accounts })).toUpperCase()
+        const c = choosePeriod(d.transactions, a.mode, todayIso(), a.date)
+        if (!c.chosen) return ok('No transactions yet, so there is no period to report on.')
+        const monthLabel = (start: string) => new Date(`${start}T00:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+        const labelOf = (p: Period) =>
+          p.kind === 'salary' ? `salary cycle from ${p.start} to ${p.open && p.expectedEnd ? p.expectedEnd : p.end}` : monthLabel(p.start)
+        const report = buildReport({
+          transactions: d.transactions,
+          budgets: d.budgets,
+          currency,
+          span: { start: c.chosen.start, end: c.chosen.end },
+          label: labelOf(c.chosen),
+          open: c.chosen.open,
+          expectedEnd: c.chosen.expectedEnd,
+          previous: c.previous ? { span: { start: c.previous.start, end: c.previous.end }, label: labelOf(c.previous) } : null,
+          thresholdPercent: a.threshold_percent,
+          minAmount: a.min_amount,
+        })
+        return ok(report.headline.join(' '), {
+          period: report.label,
+          previous_period: report.previousLabel,
+          currency,
+          fell_back_to_calendar: c.fellBack,
+          headline: report.headline,
+          figures: report.metrics.map((m) => ({ item: m.label, current: m.current, previous: m.previous, change_percent: m.change === null ? null : Math.round(m.change * 100) })),
+          watch_list: report.watchList.map((m) => ({ item: m.label, current: m.current, previous: m.previous, change_percent: m.change === null ? null : Math.round(m.change * 100), note: m.note })),
+          categories: report.categories.map((m) => ({ item: m.label, current: m.current, previous: m.previous, change_percent: m.change === null ? null : Math.round(m.change * 100), note: m.note || undefined })),
+          budgets: report.budgets.map((b) => ({ category: b.category, limit: b.limit, spent: b.spent, state: b.state })),
+          basis: report.basis,
+        })
+      }),
+  )
+
+  // ------------------------------------------------------------------ budgets
+
+  server.registerTool(
+    'list_budgets',
+    {
+      title: 'Budgets',
+      description: 'Monthly budgets per category, with what has been spent in the chosen period (calendar month or salary cycle) and whether each one is ok, close to the limit or over.',
+      inputSchema: z.object({
+        mode: z.enum(['calendar', 'salary']).default('calendar'),
+        date: iso.optional().describe('Any date inside the period; default is the latest period with data'),
+        currency: z.string().length(3).optional(),
+      }),
+      annotations: RO,
+    },
+    (a) =>
+      run(false, async (l) => {
+        const d = await l.load()
+        const currency = (a.currency ?? baseCurrency({ transactions: d.transactions, accounts: d.accounts })).toUpperCase()
+        const c = choosePeriod(d.transactions, a.mode, todayIso(), a.date)
+        if (!c.chosen) return ok('No transactions yet, so there is no period to check budgets against.', { budgets: d.budgets.map((b) => ({ category: b.category, limit: b.monthly, currency: b.currency })) })
+        const span = { start: c.chosen.start, end: c.chosen.end }
+        const rows = budgetProgress(d.budgets, d.transactions, span, currency)
+        const over = rows.filter((r) => r.state === 'over').length
+        return ok(`${rows.length} budget${rows.length === 1 ? '' : 's'} for ${c.chosen.start} to ${c.chosen.end}${over ? `, ${over} over` : ''}.`, {
+          period: { start: c.chosen.start, end: c.chosen.end, kind: c.chosen.kind },
+          currency,
+          budgets: rows.map((r) => ({ category: r.category, limit: r.limit, spent: r.spent, used_percent: Math.round(r.used * 100), remaining: r.remaining, state: r.state })),
+        })
+      }),
+  )
+
+  server.registerTool(
+    'set_budget',
+    {
+      title: 'Set budget',
+      description: 'Set or change the monthly limit for a spending category. One budget per category and currency.',
+      inputSchema: z.object({
+        category: z.string().min(1).max(80),
+        monthly: z.number().positive().describe('Limit for one period (a month or a salary cycle)'),
+        currency: z.string().length(3).optional(),
+      }),
+      annotations: WRITE,
+    },
+    (a) =>
+      run(true, async (l) => {
+        const d = await l.load()
+        const currency = (a.currency ?? baseCurrency({ transactions: d.transactions, accounts: d.accounts })).toUpperCase()
+        const category = a.category.trim()
+        const existing = d.budgets.find((b) => b.category.toLowerCase() === category.toLowerCase() && b.currency === currency)
+        const saved = await l.saveBudget({ category, monthly: money(a.monthly), currency }, existing)
+        return ok(`${existing ? 'Changed' : 'Set'} the ${saved.category} budget to ${saved.monthly} ${saved.currency}.`, { category: saved.category, monthly: saved.monthly, currency: saved.currency })
+      }),
+  )
+
+  server.registerTool(
+    'delete_budget',
+    {
+      title: 'Delete budget',
+      description: 'Remove the budget for a category. Needs confirm: true, after the user agrees.',
+      inputSchema: z.object({
+        category: z.string().min(1).max(80),
+        currency: z.string().length(3).optional(),
+        confirm: z.boolean().default(false),
+      }),
+      annotations: DESTRUCTIVE,
+    },
+    (a) =>
+      run(true, async (l) => {
+        if (!a.confirm) return fail('Not deleted. Ask the user to confirm, then call delete_budget again with confirm: true.')
+        const d = await l.load()
+        const currency = (a.currency ?? baseCurrency({ transactions: d.transactions, accounts: d.accounts })).toUpperCase()
+        const existing = d.budgets.find((b) => b.category.toLowerCase() === a.category.trim().toLowerCase() && b.currency === currency)
+        if (!existing) return fail(`No budget for ${a.category} in ${currency}.`)
+        await l.deleteBudget(existing)
+        return ok(`Deleted the ${existing.category} budget.`)
+      }),
+  )
+
+  // ------------------------------------------------------------------ documents
+
+  server.registerTool(
+    'read_document',
+    {
+      title: 'Read a saved document',
+      description:
+        'Read a document saved in FinBuddy (a bank statement, payslip, tax document or receipt), found by id or by a search. Text files come back as text; PDFs and images come back as the file itself so the figures can be read from it. Files over 5 MB are not sent. Only use this when the user asks for what is inside a document.',
+      inputSchema: z.object({
+        id: z.string().optional().describe('Document id from find_documents'),
+        text: z.string().max(100).optional().describe('Search title, notes or file name when no id is given'),
+      }),
+      annotations: RO,
+    },
+    (a) =>
+      run(false, async (l) => {
+        const { documents } = await l.load()
+        const doc = a.id
+          ? documents.find((d) => d.id === a.id)
+          : documents
+              .filter((d) => !a.text || [d.title, d.notes, d.fileName].join(' ').toLowerCase().includes(a.text.toLowerCase()))
+              .sort((x, y) => y.date.localeCompare(x.date))[0]
+        if (!doc) return fail(a.id ? `No document with id ${a.id}. Use find_documents.` : 'No saved document matches. Use find_documents to see what is saved.')
+        const file = await l.downloadDocument(doc)
+        if (file.bytes.byteLength > 5 * 1024 * 1024) return fail(`${doc.title} is larger than 5 MB, so it is not sent. Open it in Google Drive: ${doc.link}`)
+        const meta = `${doc.title} (${doc.type}${doc.date ? `, ${doc.date}` : ''}). Link: ${doc.link}`
+        const type = doc.mimeType || file.mimeType
+        if (type.startsWith('text/') || type === 'application/json') {
+          const text = new TextDecoder().decode(file.bytes).slice(0, 20_000)
+          return { content: [{ type: 'text' as const, text: `${meta}\n\n${text}` }] }
+        }
+        const data = toBase64(file.bytes)
+        if (type.startsWith('image/')) {
+          return { content: [{ type: 'text' as const, text: meta }, { type: 'image' as const, data, mimeType: type }] }
+        }
+        return { content: [{ type: 'text' as const, text: meta }, { type: 'resource' as const, resource: { uri: `finbuddy://document/${doc.id}`, mimeType: type, blob: data } }] }
+      }),
+  )
+
+  // ------------------------------------------------------------------ imports
+
+  server.registerTool(
+    'list_imports',
+    {
+      title: 'Recent imports',
+      description: 'Statement imports, newest first, with how many payments each brought in and the period they cover. Use the created_at value with undo_import.',
+      inputSchema: z.object({ limit: z.number().int().min(1).max(20).default(10) }),
+      annotations: RO,
+    },
+    (q) =>
+      run(false, async (l) => {
+        const { transactions } = await l.load()
+        const groups = new Map<string, Transaction[]>()
+        for (const t of transactions) if (t.source === 'import') groups.set(t.createdAt, [...(groups.get(t.createdAt) ?? []), t])
+        const imports = [...groups.entries()]
+          .sort((a, b) => b[0].localeCompare(a[0]))
+          .slice(0, q.limit)
+          .map(([created_at, list]) => {
+            const dates = list.map((t) => t.date).sort()
+            return {
+              created_at,
+              payments: list.length,
+              from: dates[0],
+              to: dates[dates.length - 1],
+              accounts: Array.from(new Set(list.map((t) => t.account || 'No account'))),
+              currencies: Array.from(new Set(list.map((t) => t.currency))),
+            }
+          })
+        return ok(imports.length ? `${imports.length} recent import${imports.length === 1 ? '' : 's'}.` : 'No statement imports yet.', { imports })
+      }),
+  )
+
+  server.registerTool(
+    'undo_import',
+    {
+      title: 'Undo an import',
+      description:
+        'Remove all payments that one statement import added, found by created_at from list_imports. Needs confirm: true, after the user agrees. Account balances the import set are not reverted; say so to the user.',
+      inputSchema: z.object({
+        created_at: z.string().min(10).describe('The created_at value from list_imports'),
+        confirm: z.boolean().default(false),
+      }),
+      annotations: DESTRUCTIVE,
+    },
+    (q) =>
+      run(true, async (l) => {
+        if (!q.confirm) return fail('Not removed. Ask the user to confirm, then call undo_import again with confirm: true.')
+        const { transactions } = await l.load()
+        const batch = transactions.filter((t) => t.source === 'import' && t.createdAt === q.created_at)
+        if (!batch.length) return fail('No statement import has that created_at. Use list_imports.')
+        await l.deleteTransactions(batch)
+        return ok(`Removed ${batch.length} payment${batch.length === 1 ? '' : 's'} from that import. Account balances it set are not reverted; set them again with save_account if needed.`)
       }),
   )
 

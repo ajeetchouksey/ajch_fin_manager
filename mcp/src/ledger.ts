@@ -3,7 +3,7 @@
  * app uses, loaded once, and written with the same client, so both stay in step.
  */
 
-import { DriveError, LedgerClient } from '../../frontend/src/lib/google/driveClient'
+import { BUDGET_SHEET, DriveError, LedgerClient } from '../../frontend/src/lib/google/driveClient'
 import { newId, type LedgerDocument, type LedgerLocation, type Transaction } from '../../frontend/src/lib/ledger/types'
 import { newAccountId, newGoalId, type Account, type BalanceEntry, type Goal } from '../../frontend/src/lib/ledger/portfolio'
 import type { TransactionDraft } from '../../frontend/src/lib/ledger/statement'
@@ -103,6 +103,27 @@ export class LedgerSession {
     }
     this.invalidate()
     return account
+  }
+
+  /** Adds or changes the budget for a category (one row per category). */
+  async saveBudget(draft: Omit<Budget, 'createdAt' | 'row'>, existing?: Budget): Promise<Budget> {
+    const { spreadsheetId } = await this.requireLocation()
+    const budget: Budget = { ...draft, createdAt: existing?.createdAt || new Date().toISOString(), row: existing?.row }
+    if (existing) await this.client.updateBudget(spreadsheetId, budget)
+    else await this.client.appendBudgets(spreadsheetId, [budget])
+    this.invalidate()
+    return budget
+  }
+
+  async deleteBudget(b: Budget) {
+    const { spreadsheetId } = await this.requireLocation()
+    await this.client.deleteRow(spreadsheetId, BUDGET_SHEET, b.row ?? 0, b.category)
+    this.invalidate()
+  }
+
+  /** The file a saved document points to, from Drive. */
+  async downloadDocument(d: LedgerDocument) {
+    return this.client.downloadFile(d.id)
   }
 
   async deleteAccount(a: Account) {
