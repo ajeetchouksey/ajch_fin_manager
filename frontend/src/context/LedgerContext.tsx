@@ -55,6 +55,8 @@ interface LedgerContextValue {
   /** Adds or changes the budget for a category (one per category). */
   saveBudget: (draft: Omit<Budget, 'createdAt' | 'row'>, existing?: Budget) => Promise<Budget>
   deleteBudget: (b: Budget) => Promise<void>
+  /** Saves a report as a Google Doc in the FinBuddy Documents folder. Returns the link. */
+  createReportDoc: (name: string, html: string) => Promise<string>
   clearError: () => void
 }
 
@@ -338,6 +340,16 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [run, client, load],
   )
 
+  const createReportDoc: LedgerContextValue['createReportDoc'] = useCallback(
+    (name, html) =>
+      run(async () => {
+        const loc = requireLoc()
+        const doc = await client.createDocFromHtml(loc.documentsFolderId || loc.folderId, name, html)
+        return doc.webViewLink
+      }),
+    [run, client],
+  )
+
   const uploadDocuments: LedgerContextValue['uploadDocuments'] = useCallback(
     (drafts, transactionId) =>
       run(async () => {
@@ -465,6 +477,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     saveBudget,
     deleteBudget,
     clearError: () => setError(null),
+    createReportDoc,
   }
 
   return <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>

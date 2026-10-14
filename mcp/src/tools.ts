@@ -17,6 +17,7 @@ import { baseCurrency, forecast, review, type ReviewInput } from '../../frontend
 import { change, inSpan, spendingByCategory, totalsFor, ym } from '../../frontend/src/lib/ledger/summary'
 import { buildPeriods, periodContaining, type Period } from '../../frontend/src/lib/ledger/periods'
 import { budgetProgress } from '../../frontend/src/lib/ledger/budgets'
+import { buildReport, choosePeriod } from '../../frontend/src/lib/ledger/report'
 import { explain, LedgerSession } from './ledger'
 import { SCOPE_WRITE, type AccessProps } from './types'
 
@@ -295,6 +296,57 @@ export function buildServer(): McpServer {
           budgets: budgets.map((b) => ({ category: b.category, limit: b.limit, spent: b.spent, used_percent: Math.round(b.used * 100), remaining: b.remaining, state: b.state })),
           series: series.map((p) => ({ start: p.start, end: p.end, income: p.income, spending: p.spending, net: p.net })),
           basis,
+        })
+      }),
+  )
+
+  server.registerTool(
+    'monthly_report',
+    {
+      title: 'Monthly report',
+      description:
+        'The report for you and your partner: headline, figures against the previous period, a watch list of categories that moved beyond a threshold, budgets, and the basis. Same figures as the Report page in the app. Causes are given only where the data shows them; otherwise the note says "driver to be confirmed".',
+      inputSchema: z.object({
+        mode: z.enum(['calendar', 'salary']).default('calendar'),
+        date: iso.optional().describe('Any date inside the period; default is the latest period with data'),
+        threshold_percent: z.number().min(5).max(100).default(20).describe('Watch a category that moved at least this much'),
+        min_amount: z.number().min(0).default(50).describe('…and by at least this amount'),
+        currency: z.string().length(3).optional(),
+      }),
+      annotations: RO,
+    },
+    (a) =>
+      run(false, async (l) => {
+        const d = await l.load()
+        const currency = (a.currency ?? baseCurrency({ transactions: d.transactions, accounts: d.accounts })).toUpperCase()
+        const c = choosePeriod(d.transactions, a.mode, todayIso(), a.date)
+        if (!c.chosen) return ok('No transactions yet, so there is no period to report on.')
+        const monthLabel = (start: string) => new Date(`${start}T00:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+        const labelOf = (p: Period) =>
+          p.kind === 'salary' ? `salary cycle from ${p.start} to ${p.open && p.expectedEnd ? p.expectedEnd : p.end}` : monthLabel(p.start)
+        const report = buildReport({
+          transactions: d.transactions,
+          budgets: d.budgets,
+          currency,
+          span: { start: c.chosen.start, end: c.chosen.end },
+          label: labelOf(c.chosen),
+          open: c.chosen.open,
+          expectedEnd: c.chosen.expectedEnd,
+          previous: c.previous ? { span: { start: c.previous.start, end: c.previous.end }, label: labelOf(c.previous) } : null,
+          thresholdPercent: a.threshold_percent,
+          minAmount: a.min_amount,
+        })
+        return ok(report.headline.join(' '), {
+          period: report.label,
+          previous_period: report.previousLabel,
+          currency,
+          fell_back_to_calendar: c.fellBack,
+          headline: report.headline,
+          figures: report.metrics.map((m) => ({ item: m.label, current: m.current, previous: m.previous, change_percent: m.change === null ? null : Math.round(m.change * 100) })),
+          watch_list: report.watchList.map((m) => ({ item: m.label, current: m.current, previous: m.previous, change_percent: m.change === null ? null : Math.round(m.change * 100), note: m.note })),
+          categories: report.categories.map((m) => ({ item: m.label, current: m.current, previous: m.previous, change_percent: m.change === null ? null : Math.round(m.change * 100), note: m.note || undefined })),
+          budgets: report.budgets.map((b) => ({ category: b.category, limit: b.limit, spent: b.spent, state: b.state })),
+          basis: report.basis,
         })
       }),
   )

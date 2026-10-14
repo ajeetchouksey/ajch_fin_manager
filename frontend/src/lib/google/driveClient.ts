@@ -413,4 +413,25 @@ export class LedgerClient {
     )
     return { ...res, webViewLink: res.webViewLink ?? `https://drive.google.com/file/d/${res.id}/view` }
   }
+
+  /** Creates a Google Doc in a folder from HTML; Drive converts it, so it opens and shares like any Doc. */
+  async createDocFromHtml(folderId: string, name: string, html: string): Promise<{ id: string; webViewLink: string }> {
+    const boundary = `aarya${Math.random().toString(36).slice(2)}`
+    const meta = { name: name.slice(0, 200), mimeType: 'application/vnd.google-apps.document', parents: [folderId] }
+    const body = new Blob(
+      [
+        `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
+        `--${boundary}\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n`,
+        html,
+        `\r\n--${boundary}--`,
+      ],
+      { type: `multipart/related; boundary=${boundary}` },
+    )
+    const res = await this.call<{ id: string; webViewLink?: string }>(`${UPLOAD}/files?uploadType=multipart&fields=id,webViewLink`, {
+      method: 'POST',
+      body,
+      headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+    })
+    return { id: res.id, webViewLink: res.webViewLink ?? `https://docs.google.com/document/d/${res.id}/edit` }
+  }
 }

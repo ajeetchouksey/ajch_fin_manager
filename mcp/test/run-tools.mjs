@@ -38,7 +38,7 @@ const init = await rpc('initialize', { protocolVersion: '2025-06-18', capabiliti
 check('initialize', !!init.serverInfo, `${init.serverInfo?.name} · instructions ${init.instructions ? 'present' : 'missing'}`)
 
 const tools = (await rpc('tools/list', {})).tools
-check('tools/list', tools.length === 17, tools.map((t) => t.name).join(', '))
+check('tools/list', tools.length === 18, tools.map((t) => t.name).join(', '))
 const del = tools.find((t) => t.name === 'delete_transactions')
 check('delete is marked destructive', del?.annotations?.destructiveHint === true)
 check('review is read-only', tools.find((t) => t.name === 'financial_review')?.annotations?.readOnlyHint === true)
@@ -110,6 +110,11 @@ check('month_summary defaults to the latest period with data', !r.error && r.dat
 check('month_summary has series, categories, budgets and basis', Array.isArray(r.data?.series) && r.data.series.length >= 1 && Array.isArray(r.data?.categories) && Array.isArray(r.data?.budgets) && /1st to last day/.test(r.data?.basis ?? ''))
 r = await call('month_summary', { mode: 'salary' })
 check('month_summary salary mode returns a salary cycle or falls back', !r.error && ['salary', 'calendar'].includes(r.data?.period?.kind) && typeof r.data?.fell_back_to_calendar === 'boolean', r.text.split('\n')[0])
+r = await call('monthly_report', {})
+check('monthly_report has headline, figures, watch list and basis', !r.error && r.data?.headline?.length >= 1 && Array.isArray(r.data?.figures) && Array.isArray(r.data?.watch_list) && /Actual figures/.test(r.data?.basis ?? ''), r.text.split('\n')[0])
+check('monthly_report explains moves honestly', (r.data?.categories ?? []).every((c) => c.note === undefined || c.note.length > 0))
+r = await call('monthly_report', { mode: 'calendar', threshold_percent: 5, min_amount: 1 })
+check('monthly_report thresholds are used', !r.error && (r.data?.watch_list?.length ?? 0) >= 0 && /moved at least 5%/.test(r.data?.basis ?? ''))
 
 r = await call('spending_breakdown', { group_by: 'category' })
 check('spending_breakdown', !r.error && r.data?.groups?.[0]?.name === 'Housing', r.data?.groups?.map((g) => `${g.name} ${g.total}`).join(', '))

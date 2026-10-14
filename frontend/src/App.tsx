@@ -4,6 +4,7 @@ import { OAuthCallbackPage } from './pages/OAuthCallbackPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { AccountsPage, GoalsPage } from './pages/PortfolioPages'
 import { InsightsPage } from './pages/InsightsPage'
+import { ReportPage } from './pages/ReportPage'
 import { TransactionsPage } from './pages/TransactionsPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { StoragePage } from './pages/StoragePage'
@@ -38,6 +39,7 @@ function App() {
         <Route path="/documents" element={<DocumentsPage />} />
         <Route path="/goals" element={<GoalsPage />} />
         <Route path="/insights" element={<InsightsPage />} />
+        <Route path="/report" element={<ReportPage />} />
         <Route path="/settings/storage" element={<StoragePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
