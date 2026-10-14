@@ -8,7 +8,7 @@
     "build": "node scripts/copy-ocr-assets.mjs && tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "node --test tests/periods.test.ts"
+    "test": "node --import ./tests/register.mjs --test tests/*.test.ts"
   },
   "dependencies": {
     "@aaryaai/brand": "github:ajeetchouksey/ajch_brand#main",
