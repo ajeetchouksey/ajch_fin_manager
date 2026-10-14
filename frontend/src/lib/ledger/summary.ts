@@ -6,6 +6,13 @@ import { isTransfer } from './categorize'
 
 export const ym = (date: string) => date.slice(0, 7)
 
+/** A calendar month ('YYYY-MM') or a date range (a salary cycle, or any custom period). */
+export type Span = string | { start: string; end: string }
+
+export function inSpan(date: string, span: Span): boolean {
+  return typeof span === 'string' ? ym(date) === span : date >= span.start && date <= span.end
+}
+
 export function shiftMonth(month: string, delta: number): string {
   const [y, m] = month.split('-').map(Number)
   const d = new Date(y, m - 1 + delta, 1)
@@ -45,12 +52,12 @@ export interface MonthTotals {
   count: number
 }
 
-export function totalsFor(tx: Transaction[], month: string, currency: string): MonthTotals {
+export function totalsFor(tx: Transaction[], span: Span, currency: string): MonthTotals {
   let income = 0
   let spending = 0
   let count = 0
   for (const t of tx) {
-    if (ym(t.date) !== month || t.currency !== currency || isTransfer(t)) continue
+    if (!inSpan(t.date, span) || t.currency !== currency || isTransfer(t)) continue
     count++
     if (t.direction === 'in') income += t.amount
     else spending += t.amount
@@ -67,11 +74,11 @@ export interface CategoryShare {
 }
 
 /** Spending by category, largest first; anything past `top` folds into "Everything else". */
-export function spendingByCategory(tx: Transaction[], month: string, currency: string, top = 7): CategoryShare[] {
+export function spendingByCategory(tx: Transaction[], span: Span, currency: string, top = 7): CategoryShare[] {
   const sums = new Map<string, { amount: number; count: number }>()
   let total = 0
   for (const t of tx) {
-    if (t.direction !== 'out' || ym(t.date) !== month || t.currency !== currency || isTransfer(t)) continue
+    if (t.direction !== 'out' || !inSpan(t.date, span) || t.currency !== currency || isTransfer(t)) continue
     const k = t.category || 'Other'
     const s = sums.get(k) ?? { amount: 0, count: 0 }
     s.amount += t.amount
@@ -109,10 +116,10 @@ export interface AccountFlow {
   count: number
 }
 
-export function byAccount(tx: Transaction[], month: string, currency: string): AccountFlow[] {
+export function byAccount(tx: Transaction[], span: Span, currency: string): AccountFlow[] {
   const m = new Map<string, AccountFlow>()
   for (const t of tx) {
-    if (ym(t.date) !== month || t.currency !== currency) continue
+    if (!inSpan(t.date, span) || t.currency !== currency) continue
     const k = t.account || 'No account'
     const a = m.get(k) ?? { account: k, income: 0, spending: 0, count: 0 }
     if (t.direction === 'in') a.income += t.amount

@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { clearDriveToken, getStoredDriveToken, requestDriveToken } from '../lib/google/gis'
-import { ACCOUNT_SHEET, DOC_SHEET, DriveError, GOAL_SHEET, LedgerClient, TX_SHEET } from '../lib/google/driveClient'
+import { ACCOUNT_SHEET, BUDGET_SHEET, DOC_SHEET, DriveError, GOAL_SHEET, LedgerClient, TX_SHEET } from '../lib/google/driveClient'
+import type { Budget } from '../lib/ledger/budgets'
 import { newId, todayIso, type LedgerDocument, type LedgerLocation, type Transaction } from '../lib/ledger/types'
 import { newAccountId, newGoalId, type Account, type BalanceEntry, type Goal } from '../lib/ledger/portfolio'
 
@@ -34,6 +35,7 @@ interface LedgerContextValue {
   accounts: Account[]
   balances: BalanceEntry[]
   goals: Goal[]
+  budgets: Budget[]
   busy: boolean
   connect: (folderName: string) => Promise<void>
   reconnect: () => Promise<void>
@@ -50,6 +52,9 @@ interface LedgerContextValue {
   deleteAccount: (a: Account) => Promise<void>
   saveGoal: (draft: GoalDraft, existing?: Goal) => Promise<Goal>
   deleteGoal: (g: Goal) => Promise<void>
+  /** Adds or changes the budget for a category (one per category). */
+  saveBudget: (draft: Omit<Budget, 'createdAt' | 'row'>, existing?: Budget) => Promise<Budget>
+  deleteBudget: (b: Budget) => Promise<void>
   clearError: () => void
 }
 
@@ -88,6 +93,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [balances, setBalances] = useState<BalanceEntry[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
+  const [budgets, setBudgets] = useState<Budget[]>([])
   const [busy, setBusy] = useState(false)
   const locRef = useRef<LedgerLocation | null>(null)
   useEffect(() => {
@@ -124,18 +130,20 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         checkedTabs.current = loc.spreadsheetId
       }
       const id = loc.spreadsheetId
-      const [tx, docs, accs, bals, gls] = await Promise.all([
+      const [tx, docs, accs, bals, gls, buds] = await Promise.all([
         client.listTransactions(id),
         client.listDocuments(id),
         client.listAccounts(id),
         client.listBalances(id),
         client.listGoals(id),
+        client.listBudgets(id),
       ])
       setTransactions(tx)
       setDocuments(docs)
       setAccounts(accs)
       setBalances(bals)
       setGoals(gls)
+      setBudgets(buds)
     },
     [client],
   )
@@ -225,6 +233,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     setAccounts([])
     setBalances([])
     setGoals([])
+    setBudgets([])
     setStatus('disconnected')
   }, [userId])
 
@@ -395,6 +404,29 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [run, client, load],
   )
 
+  const saveBudget: LedgerContextValue['saveBudget'] = useCallback(
+    (draft, existing) =>
+      run(async () => {
+        const loc = requireLoc()
+        const budget: Budget = { ...draft, createdAt: existing?.createdAt || new Date().toISOString(), row: existing?.row }
+        if (existing) await client.updateBudget(loc.spreadsheetId, budget)
+        else await client.appendBudgets(loc.spreadsheetId, [budget])
+        await load(loc)
+        return budget
+      }),
+    [run, client, load],
+  )
+
+  const deleteBudget: LedgerContextValue['deleteBudget'] = useCallback(
+    (b) =>
+      run(async () => {
+        const loc = requireLoc()
+        await client.deleteRow(loc.spreadsheetId, BUDGET_SHEET, b.row ?? 0, b.category)
+        await load(loc)
+      }),
+    [run, client, load],
+  )
+
   const deleteGoal: LedgerContextValue['deleteGoal'] = useCallback(
     (g) =>
       run(async () => {
@@ -414,6 +446,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     accounts,
     balances,
     goals,
+    budgets,
     busy,
     connect,
     reconnect,
@@ -429,6 +462,8 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     deleteAccount,
     saveGoal,
     deleteGoal,
+    saveBudget,
+    deleteBudget,
     clearError: () => setError(null),
   }
 

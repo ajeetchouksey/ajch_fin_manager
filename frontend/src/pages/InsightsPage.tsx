@@ -5,6 +5,7 @@ import { PageHeader } from '../components/PageHeader'
 import { ConnectDrive } from '../components/ledger/ConnectDrive'
 import { SectionHeader } from '../components/overview/OverviewParts'
 import { ForecastChart } from '../components/insights/ForecastChart'
+import { ForecastDrivers } from '../components/insights/ForecastDrivers'
 import { useLedger } from '../context/LedgerContext'
 import { useReview } from '../hooks/useReview'
 import { formatMoney } from '../lib/ledger/types'
@@ -144,7 +145,9 @@ export function InsightsPage() {
 
         <section className="card overflow-hidden p-0" aria-labelledby="fc-heading">
           <SectionHeader id="fc-heading" title="Next 12 months" />
+          <p className="px-5 pt-4 text-xs text-slate-400 sm:px-6">Estimate. Not a promise: it repeats your recent months, with a safety margin on spending.</p>
           <ForecastChart points={review.forecast.points} currency={cur} start={{ liquid: nw.liquid, netWorth: nw.netWorth }} />
+          <ForecastDrivers d={review.forecast.drivers} currency={cur} />
           {review.forecast.cashRunsOutMonth && (
             <p className="mx-5 mb-3 rounded-lg bg-amber-300/10 px-3 py-2 text-sm text-amber-100 sm:mx-6">
               In a bad stretch, cash could run out around {monthName(review.forecast.cashRunsOutMonth)}.

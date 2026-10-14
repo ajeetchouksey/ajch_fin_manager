@@ -70,12 +70,16 @@ export function KpiTiles({ now, before, currency }: { now: MonthTotals; before: 
 }
 
 /** Spending by category: one series, so one hue; sorted bars with values as text. */
-export function CategoryBars({ rows, currency, onPick }: { rows: CategoryShare[]; currency: string; onPick?: (category: string) => void }) {
-  if (!rows.length) return <p className="px-5 py-10 text-center text-sm text-slate-400 sm:px-6">No spending recorded for this month.</p>
+/** Spending by category. With `before` (the previous period), each row shows how it moved. */
+export function CategoryBars({ rows, currency, onPick, before, noun = 'this month' }: { rows: CategoryShare[]; currency: string; onPick?: (category: string) => void; before?: CategoryShare[]; noun?: string }) {
+  if (!rows.length) return <p className="px-5 py-10 text-center text-sm text-slate-400 sm:px-6">No spending recorded for {noun}.</p>
   const max = Math.max(...rows.map((r) => r.amount))
   return (
     <ul className="space-y-3 px-5 py-4 sm:px-6">
-      {rows.map((r) => (
+      {rows.map((r) => {
+        const prev = before?.find((b) => b.category === r.category)
+        const delta = before && prev ? change(r.amount, prev.amount) : null
+        return (
         <li key={r.category}>
           <button
             type="button"
@@ -88,6 +92,11 @@ export function CategoryBars({ rows, currency, onPick }: { rows: CategoryShare[]
               <span className="truncate text-slate-200 group-enabled:group-hover:text-white">{r.category}</span>
               <span className="shrink-0 tabular-nums text-slate-300">
                 {formatMoney(r.amount, currency)} <span className="text-slate-500">· {(r.share * 100).toFixed(0)}%</span>
+                {before && (
+                  <span className={`ml-2 text-xs ${delta === null ? 'text-slate-500' : delta > 0 ? 'text-amber-200' : 'text-brand-success'}`}>
+                    {delta === null ? (prev ? '' : 'new') : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta * 100).toFixed(0)}%`}
+                  </span>
+                )}
               </span>
             </div>
             <div className="h-2 rounded-full bg-white/5">
@@ -95,7 +104,8 @@ export function CategoryBars({ rows, currency, onPick }: { rows: CategoryShare[]
             </div>
           </button>
         </li>
-      ))}
+        )
+      })}
     </ul>
   )
 }
@@ -107,7 +117,20 @@ function barPath(x: number, y: number, w: number, h: number, r: number) {
 }
 
 /** Money in vs out for the last months: two series, legend + hover tooltip + table view. */
-export function TrendChart({ points, currency, selected, onSelect }: { points: TrendPoint[]; currency: string; selected: string; onSelect: (month: string) => void }) {
+export function TrendChart({
+  points,
+  currency,
+  selected,
+  onSelect,
+  labelOf = (p, style) => monthName(p.month, style),
+}: {
+  points: TrendPoint[]
+  currency: string
+  selected: string
+  onSelect: (key: string) => void
+  /** Label for a point: a month by default; a salary cycle passes its own */
+  labelOf?: (p: TrendPoint, style?: 'long' | 'short') => string
+}) {
   const [hover, setHover] = useState<number | null>(null)
   const [asTable, setAsTable] = useState(false)
   // Draw at the real pixel width so text stays readable on phones (no viewBox scaling)
@@ -156,7 +179,7 @@ export function TrendChart({ points, currency, selected, onSelect }: { points: T
           <tbody className="divide-y divide-line">
             {points.map((p) => (
               <tr key={p.month} className={p.month === selected ? 'text-white' : 'text-slate-300'}>
-                <td className="py-1.5">{monthName(p.month)}</td>
+                <td className="py-1.5">{labelOf(p)}</td>
                 <td className="py-1.5 text-right tabular-nums">{formatMoney(p.income, currency)}</td>
                 <td className="py-1.5 text-right tabular-nums">{formatMoney(p.spending, currency)}</td>
                 <td className="py-1.5 text-right tabular-nums">{formatMoney(p.net, currency)}</td>
@@ -183,7 +206,7 @@ export function TrendChart({ points, currency, selected, onSelect }: { points: T
                   <path d={barPath(cx - barW - 1, y(p.income), barW, y(0) - y(p.income), 4)} fill={IN} />
                   <path d={barPath(cx + 1, y(p.spending), barW, y(0) - y(p.spending), 4)} fill={OUT} />
                   <text x={cx} y={H - 8} textAnchor="middle" fontSize={13} fill={p.month === selected ? 'white' : 'rgb(148 163 184)'} fontWeight={p.month === selected ? 600 : 400}>
-                    {monthName(p.month, 'short')}
+                    {labelOf(p, 'short')}
                   </text>
                   <rect
                     x={gx}
@@ -193,7 +216,7 @@ export function TrendChart({ points, currency, selected, onSelect }: { points: T
                     fill="transparent"
                     tabIndex={0}
                     role="button"
-                    aria-label={`${monthName(p.month)}: in ${formatMoney(p.income, currency)}, out ${formatMoney(p.spending, currency)}. Show this month.`}
+                    aria-label={`${labelOf(p)}: in ${formatMoney(p.income, currency)}, out ${formatMoney(p.spending, currency)}. Show this month.`}
                     className="cursor-pointer outline-none"
                     onMouseEnter={() => setHover(i)}
                     onMouseLeave={() => setHover(null)}
@@ -220,7 +243,7 @@ export function TrendChart({ points, currency, selected, onSelect }: { points: T
               className="pointer-events-none absolute top-1 z-10 w-44 rounded-xl border border-line-strong bg-surface px-3 py-2 text-xs shadow-xl shadow-black/40"
               style={{ left: `clamp(0px, calc(${((padL + (hover + 0.5) * groupW) / W) * 100}% - 88px), calc(100% - 176px))` }}
             >
-              <p className="mb-1 font-semibold text-white">{monthName(hovered.month)}</p>
+              <p className="mb-1 font-semibold text-white">{labelOf(hovered)}</p>
               <p className="flex justify-between text-slate-300"><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ background: IN }} />In</span><span className="tabular-nums">{formatMoney(hovered.income, currency)}</span></p>
               <p className="flex justify-between text-slate-300"><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ background: OUT }} />Out</span><span className="tabular-nums">{formatMoney(hovered.spending, currency)}</span></p>
               <p className="mt-1 flex justify-between border-t border-line pt-1 text-white"><span>Net</span><span className="tabular-nums">{formatMoney(hovered.net, currency)}</span></p>
