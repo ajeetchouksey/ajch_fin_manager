@@ -8,6 +8,7 @@ import { EmptyState } from '../EmptyState'
 import { AccountList, CategoryBars, KpiTiles, RecentList, SectionHeader, TrendChart } from './OverviewParts'
 import { BudgetCard } from './BudgetCard'
 import { BudgetDialog } from './BudgetDialog'
+import { AskAI } from './AskAI'
 import { budgetProgress } from '../../lib/ledger/budgets'
 import { byAccount, currenciesByUse, inSpan, monthName, spendingByCategory, totalsFor, type Span, type TrendPoint } from '../../lib/ledger/summary'
 import { buildPeriods, type Period, type PeriodMode } from '../../lib/ledger/periods'
@@ -174,6 +175,8 @@ export function LedgerOverview() {
       )}
 
       <KpiTiles now={data.now} before={data.before} currency={currency} />
+
+      <AskAI period={title} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section aria-labelledby="cat-heading" className="card">
