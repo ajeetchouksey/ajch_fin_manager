@@ -38,7 +38,7 @@ const init = await rpc('initialize', { protocolVersion: '2025-06-18', capabiliti
 check('initialize', !!init.serverInfo, `${init.serverInfo?.name} · instructions ${init.instructions ? 'present' : 'missing'}`)
 
 const tools = (await rpc('tools/list', {})).tools
-check('tools/list', tools.length === 24, tools.map((t) => t.name).join(', '))
+check('tools/list', tools.length === 25, tools.map((t) => t.name).join(', '))
 const del = tools.find((t) => t.name === 'delete_transactions')
 check('delete is marked destructive', del?.annotations?.destructiveHint === true)
 check('review is read-only', tools.find((t) => t.name === 'financial_review')?.annotations?.readOnlyHint === true)
@@ -131,6 +131,10 @@ r = await call('read_document', { text: 'payslip' })
 check('read_document with nothing saved says so', r.error && /No saved document matches/.test(r.text), r.text.split('\n')[0])
 r = await call('list_imports', {})
 check('list_imports shows the statement import', !r.error && r.data?.imports?.length >= 1 && r.data.imports[0].payments >= 1, r.text.split('\n')[0])
+r = await call('preview_account_link', { account: 'Commerzbank current', label: 'Commerzbank current' })
+check('preview_account_link counts rows and changes nothing', !r.error && r.data?.would_link >= 1 && r.data?.linked_to_another_account === 0 && /Nothing has been changed/.test(r.text), r.text.split('\n')[0])
+r = await call('preview_account_link', { account: 'No such account' })
+check('preview_account_link refuses an unknown account', r.error && /No account matches/.test(r.text))
 r = await call('monthly_report', { mode: 'calendar', threshold_percent: 5, min_amount: 1 })
 check('monthly_report thresholds are used',!r.error && (r.data?.watch_list?.length ?? 0) >= 0 && /moved at least 5%/.test(r.data?.basis ?? ''))
 

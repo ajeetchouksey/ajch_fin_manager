@@ -18,6 +18,7 @@ import { change, inSpan, spendingByCategory, totalsFor, ym } from '../../fronten
 import { buildPeriods, periodContaining, type Period } from '../../frontend/src/lib/ledger/periods'
 import { budgetProgress } from '../../frontend/src/lib/ledger/budgets'
 import { buildReport, choosePeriod } from '../../frontend/src/lib/ledger/report'
+import { planLabelMigration } from '../../frontend/src/lib/ledger/accounts'
 import { explain, LedgerSession } from './ledger'
 import { SCOPE_WRITE, type AccessProps } from './types'
 
@@ -367,6 +368,46 @@ export function buildServer(): McpServer {
           categories: report.categories.map((m) => ({ item: m.label, current: m.current, previous: m.previous, change_percent: m.change === null ? null : Math.round(m.change * 100), note: m.note || undefined })),
           budgets: report.budgets.map((b) => ({ category: b.category, limit: b.limit, spent: b.spent, state: b.state })),
           basis: report.basis,
+        })
+      }),
+  )
+
+  // ------------------------------------------------------------------ account links (F01)
+
+  server.registerTool(
+    'preview_account_link',
+    {
+      title: 'Preview linking rows to an account',
+      description:
+        'Shows how many payments carrying an account label (for example "Savings") would be linked to an account id, before anything changes. Writes nothing. Use it before any link is applied.',
+      inputSchema: z.object({
+        account: z.string().min(1).max(80).describe('Account id or name the rows belong to'),
+        label: z.string().min(1).max(80).default('Savings').describe('The label the rows carry today'),
+      }),
+      annotations: RO,
+    },
+    (q) =>
+      run(false, async (l) => {
+        const d = await l.load()
+        const wanted = q.account.trim().toLowerCase()
+        const acc = d.accounts.find((a) => a.id === q.account.trim() || a.name.trim().toLowerCase() === wanted)
+        if (!acc) return fail(`No account matches "${q.account}". Use list_accounts_and_goals to see the ids.`)
+        const plan = planLabelMigration(d.transactions.map((t) => ({ account: t.account, accountId: t.accountId })), q.label)
+        const linkedElsewhere = d.transactions.filter((t) => t.accountId && t.accountId !== acc.id).length
+        const sample = d.transactions
+          .filter((t) => !t.accountId && t.account === q.label)
+          .slice(0, 5)
+          .map((t) => ({ date: t.date, direction: t.direction, amount: t.amount, description: mask(t.description) }))
+        return ok(`Preview: ${plan.toLink} payment${plan.toLink === 1 ? '' : 's'} labelled "${q.label}" would be linked to ${acc.name}. Nothing has been changed.`, {
+          account: { id: acc.id, name: acc.name },
+          label: q.label,
+          total_rows: d.transactions.length,
+          would_link: plan.toLink,
+          already_linked: plan.alreadyLinked,
+          linked_to_another_account: linkedElsewhere,
+          other_labels: plan.otherLabels,
+          without_label: plan.unlabelled,
+          sample,
         })
       }),
   )
