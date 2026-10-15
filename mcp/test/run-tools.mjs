@@ -39,6 +39,13 @@ check('initialize', !!init.serverInfo, `${init.serverInfo?.name} · instructions
 
 const tools = (await rpc('tools/list', {})).tools
 check('tools/list', tools.length === 27, tools.map((t) => t.name).join(', '))
+const monthTool = tools.find((t) => t.name === 'month_summary')
+check('month_summary links to the month view', monthTool?._meta?.ui?.resourceUri === 'ui://finbuddy/month-view', JSON.stringify(monthTool?._meta ?? null))
+const resList = await rpc('resources/list', {})
+check('the month view is listed as a resource', resList.resources?.some((x) => x.uri === 'ui://finbuddy/month-view'), (resList.resources ?? []).map((x) => x.uri).join(', '))
+const resRead = await rpc('resources/read', { uri: 'ui://finbuddy/month-view' })
+const viewContent = resRead.contents?.[0]
+check('the month view is served as a self-contained page', viewContent?.mimeType === 'text/html;profile=mcp-app' && /<html/.test(viewContent?.text ?? '') && !/https?:\/\//.test((viewContent?.text ?? '').replace(/http:\/\/www\.w3\.org[^\s"']*/g, '')), viewContent?.mimeType)
 const del = tools.find((t) => t.name === 'delete_transactions')
 check('delete is marked destructive', del?.annotations?.destructiveHint === true)
 check('review is read-only', tools.find((t) => t.name === 'financial_review')?.annotations?.readOnlyHint === true)
