@@ -8,6 +8,7 @@ import { newId, type LedgerDocument, type LedgerLocation, type Transaction } fro
 import { newAccountId, newGoalId, type Account, type BalanceEntry, type Goal } from '../../frontend/src/lib/ledger/portfolio'
 import type { TransactionDraft } from '../../frontend/src/lib/ledger/statement'
 import type { Budget } from '../../frontend/src/lib/ledger/budgets'
+import type { Analysis, AnalysisStatus } from '../../frontend/src/lib/ledger/analysis'
 
 export class NoLedgerError extends Error {
   constructor() {
@@ -23,6 +24,7 @@ export interface LedgerData {
   goals: Goal[]
   documents: LedgerDocument[]
   budgets: Budget[]
+  analysis: Analysis[]
 }
 
 export class LedgerSession {
@@ -55,15 +57,16 @@ export class LedgerSession {
   async load(): Promise<LedgerData> {
     if (this.data) return this.data
     const { spreadsheetId: id } = await this.requireLocation()
-    const [transactions, accounts, balances, goals, documents, budgets] = await Promise.all([
+    const [transactions, accounts, balances, goals, documents, budgets, analysis] = await Promise.all([
       this.client.listTransactions(id),
       this.client.listAccounts(id),
       this.client.listBalances(id),
       this.client.listGoals(id),
       this.client.listDocuments(id),
       this.client.listBudgets(id),
+      this.client.listAnalysis(id),
     ])
-    this.data = { transactions, accounts, balances, goals, documents, budgets }
+    this.data = { transactions, accounts, balances, goals, documents, budgets, analysis }
     return this.data
   }
 
@@ -119,6 +122,23 @@ export class LedgerSession {
     const { spreadsheetId } = await this.requireLocation()
     await this.client.deleteRow(spreadsheetId, BUDGET_SHEET, b.row ?? 0, b.category)
     this.invalidate()
+  }
+
+  /** Adds an AI analysis entry to the user's Analysis tab. */
+  async saveAnalysis(entry: Analysis): Promise<Analysis> {
+    const { spreadsheetId } = await this.requireLocation()
+    await this.client.appendAnalysis(spreadsheetId, [entry])
+    this.invalidate()
+    return entry
+  }
+
+  /** Marks an entry open, done or dismissed. Entries are never deleted by the AI. */
+  async setAnalysisStatus(entry: Analysis, status: AnalysisStatus): Promise<Analysis> {
+    const { spreadsheetId } = await this.requireLocation()
+    const updated = { ...entry, status }
+    await this.client.updateAnalysis(spreadsheetId, updated)
+    this.invalidate()
+    return updated
   }
 
   /** The file a saved document points to, from Drive. */

@@ -38,7 +38,7 @@ const init = await rpc('initialize', { protocolVersion: '2025-06-18', capabiliti
 check('initialize', !!init.serverInfo, `${init.serverInfo?.name} · instructions ${init.instructions ? 'present' : 'missing'}`)
 
 const tools = (await rpc('tools/list', {})).tools
-check('tools/list', tools.length === 25, tools.map((t) => t.name).join(', '))
+check('tools/list', tools.length === 27, tools.map((t) => t.name).join(', '))
 const del = tools.find((t) => t.name === 'delete_transactions')
 check('delete is marked destructive', del?.annotations?.destructiveHint === true)
 check('review is read-only', tools.find((t) => t.name === 'financial_review')?.annotations?.readOnlyHint === true)
@@ -152,6 +152,22 @@ r = await call('add_transactions', { transactions: [{ date: '2026-10-03', amount
 check('read-only connection cannot write', r.error && /read-only/.test(r.text))
 r = await call('import_statement', { csv_text: CSV }, '?readonly=1')
 check('read-only connection can preview', !r.error)
+
+r = await call('month_summary', {})
+const latestSpend = r.data.totals.spending
+const { start: ps, end: pe } = r.data.period
+r = await call('save_analysis', { kind: 'analysis', title: 'Spending check', body: 'Spending for the period.', period_start: ps, period_end: pe, figures: [{ name: 'Spending', value: latestSpend, metric: 'spending' }] })
+check('save_analysis preview verifies a correct figure and saves nothing', !r.error && r.data?.verified === 'yes' && /nothing saved/.test(r.text) && r.data?.figures?.[0]?.matches === true, r.text.split('\n')[0])
+r = await call('list_analysis', {})
+check('nothing saved after a preview', r.data?.entries?.length === 0)
+r = await call('save_analysis', { kind: 'analysis', title: 'Wrong figure', body: 'Overstated.', period_start: ps, period_end: pe, figures: [{ name: 'Spending', value: latestSpend + 100, metric: 'spending' }] })
+check('save_analysis flags a figure that does not match', r.data?.verified === 'no' && r.data?.figures?.[0]?.matches === false && r.data?.figures?.[0]?.ledger_value === latestSpend, r.text.split('\n')[0])
+r = await call('save_analysis', { kind: 'recommendation', title: 'Keep spending steady', body: 'Spending matches the ledger.', period_start: ps, period_end: pe, figures: [{ name: 'Spending', value: latestSpend, metric: 'spending' }], apply: true })
+check('save_analysis apply saves the entry', !r.error && /Saved "Keep spending steady"/.test(r.text) && r.data?.verified === 'yes', r.text.split('\n')[0])
+r = await call('list_analysis', { kind: 'recommendation' })
+check('list_analysis returns the saved entry with its check', !r.error && r.data?.entries?.length === 1 && r.data.entries[0].verified === 'yes' && r.data.entries[0].status === 'open' && r.data.entries[0].figures[0].matches === true, r.text.split('\n')[0])
+r = await call('save_analysis', { kind: 'analysis', title: 'No period', body: 'x', figures: [{ name: 'Spending', value: 1, metric: 'spending' }] })
+check('save_analysis refuses a figure with no period', r.error && /has no period/.test(r.text))
 
 const createdAt = (await call('list_imports', {})).data.imports[0].created_at
 r = await call('undo_import', { created_at: createdAt })
