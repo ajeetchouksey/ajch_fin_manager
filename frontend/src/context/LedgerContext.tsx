@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth'
 import { clearDriveToken, getStoredDriveToken, requestDriveToken } from '../lib/google/gis'
 import { ACCOUNT_SHEET, BUDGET_SHEET, DOC_SHEET, DriveError, GOAL_SHEET, LedgerClient, TX_SHEET } from '../lib/google/driveClient'
 import type { Budget } from '../lib/ledger/budgets'
+import type { Analysis, AnalysisStatus } from '../lib/ledger/analysis'
 import { newId, todayIso, type LedgerDocument, type LedgerLocation, type Transaction } from '../lib/ledger/types'
 import { newAccountId, newGoalId, type Account, type BalanceEntry, type Goal } from '../lib/ledger/portfolio'
 
@@ -36,6 +37,7 @@ interface LedgerContextValue {
   balances: BalanceEntry[]
   goals: Goal[]
   budgets: Budget[]
+  analysis: Analysis[]
   busy: boolean
   connect: (folderName: string) => Promise<void>
   reconnect: () => Promise<void>
@@ -55,6 +57,8 @@ interface LedgerContextValue {
   /** Adds or changes the budget for a category (one per category). */
   saveBudget: (draft: Omit<Budget, 'createdAt' | 'row'>, existing?: Budget) => Promise<Budget>
   deleteBudget: (b: Budget) => Promise<void>
+  /** Marks an AI analysis entry open, done or dismissed. Entries are never deleted here. */
+  setAnalysisStatus: (a: Analysis, status: AnalysisStatus) => Promise<void>
   /** Saves a report as a Google Doc in the FinBuddy Documents folder. Returns the link. */
   createReportDoc: (name: string, html: string) => Promise<string>
   clearError: () => void
@@ -96,6 +100,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const [balances, setBalances] = useState<BalanceEntry[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
   const [budgets, setBudgets] = useState<Budget[]>([])
+  const [analysis, setAnalysis] = useState<Analysis[]>([])
   const [busy, setBusy] = useState(false)
   const locRef = useRef<LedgerLocation | null>(null)
   useEffect(() => {
@@ -132,13 +137,14 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         checkedTabs.current = loc.spreadsheetId
       }
       const id = loc.spreadsheetId
-      const [tx, docs, accs, bals, gls, buds] = await Promise.all([
+      const [tx, docs, accs, bals, gls, buds, anls] = await Promise.all([
         client.listTransactions(id),
         client.listDocuments(id),
         client.listAccounts(id),
         client.listBalances(id),
         client.listGoals(id),
         client.listBudgets(id),
+        client.listAnalysis(id),
       ])
       setTransactions(tx)
       setDocuments(docs)
@@ -146,6 +152,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       setBalances(bals)
       setGoals(gls)
       setBudgets(buds)
+      setAnalysis(anls)
     },
     [client],
   )
@@ -236,6 +243,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     setBalances([])
     setGoals([])
     setBudgets([])
+    setAnalysis([])
     setStatus('disconnected')
   }, [userId])
 
@@ -429,6 +437,16 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [run, client, load],
   )
 
+  const setAnalysisStatus: LedgerContextValue['setAnalysisStatus'] = useCallback(
+    (a, status) =>
+      run(async () => {
+        const loc = requireLoc()
+        await client.updateAnalysis(loc.spreadsheetId, { ...a, status })
+        await load(loc)
+      }),
+    [run, client, load],
+  )
+
   const deleteBudget: LedgerContextValue['deleteBudget'] = useCallback(
     (b) =>
       run(async () => {
@@ -459,6 +477,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     balances,
     goals,
     budgets,
+    analysis,
     busy,
     connect,
     reconnect,
@@ -476,6 +495,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     deleteGoal,
     saveBudget,
     deleteBudget,
+    setAnalysisStatus,
     clearError: () => setError(null),
     createReportDoc,
   }
