@@ -2,6 +2,7 @@
  * AI analysis entries (see docs/ai-analysis-spec.md): the Analysis tab's shape, how each figure an AI cites
  * is checked against the user's own ledger, and whether an entry may be out of date.
  */
+import type { Account } from './portfolio'
 import { spendingByCategory, totalsFor, type Span } from './summary'
 import type { Transaction } from './types'
 
@@ -27,13 +28,19 @@ export type AnalysisStatus = (typeof ANALYSIS_STATUSES)[number]
 export type Verified = 'yes' | 'no' | 'not_checked'
 
 /** A figure an AI cites. Only the supported metrics can be checked against the ledger. */
+/** Figures we can check against the ledger. */
+export const CHECKED_METRICS = ['income', 'spending', 'net', 'category_spending', 'savings_rate', 'transaction_count', 'account_balance'] as const
+export type ClaimMetric = (typeof CHECKED_METRICS)[number]
+
 export interface FigureClaim {
   name: string
   value: number
-  metric: 'income' | 'spending' | 'net' | 'category_spending'
+  metric: ClaimMetric
   period: { start: string; end: string }
   /** Needed for category_spending */
   category?: string
+  /** Needed for account_balance: the account id or name. The period's end is the date of the balance. */
+  account?: string
   currency: string
   /** The connector tool and inputs the figure came from, for the user to trace */
   source?: string
@@ -66,12 +73,24 @@ export const TOLERANCE = 0.01
 
 const r2 = (n: number) => Math.round(n * 100) / 100
 
-/** The ledger's own figure for a claim, or null when the metric is not one we can check. */
-function actualFor(claim: FigureClaim, transactions: Transaction[]): number | null {
+/**
+ * The ledger's own figure for a claim, or null when it cannot be checked (no income for a savings rate,
+ * an account not found, or an account whose balance is dated differently).
+ */
+function actualFor(claim: FigureClaim, transactions: Transaction[], accounts: Account[]): number | null {
+  if (claim.metric === 'account_balance') {
+    const wanted = (claim.account ?? '').trim().toLowerCase()
+    const acc = accounts.find((a) => a.id === claim.account?.trim() || a.name.trim().toLowerCase() === wanted)
+    if (!acc || acc.currency !== claim.currency) return null
+    return acc.asOf === claim.period.end ? r2(acc.balance) : null
+  }
   const span: Span = { start: claim.period.start, end: claim.period.end }
-  if (claim.metric === 'income') return totalsFor(transactions, span, claim.currency).income
-  if (claim.metric === 'spending') return totalsFor(transactions, span, claim.currency).spending
-  if (claim.metric === 'net') return totalsFor(transactions, span, claim.currency).net
+  const totals = totalsFor(transactions, span, claim.currency)
+  if (claim.metric === 'income') return totals.income
+  if (claim.metric === 'spending') return totals.spending
+  if (claim.metric === 'net') return totals.net
+  if (claim.metric === 'transaction_count') return totals.count
+  if (claim.metric === 'savings_rate') return totals.income > 0 ? r2((totals.net / totals.income) * 100) : null
   if (claim.metric === 'category_spending') {
     if (!claim.category) return null
     const row = spendingByCategory(transactions, span, claim.currency, 1000).find((c) => c.category === claim.category)
@@ -84,9 +103,13 @@ function actualFor(claim: FigureClaim, transactions: Transaction[]): number | nu
  * Checks every cited figure against the ledger. An entry is "yes" only when every figure is checked
  * and matches; "no" when any checked figure differs; otherwise "not_checked".
  */
-export function verifyFigures(claims: FigureClaim[], transactions: Transaction[]): { figures: FigureCheck[]; verified: Verified } {
+export function verifyFigures(
+  claims: FigureClaim[],
+  transactions: Transaction[],
+  accounts: Account[] = [],
+): { figures: FigureCheck[]; verified: Verified } {
   const figures: FigureCheck[] = claims.map((c) => {
-    const actual = actualFor(c, transactions)
+    const actual = actualFor(c, transactions, accounts)
     return { ...c, actual, matches: actual === null ? null : Math.abs(actual - c.value) <= TOLERANCE }
   })
   if (figures.some((f) => f.matches === false)) return { figures, verified: 'no' }

@@ -106,3 +106,41 @@ test('unknown kinds and statuses fall back to safe values, and broken figure dat
   assert.equal(back.writtenBy, 'unknown')
   assert.equal(rowToAnalysis(['', 'analysis'], 3), null)
 })
+
+const acct = (over: Partial<import('../src/lib/ledger/portfolio.ts').Account> = {}) =>
+  ({ id: 'acc_1', name: 'Commerzbank current', type: 'current', institution: 'Commerzbank', currency: 'EUR', balance: 1000, asOf: '2026-10-31', rate: null, monthly: 0, notes: '', createdAt: '', ...over }) as import('../src/lib/ledger/portfolio.ts').Account
+
+test('a savings rate is checked as a percentage of money in', () => {
+  // October: in 3000, out 680, left 2320 = 77.33%
+  const r = verifyFigures([claim({ metric: 'savings_rate', value: 77.33 })], ledger)
+  assert.equal(r.verified, 'yes')
+  assert.equal(r.figures[0].actual, 77.33)
+  assert.equal(verifyFigures([claim({ metric: 'savings_rate', value: 80 })], ledger).verified, 'no')
+})
+
+test('a savings rate with no money in cannot be checked', () => {
+  const r = verifyFigures([claim({ metric: 'savings_rate', value: 50, period: { start: '2026-08-01', end: '2026-08-31' } })], ledger)
+  assert.equal(r.figures[0].actual, null)
+  assert.equal(r.verified, 'not_checked')
+})
+
+test('a transaction count is checked', () => {
+  assert.equal(verifyFigures([claim({ metric: 'transaction_count', value: 3 })], ledger).verified, 'yes')
+  assert.equal(verifyFigures([claim({ metric: 'transaction_count', value: 4 })], ledger).verified, 'no')
+})
+
+test('an account balance is checked against the account record on the same date only', () => {
+  const accounts = [acct()]
+  const onDate = verifyFigures([claim({ metric: 'account_balance', account: 'Commerzbank current', value: 1000, period: { start: '2026-10-31', end: '2026-10-31' } })], ledger, accounts)
+  assert.equal(onDate.verified, 'yes')
+  const wrongValue = verifyFigures([claim({ metric: 'account_balance', account: 'acc_1', value: 1200, period: { start: '2026-10-31', end: '2026-10-31' } })], ledger, accounts)
+  assert.equal(wrongValue.verified, 'no')
+  const otherDate = verifyFigures([claim({ metric: 'account_balance', account: 'acc_1', value: 1000, period: { start: '2026-10-15', end: '2026-10-15' } })], ledger, accounts)
+  assert.equal(otherDate.verified, 'not_checked', 'the record is dated 31 Oct, so 15 Oct cannot be checked')
+})
+
+test('an account balance for an unknown account or another currency is not checked', () => {
+  const day = { start: '2026-10-31', end: '2026-10-31' }
+  assert.equal(verifyFigures([claim({ metric: 'account_balance', account: 'Nope', value: 1, period: day })], ledger, [acct()]).verified, 'not_checked')
+  assert.equal(verifyFigures([claim({ metric: 'account_balance', account: 'acc_1', value: 1000, currency: 'USD', period: day })], ledger, [acct()]).verified, 'not_checked')
+})

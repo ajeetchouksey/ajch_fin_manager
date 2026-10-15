@@ -11,7 +11,7 @@ import { TRANSFER_CATEGORY, isTransfer, learnFromLedger, payeeKey, suggestCatego
 import { matchToLedger, DEFAULT_MATCH_DAYS } from '../../frontend/src/lib/ledger/reconcile'
 import { statementRow, type Sign, type TransactionDraft } from '../../frontend/src/lib/ledger/statement'
 import { dedupeKey, INCOME_CATEGORIES, MORE_EXPENSE_CATEGORIES, newId, parseTags, todayIso, type Transaction } from '../../frontend/src/lib/ledger/types'
-import { ANALYSIS_KINDS, ANALYSIS_STATUSES, isStale, ledgerAsOf, verifyFigures, type Analysis, type FigureClaim } from '../../frontend/src/lib/ledger/analysis'
+import { ANALYSIS_KINDS, ANALYSIS_STATUSES, CHECKED_METRICS, isStale, ledgerAsOf, verifyFigures, type Analysis, type FigureClaim } from '../../frontend/src/lib/ledger/analysis'
 import { ACCOUNT_TYPES, accountType } from '../../frontend/src/lib/ledger/portfolio'
 import { DEFAULT_CATEGORIES } from '../../frontend/src/components/setup/options'
 import { baseCurrency, forecast, review, type ReviewInput } from '../../frontend/src/lib/analysis/engine'
@@ -393,10 +393,11 @@ export function buildServer(): McpServer {
             z.object({
               name: z.string().min(1).max(80),
               value: z.number(),
-              metric: z.enum(['income', 'spending', 'net', 'category_spending']).describe('What the figure measures; only these are checked against the ledger'),
+              metric: z.enum(CHECKED_METRICS).describe("What the figure measures: income, spending, net, category_spending, savings_rate (percent of money in), transaction_count, or account_balance (the balance on the last day of the period)"),
               period_start: iso.optional(),
               period_end: iso.optional(),
               category: z.string().max(80).optional(),
+              account: z.string().max(80).optional().describe('For account_balance: the account id or name'),
               currency: z.string().length(3).optional(),
               source: z.string().max(200).optional().describe('The FinBuddy tool and inputs the figure came from'),
             }),
@@ -416,9 +417,9 @@ export function buildServer(): McpServer {
         for (const f of a.figures) {
           const period = f.period_start && f.period_end ? { start: f.period_start, end: f.period_end } : entryPeriod
           if (!period) return fail(`The figure "${f.name}" has no period. Give the entry a period, or give each figure one.`)
-          claims.push({ name: f.name, value: money(f.value), metric: f.metric, period, category: f.category, currency: (f.currency ?? currency).toUpperCase(), source: f.source })
+          claims.push({ name: f.name, value: money(f.value), metric: f.metric, period, category: f.category, account: f.account, currency: (f.currency ?? currency).toUpperCase(), source: f.source })
         }
-        const { figures, verified } = verifyFigures(claims, d.transactions)
+        const { figures, verified } = verifyFigures(claims, d.transactions, d.accounts)
         const entry: Analysis = {
           id: newId('an'),
           kind: a.kind,

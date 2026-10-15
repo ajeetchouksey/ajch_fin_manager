@@ -169,6 +169,15 @@ check('list_analysis returns the saved entry with its check', !r.error && r.data
 r = await call('save_analysis', { kind: 'analysis', title: 'No period', body: 'x', figures: [{ name: 'Spending', value: 1, metric: 'spending' }] })
 check('save_analysis refuses a figure with no period', r.error && /has no period/.test(r.text))
 
+r = await call('month_summary', { date: '2026-09-15' })
+const sepIn = r.data.totals.income
+const sepRate = sepIn > 0 ? Math.round(((r.data.totals.net / sepIn) * 100) * 100) / 100 : null
+r = await call('save_analysis', { kind: 'analysis', title: 'Savings rate check', body: 'Savings rate for September.', period_start: r.data.period.start, period_end: r.data.period.end, figures: [{ name: 'Savings rate', value: sepRate, metric: 'savings_rate' }] })
+check('save_analysis checks a savings rate against the ledger', sepRate !== null && r.data?.verified === 'yes' && r.data?.figures?.[0]?.matches === true, `${sepRate}% -> ${r.data?.verified}`)
+r = await call('list_accounts_and_goals', {})
+const commerz = r.data?.accounts?.find((a) => a.name === 'Commerzbank current')
+r = await call('save_analysis', { kind: 'data_issue', title: 'Balance check', body: 'Balance on the account record date.', period_start: commerz?.as_of, period_end: commerz?.as_of, figures: [{ name: 'Commerzbank current balance', value: commerz?.balance, metric: 'account_balance', account: commerz?.id }] })
+check('save_analysis checks an account balance against its record', !!commerz && r.data?.verified === 'yes' && r.data?.figures?.[0]?.matches === true, r.text.split('\n')[0])
 const createdAt = (await call('list_imports', {})).data.imports[0].created_at
 r = await call('undo_import', { created_at: createdAt })
 check('undo_import without confirm is refused', r.error && /confirm/.test(r.text))
