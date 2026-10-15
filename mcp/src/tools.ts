@@ -284,8 +284,18 @@ export function buildServer(): McpServer {
         const span = { start: chosen.start, end: chosen.end }
         const totals = totalsFor(d.transactions, span, currency)
         const before = prev ? totalsFor(d.transactions, prev, currency) : null
-        const cats = spendingByCategory(d.transactions, span, currency, 7)
+        // Every category from either period, so the rows add up to the total and a category that only
+        // existed last period still shows (with 0 this period)
+        const cats = spendingByCategory(d.transactions, span, currency, 1000)
         const prevCats = prev ? spendingByCategory(d.transactions, prev, currency, 1000) : []
+        const names = Array.from(new Set([...cats.map((c) => c.category), ...prevCats.map((c) => c.category)]))
+        const categoryRows = names
+          .map((name) => {
+            const c = cats.find((x) => x.category === name)
+            const p = prevCats.find((x) => x.category === name)
+            return { category: name, amount: c?.amount ?? 0, share_percent: c ? Math.round(c.share * 100) : 0, previous_amount: p?.amount ?? 0 }
+          })
+          .sort((a, b) => Math.max(b.amount, b.previous_amount) - Math.max(a.amount, a.previous_amount))
         const series = periods.slice(Math.max(0, idx - 5), idx + 1).map((p) => ({ start: p.start, end: p.end, ...totalsFor(d.transactions, p, currency) }))
         const budgets = budgetProgress(d.budgets, d.transactions, span, currency)
         const label = chosen.kind === 'salary' ? (chosen.partial ? 'Before the first salary credit' : chosen.open ? 'Salary cycle so far' : 'Salary cycle') : 'Calendar month'
@@ -302,7 +312,7 @@ export function buildServer(): McpServer {
           totals: { income: totals.income, spending: totals.spending, net: totals.net, transactions: totals.count },
           previous_totals: before ? { income: before.income, spending: before.spending, net: before.net } : null,
           spending_change_percent: spendChange === null ? null : Math.round(spendChange * 100),
-          categories: cats.map((c) => ({ category: c.category, amount: c.amount, share_percent: Math.round(c.share * 100), previous_amount: prevCats.find((p) => p.category === c.category)?.amount ?? 0 })),
+          categories: categoryRows,
           budgets: budgets.map((b) => ({ category: b.category, limit: b.limit, spent: b.spent, used_percent: Math.round(b.used * 100), remaining: b.remaining, state: b.state })),
           series: series.map((p) => ({ start: p.start, end: p.end, income: p.income, spending: p.spending, net: p.net })),
           basis,
