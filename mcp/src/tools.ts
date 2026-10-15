@@ -10,7 +10,8 @@ import { analyzeTable, findCsvBalance, parseCsv, type DateFormat } from '../../f
 import { TRANSFER_CATEGORY, isTransfer, learnFromLedger, payeeKey, suggestCategory } from '../../frontend/src/lib/ledger/categorize'
 import { matchToLedger, DEFAULT_MATCH_DAYS } from '../../frontend/src/lib/ledger/reconcile'
 import { statementRow, type Sign, type TransactionDraft } from '../../frontend/src/lib/ledger/statement'
-import { dedupeKey, INCOME_CATEGORIES, MORE_EXPENSE_CATEGORIES, parseTags, todayIso, type Transaction } from '../../frontend/src/lib/ledger/types'
+import { dedupeKey, INCOME_CATEGORIES, MORE_EXPENSE_CATEGORIES, newId, parseTags, todayIso, type Transaction } from '../../frontend/src/lib/ledger/types'
+import { ANALYSIS_KINDS, ANALYSIS_STATUSES, isStale, ledgerAsOf, verifyFigures, type Analysis, type FigureClaim } from '../../frontend/src/lib/ledger/analysis'
 import { ACCOUNT_TYPES, accountType } from '../../frontend/src/lib/ledger/portfolio'
 import { DEFAULT_CATEGORIES } from '../../frontend/src/components/setup/options'
 import { baseCurrency, forecast, review, type ReviewInput } from '../../frontend/src/lib/analysis/engine'
@@ -38,6 +39,7 @@ const INSTRUCTIONS = `FinBuddy is the user's personal finance Ledger: a Google S
 - To check spending against limits, use list_budgets; to set or change one, use set_budget (ask first).
 - To read what is in a saved statement, payslip or tax document, use read_document. Only do this when the user asks for the content.
 - If an import went wrong, use list_imports to find it, then undo_import after the user confirms.
+- To keep an analysis, recommendation or projection, call save_analysis with apply: false, show the user the preview and whether its figures match the ledger, then call again with apply: true only after they agree. Take every figure from a FinBuddy tool result. Use list_analysis to see what is already saved.
 - Ask the user before deleting anything. Recommendations are general guidance, not regulated financial advice.`
 
 const iso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
@@ -368,6 +370,121 @@ export function buildServer(): McpServer {
           categories: report.categories.map((m) => ({ item: m.label, current: m.current, previous: m.previous, change_percent: m.change === null ? null : Math.round(m.change * 100), note: m.note || undefined })),
           budgets: report.budgets.map((b) => ({ category: b.category, limit: b.limit, spent: b.spent, state: b.state })),
           basis: report.basis,
+        })
+      }),
+  )
+
+  // ------------------------------------------------------------------ AI analysis (see docs/ai-analysis-spec.md)
+
+  server.registerTool(
+    'save_analysis',
+    {
+      title: 'Save an analysis',
+      description:
+        'Save an analysis, recommendation, projection, data issue or categorisation suggestion to the user\'s Analysis tab in FinBuddy. Every figure you cite is checked against the user\'s ledger for its period, and the entry shows whether it matches. Call with apply: false first and show the user the preview; call again with apply: true only after the user agrees. Use figures you got from FinBuddy tools, and say they are estimates where they are.',
+      inputSchema: z.object({
+        kind: z.enum(ANALYSIS_KINDS),
+        title: z.string().min(1).max(120),
+        body: z.string().min(1).max(5000),
+        period_start: iso.optional(),
+        period_end: iso.optional(),
+        figures: z
+          .array(
+            z.object({
+              name: z.string().min(1).max(80),
+              value: z.number(),
+              metric: z.enum(['income', 'spending', 'net', 'category_spending']).describe('What the figure measures; only these are checked against the ledger'),
+              period_start: iso.optional(),
+              period_end: iso.optional(),
+              category: z.string().max(80).optional(),
+              currency: z.string().length(3).optional(),
+              source: z.string().max(200).optional().describe('The FinBuddy tool and inputs the figure came from'),
+            }),
+          )
+          .max(30)
+          .default([]),
+        apply: z.boolean().default(false),
+      }),
+      annotations: WRITE,
+    },
+    (a) =>
+      run(a.apply, async (l) => {
+        const d = await l.load()
+        const currency = baseCurrency({ transactions: d.transactions, accounts: d.accounts })
+        const entryPeriod = a.period_start && a.period_end ? { start: a.period_start, end: a.period_end } : null
+        const claims: FigureClaim[] = []
+        for (const f of a.figures) {
+          const period = f.period_start && f.period_end ? { start: f.period_start, end: f.period_end } : entryPeriod
+          if (!period) return fail(`The figure "${f.name}" has no period. Give the entry a period, or give each figure one.`)
+          claims.push({ name: f.name, value: money(f.value), metric: f.metric, period, category: f.category, currency: (f.currency ?? currency).toUpperCase(), source: f.source })
+        }
+        const { figures, verified } = verifyFigures(claims, d.transactions)
+        const entry: Analysis = {
+          id: newId('an'),
+          kind: a.kind,
+          title: a.title.trim(),
+          body: mask(a.body.trim()),
+          periodStart: a.period_start ?? '',
+          periodEnd: a.period_end ?? '',
+          figures,
+          verified,
+          status: 'open',
+          writtenBy: 'AI app (via FinBuddy connector)',
+          createdAt: new Date().toISOString(),
+          ledgerAsOf: ledgerAsOf(d.transactions),
+        }
+        const summary = {
+          id: entry.id,
+          kind: entry.kind,
+          title: entry.title,
+          period: entry.periodStart ? `${entry.periodStart} to ${entry.periodEnd}` : null,
+          verified: entry.verified,
+          figures: figures.map((f) => ({ name: f.name, value: f.value, ledger_value: f.actual, matches: f.matches, source: f.source ?? null })),
+        }
+        if (!a.apply) {
+          return ok(
+            `Preview only, nothing saved. Verified: ${verified}${verified === 'no' ? ' (some figures do not match the ledger; show the user which)' : ''}. Call again with apply: true if the user agrees.`,
+            { ...summary, body: entry.body },
+          )
+        }
+        await l.saveAnalysis(entry)
+        return ok(`Saved "${entry.title}" to the Analysis tab. Verified: ${verified}.`, summary)
+      }),
+  )
+
+  server.registerTool(
+    'list_analysis',
+    {
+      title: 'Saved analyses',
+      description: 'The analyses, recommendations, projections and data issues saved to the user\'s Analysis tab, newest first, with verification and whether each may be out of date.',
+      inputSchema: z.object({
+        kind: z.enum(ANALYSIS_KINDS).optional(),
+        status: z.enum(ANALYSIS_STATUSES).optional(),
+        limit: z.number().int().min(1).max(100).default(20),
+      }),
+      annotations: RO,
+    },
+    (q) =>
+      run(false, async (l) => {
+        const d = await l.load()
+        const rows = d.analysis
+          .filter((x) => (!q.kind || x.kind === q.kind) && (!q.status || x.status === q.status))
+          .sort((x, y) => y.createdAt.localeCompare(x.createdAt))
+          .slice(0, q.limit)
+        return ok(`${rows.length} saved entr${rows.length === 1 ? 'y' : 'ies'}.`, {
+          entries: rows.map((x) => ({
+            id: x.id,
+            kind: x.kind,
+            title: x.title,
+            body: x.body,
+            period: x.periodStart ? `${x.periodStart} to ${x.periodEnd}` : null,
+            verified: x.verified,
+            status: x.status,
+            written_by: x.writtenBy,
+            created_at: x.createdAt,
+            may_be_out_of_date: isStale(x, d.transactions),
+            figures: x.figures.map((f) => ({ name: f.name, value: f.value, ledger_value: f.actual, matches: f.matches })),
+          })),
         })
       }),
   )

@@ -32,6 +32,7 @@ import {
   type Goal,
 } from '../ledger/portfolio'
 import { BUDGET_COLUMNS, budgetToRow, rowToBudget, type Budget } from '../ledger/budgets'
+import { ANALYSIS_COLUMNS, analysisToRow, rowToAnalysis, type Analysis } from '../ledger/analysis'
 
 const DRIVE = 'https://www.googleapis.com/drive/v3'
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3'
@@ -45,6 +46,7 @@ export const ACCOUNT_SHEET = 'Accounts'
 export const BALANCE_SHEET = 'Balances'
 export const GOAL_SHEET = 'Goals'
 export const BUDGET_SHEET = 'Budgets'
+export const ANALYSIS_SHEET = 'Analysis'
 const META_SHEET = 'Meta'
 
 /** Tabs with a header row, created when missing (in this order, after Transactions). */
@@ -54,9 +56,10 @@ const DATA_TABS: Array<[string, readonly string[]]> = [
   [BALANCE_SHEET, BALANCE_COLUMNS],
   [GOAL_SHEET, GOAL_COLUMNS],
   [BUDGET_SHEET, BUDGET_COLUMNS],
+  [ANALYSIS_SHEET, ANALYSIS_COLUMNS],
 ]
 
-type RowSheet = typeof TX_SHEET | typeof DOC_SHEET | typeof ACCOUNT_SHEET | typeof GOAL_SHEET | typeof BUDGET_SHEET
+type RowSheet = typeof TX_SHEET | typeof DOC_SHEET | typeof ACCOUNT_SHEET | typeof GOAL_SHEET | typeof BUDGET_SHEET | typeof ANALYSIS_SHEET
 
 /** Last column letter for a table of n columns (n ≤ 26). */
 const lastCol = (n: number) => String.fromCharCode(64 + n)
@@ -273,6 +276,10 @@ export class LedgerClient {
     return (await this.readTab(spreadsheetId, BUDGET_SHEET)).map((r, i) => rowToBudget(r, i + 2)).filter((b): b is Budget => b !== null)
   }
 
+  async listAnalysis(spreadsheetId: string): Promise<Analysis[]> {
+    return (await this.readTab(spreadsheetId, ANALYSIS_SHEET)).map((r, i) => rowToAnalysis(r, i + 2)).filter((a): a is Analysis => a !== null)
+  }
+
   async listGoals(spreadsheetId: string): Promise<Goal[]> {
     return (await this.readTab(spreadsheetId, GOAL_SHEET)).map((r, i) => rowToGoal(r, i + 2)).filter((g): g is Goal => g !== null)
   }
@@ -306,6 +313,9 @@ export class LedgerClient {
   appendBudgets = (spreadsheetId: string, rows: Budget[]) => this.append(spreadsheetId, BUDGET_SHEET, rows.map(budgetToRow))
   // A budget's row key is its category (the first column)
   updateBudget = (spreadsheetId: string, b: Budget) => this.replaceRow(spreadsheetId, BUDGET_SHEET, b.row, b.category, budgetToRow(b))
+  appendAnalysis = (spreadsheetId: string, rows: Analysis[]) => this.append(spreadsheetId, ANALYSIS_SHEET, rows.map(analysisToRow))
+  // An analysis entry's row key is its id (the first column)
+  updateAnalysis = (spreadsheetId: string, a: Analysis) => this.replaceRow(spreadsheetId, ANALYSIS_SHEET, a.row, a.id, analysisToRow(a))
 
   async appendTransactions(spreadsheetId: string, rows: Transaction[]) {
     if (!rows.length) return
