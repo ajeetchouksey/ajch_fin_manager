@@ -21,6 +21,7 @@ import { budgetProgress } from '../../frontend/src/lib/ledger/budgets'
 import { buildReport, choosePeriod } from '../../frontend/src/lib/ledger/report'
 import { planLabelMigration } from '../../frontend/src/lib/ledger/accounts'
 import { explain, LedgerSession } from './ledger'
+import { MONTH_VIEW_HTML, MONTH_VIEW_URI, VIEW_MIME } from './views'
 import { SCOPE_WRITE, type AccessProps } from './types'
 
 const SPENDING_CATEGORIES = Array.from(new Set([...DEFAULT_CATEGORIES, ...MORE_EXPENSE_CATEGORIES, 'Other']))
@@ -98,6 +99,14 @@ export function buildServer(): McpServer {
   const server = new McpServer({ name: 'FinBuddy', version: '0.1.0' }, { instructions: INSTRUCTIONS })
   let session: LedgerSession | null = null
   const ledger = () => (session ??= new LedgerSession(props().googleAccessToken))
+
+  // Interactive view shown in the AI chat for month_summary (docs/chat-visuals-spec.md, step 1)
+  server.registerResource(
+    'month-view',
+    MONTH_VIEW_URI,
+    { mimeType: VIEW_MIME, description: 'FinBuddy month summary, shown in the chat' },
+    async () => ({ contents: [{ uri: MONTH_VIEW_URI, mimeType: VIEW_MIME, text: MONTH_VIEW_HTML }] }),
+  )
 
   /** Runs a tool body and turns Drive/Ledger errors into a message the AI can relay. */
   const run = async <T,>(write: boolean, body: (l: LedgerSession) => Promise<T>) => {
@@ -267,6 +276,7 @@ export function buildServer(): McpServer {
         date: iso.optional().describe('Any date inside the period you want; default is the latest period with data'),
         currency: z.string().length(3).optional(),
       }),
+      _meta: { ui: { resourceUri: MONTH_VIEW_URI } },
       annotations: RO,
     },
     (a) =>
