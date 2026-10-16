@@ -17,13 +17,14 @@ import { SetupProvider } from './context/SetupContext'
 function AppShell() {
   return (
     <ProtectedRoute>
-      <SetupProvider>
-        <LedgerProvider>
+      {/* The profile lives in the Ledger, so setup sits inside the Ledger provider */}
+      <LedgerProvider>
+        <SetupProvider>
           <Layout>
             <Outlet />
           </Layout>
-        </LedgerProvider>
-      </SetupProvider>
+        </SetupProvider>
+      </LedgerProvider>
     </ProtectedRoute>
   )
 }

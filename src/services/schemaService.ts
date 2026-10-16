@@ -14,6 +14,21 @@ export class SchemaService {
   constructor(private db: any) {}
 
   /**
+   * Delete everything this Worker holds about a user's profile: the profile, the onboarding chat history
+   * and its audit trail. Runs as one batch; throws if the delete fails, so the caller never reports a
+   * deletion that did not happen.
+   */
+  async deleteUserData(userId: string): Promise<{ profile: number; sessions: number; audit: number }> {
+    const results = await this.db.batch([
+      this.db.prepare("DELETE FROM user_schema_definitions WHERE user_id = ?").bind(userId),
+      this.db.prepare("DELETE FROM onboarding_sessions WHERE user_id = ?").bind(userId),
+      this.db.prepare("DELETE FROM onboarding_audit_log WHERE user_id = ?").bind(userId),
+    ]);
+    const changes = (i: number) => Number(results?.[i]?.meta?.changes ?? 0);
+    return { profile: changes(0), sessions: changes(1), audit: changes(2) };
+  }
+
+  /**
    * Get user's current schema from database
    */
   async getCurrentSchema(userId: string): Promise<UserSchemaDefinition | null> {

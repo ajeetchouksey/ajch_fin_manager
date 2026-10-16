@@ -327,22 +327,22 @@ async function handleGetSchema(
 
 /**
  * POST /api/onboarding/reset
- * Delete schema and start fresh (optional)
+ * Deletes the user's profile, onboarding chat history and audit trail from D1. Used after the profile has
+ * been moved into the user's own Ledger, and on request.
  */
 async function handleReset(
-  _env: CloudflareEnv,
+  env: CloudflareEnv,
   userId: string
 ): Promise<Response> {
   try {
-    // In a real implementation, we would delete from the database
-    // For now, we'll just return a success response
-    // This would be implemented in Phase 2.5a when we have full DB access
+    const deleted = await new SchemaService(env.DB).deleteUserData(userId);
 
-    log("info", "Schema reset requested", { userId });
+    log("info", "Profile data deleted", { userId, ...deleted });
 
     return buildResponse({
       success: true,
-      message: "Schema has been reset. You can restart onboarding.",
+      deleted,
+      message: "Your profile data has been deleted from the server.",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

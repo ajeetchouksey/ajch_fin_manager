@@ -1,7 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { FirstLoginOnboarding } from '../components/FirstLoginOnboarding'
 import { ProgressiveOnboardingModal, type FocusArea } from '../components/ProgressiveOnboardingModal'
-import { useOnboarding } from '../hooks/useOnboarding'
+import { useLedger } from './LedgerContext'
+import { useAuth } from '../hooks/useAuth'
+import { completedSections as sectionsOf } from '../lib/ledger/profile'
+import { moveServerProfileToLedger } from '../lib/profileMigration'
 import { AI_ENABLED } from '../config'
 import { QuickSetup } from '../components/setup/QuickSetup'
 import { AreaSetup } from '../components/setup/AreaSetup'
@@ -22,36 +25,47 @@ const SetupContext = createContext<SetupContextValue | null>(null)
 type OpenDialog = { kind: 'quick' } | { kind: 'detailed'; focus?: FocusArea } | null
 
 export function SetupProvider({ children }: { children: ReactNode }) {
-  const { checkStatus } = useOnboarding()
-  const [hasProfile, setHasProfile] = useState<boolean | null>(null)
-  const [completedSections, setCompletedSections] = useState<string[]>([])
+  const { status, profile, saveProfile } = useLedger()
+  const { user } = useAuth()
   const [open, setOpen] = useState<OpenDialog>(null)
+  // The one-time move of an older profile from our server into the Ledger: 'idle' until Drive is connected
+  const [migration, setMigration] = useState<'idle' | 'running' | 'done'>('idle')
 
-  const refresh = useCallback(async () => {
-    const status = await checkStatus()
-    if (status) {
-      setHasProfile(status.hasSchema)
-      setCompletedSections(status.completedSections ?? [])
-    }
-    return status
-  }, [checkStatus])
+  // The profile lives in the Ledger, so it is only known once Google Drive is connected
+  const hasProfile = status === 'ready' ? !!profile : null
+  const completedSections = useMemo(() => sectionsOf(profile), [profile])
 
-  // First sign-in: offer the quick setup once per session
+  // Kept for the dialogs' callbacks; the profile state comes from the Ledger, so nothing needs fetching
+  const refresh = useCallback(async () => undefined, [])
+
+  // Once Drive is connected and the Ledger has no profile, move any profile still on our server into it.
+  // The server copy is deleted only after the Ledger copy reads back the same.
   useEffect(() => {
-    let cancelled = false
-    refresh().then((status) => {
-      if (cancelled || !status || status.hasSchema) return
-      try {
-        if (sessionStorage.getItem('setup-dismissed')) return
-      } catch {
-        /* storage unavailable (private mode) — show anyway */
-      }
-      setOpen({ kind: 'quick' })
-    })
-    return () => {
-      cancelled = true
+    if (status !== 'ready' || migration !== 'idle' || !user?.accessToken) return
+    if (profile) {
+      setMigration('done')
+      return
     }
-  }, [refresh])
+    setMigration('running')
+    moveServerProfileToLedger({
+      apiUrl: import.meta.env.VITE_API_URL || 'http://localhost:8787',
+      token: user.accessToken,
+      saveToLedger: (p) => saveProfile(p),
+    })
+      .catch(() => 'kept' as const)
+      .finally(() => setMigration('done'))
+  }, [status, profile, migration, user, saveProfile])
+
+  // Drive first, then setup: offer the quick setup once per session when the Ledger has no profile
+  useEffect(() => {
+    if (migration !== 'done' || hasProfile !== false) return
+    try {
+      if (sessionStorage.getItem('setup-dismissed')) return
+    } catch {
+      /* storage unavailable (private mode) — show anyway */
+    }
+    setOpen({ kind: 'quick' })
+  }, [migration, hasProfile])
 
   const close = useCallback(() => setOpen(null), [])
   const dismissQuick = useCallback(() => {

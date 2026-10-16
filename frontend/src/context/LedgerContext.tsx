@@ -4,6 +4,8 @@ import { clearDriveToken, getStoredDriveToken, requestDriveToken } from '../lib/
 import { ACCOUNT_SHEET, BUDGET_SHEET, DOC_SHEET, DriveError, GOAL_SHEET, LedgerClient, TX_SHEET } from '../lib/google/driveClient'
 import type { Budget } from '../lib/ledger/budgets'
 import type { Analysis, AnalysisStatus } from '../lib/ledger/analysis'
+import { mergeProfile, profileToRows, rowsToProfile, type ProfileRow } from '../lib/ledger/profile'
+import type { UserSchemaDefinition } from '../types'
 import { newId, todayIso, type LedgerDocument, type LedgerLocation, type Transaction } from '../lib/ledger/types'
 import { newAccountId, newGoalId, type Account, type BalanceEntry, type Goal } from '../lib/ledger/portfolio'
 
@@ -38,6 +40,8 @@ interface LedgerContextValue {
   goals: Goal[]
   budgets: Budget[]
   analysis: Analysis[]
+  /** The financial profile from the Profile tab, or null when none is saved yet */
+  profile: UserSchemaDefinition | null
   busy: boolean
   connect: (folderName: string) => Promise<void>
   reconnect: () => Promise<void>
@@ -59,6 +63,8 @@ interface LedgerContextValue {
   deleteBudget: (b: Budget) => Promise<void>
   /** Marks an AI analysis entry open, done or dismissed. Entries are never deleted here. */
   setAnalysisStatus: (a: Analysis, status: AnalysisStatus) => Promise<void>
+  /** Saves profile fields to the Profile tab. Fields sent replace what is stored; others are kept. */
+  saveProfile: (update: Partial<UserSchemaDefinition>) => Promise<UserSchemaDefinition>
   /** Saves a report as a Google Doc in the FinBuddy Documents folder. Returns the link. */
   createReportDoc: (name: string, html: string) => Promise<string>
   clearError: () => void
@@ -101,6 +107,8 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const [goals, setGoals] = useState<Goal[]>([])
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [analysis, setAnalysis] = useState<Analysis[]>([])
+  const [profileRows, setProfileRows] = useState<ProfileRow[]>([])
+  const profile = useMemo(() => rowsToProfile(profileRows), [profileRows])
   const [busy, setBusy] = useState(false)
   const locRef = useRef<LedgerLocation | null>(null)
   useEffect(() => {
@@ -137,7 +145,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         checkedTabs.current = loc.spreadsheetId
       }
       const id = loc.spreadsheetId
-      const [tx, docs, accs, bals, gls, buds, anls] = await Promise.all([
+      const [tx, docs, accs, bals, gls, buds, anls, prof] = await Promise.all([
         client.listTransactions(id),
         client.listDocuments(id),
         client.listAccounts(id),
@@ -145,6 +153,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         client.listGoals(id),
         client.listBudgets(id),
         client.listAnalysis(id),
+        client.listProfile(id),
       ])
       setTransactions(tx)
       setDocuments(docs)
@@ -153,6 +162,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       setGoals(gls)
       setBudgets(buds)
       setAnalysis(anls)
+      setProfileRows(prof)
     },
     [client],
   )
@@ -244,6 +254,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     setGoals([])
     setBudgets([])
     setAnalysis([])
+    setProfileRows([])
     setStatus('disconnected')
   }, [userId])
 
@@ -437,6 +448,21 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [run, client, load],
   )
 
+  const saveProfile: LedgerContextValue['saveProfile'] = useCallback(
+    (update) =>
+      run(async () => {
+        const loc = requireLoc()
+        const merged = mergeProfile(rowsToProfile(profileRows), update)
+        await client.saveProfile(loc.spreadsheetId, profileToRows(merged, new Date().toISOString()), profileRows)
+        await load(loc)
+        // Return what the sheet holds now (read back), so callers can check it against what they meant to save
+        const back = rowsToProfile(await client.listProfile(loc.spreadsheetId))
+        if (!back) throw new Error('Your profile could not be read back from your Ledger. Please try again.')
+        return back
+      }),
+    [run, client, load, profileRows],
+  )
+
   const setAnalysisStatus: LedgerContextValue['setAnalysisStatus'] = useCallback(
     (a, status) =>
       run(async () => {
@@ -478,6 +504,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     goals,
     budgets,
     analysis,
+    profile,
     busy,
     connect,
     reconnect,
@@ -496,6 +523,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     saveBudget,
     deleteBudget,
     setAnalysisStatus,
+    saveProfile,
     clearError: () => setError(null),
     createReportDoc,
   }
