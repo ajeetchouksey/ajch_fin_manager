@@ -55,21 +55,9 @@ export interface FinancialGoal {
 }
 
 // Onboarding Types
-export interface UserSchemaDefinition {
-  residenceCountries: string[]
-  accountTypes: string[]
-  expenseCategories: string[]
-  declaredGoals?: string[]
-  householdMembers?: Array<{ name: string; relationship: string }>
-  investmentPreferences?: {
-    hasInvestments: boolean
-    types?: string[]
-  }
-  taxSettings?: {
-    country: string
-    fillingStatus?: string
-  }
-}
+// The profile type lives in the shared library (lib/ledger/profile.ts); re-exported here for the app
+import type { UserSchemaDefinition } from '../lib/ledger/profile'
+export type { UserSchemaDefinition }
 
 export interface OnboardingMessage {
   role: 'user' | 'assistant'

@@ -2,8 +2,7 @@
  * One-time move of a profile from our server (D1) into the user's own Ledger. The server copy is deleted only
  * after the Ledger copy has been read back and matches it exactly; otherwise the server copy is kept.
  */
-import type { UserSchemaDefinition } from '../types'
-import { sameProfile } from './ledger/profile'
+import { sameProfile, type UserSchemaDefinition } from './ledger/profile'
 
 export type MigrationResult = 'none' | 'moved' | 'kept'
 

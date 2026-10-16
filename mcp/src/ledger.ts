@@ -3,12 +3,12 @@
  * app uses, loaded once, and written with the same client, so both stay in step.
  */
 
-import { BUDGET_SHEET, DriveError, LedgerClient } from '../../frontend/src/lib/google/driveClient'
-import { newId, type LedgerDocument, type LedgerLocation, type Transaction } from '../../frontend/src/lib/ledger/types'
-import { newAccountId, newGoalId, type Account, type BalanceEntry, type Goal } from '../../frontend/src/lib/ledger/portfolio'
-import type { TransactionDraft } from '../../frontend/src/lib/ledger/statement'
-import type { Budget } from '../../frontend/src/lib/ledger/budgets'
-import type { Analysis, AnalysisStatus } from '../../frontend/src/lib/ledger/analysis'
+import { BUDGET_SHEET, DriveError, LedgerClient } from '@finbuddy/core/google/driveClient'
+import { newId, type LedgerDocument, type LedgerLocation, type Transaction } from '@finbuddy/core/ledger/types'
+import { newAccountId, newGoalId, type Account, type BalanceEntry, type Goal } from '@finbuddy/core/ledger/portfolio'
+import type { TransactionDraft } from '@finbuddy/core/ledger/statement'
+import type { Budget } from '@finbuddy/core/ledger/budgets'
+import type { Analysis, AnalysisStatus } from '@finbuddy/core/ledger/analysis'
 
 export class NoLedgerError extends Error {
   constructor() {

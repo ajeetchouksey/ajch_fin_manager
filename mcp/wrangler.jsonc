@@ -3,6 +3,8 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "finbuddy-mcp",
   "main": "src/index.ts",
+  // The shared library, imported as @finbuddy/core/... (see tsconfig paths)
+  "alias": { "@finbuddy/core": "../frontend/src/lib" },
   "compatibility_date": "2026-10-01",
   // nodejs_compat: request-scoped auth context (AsyncLocalStorage)
   // global_fetch_strictly_public: required to fetch Client ID Metadata Documents safely
