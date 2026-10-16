@@ -9,7 +9,9 @@
     "noEmit": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "noUnusedLocals": true
+    "noUnusedLocals": true,
+    // The shared library (web app and connector use the same figures)
+    "paths": { "@finbuddy/core/*": ["../frontend/src/lib/*"] }
   },
   "include": ["src", "test"]
 }

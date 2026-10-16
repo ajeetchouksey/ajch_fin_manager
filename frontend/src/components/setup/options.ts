@@ -29,22 +29,8 @@ export const ACCOUNT_TYPES: Option[] = [
   { value: 'other', label: 'Other (loan, pension…)' },
 ]
 
-export const DEFAULT_CATEGORIES = [
-  'Housing',
-  'Groceries',
-  'Utilities',
-  'Transport',
-  'Insurance',
-  'Health',
-  'Dining out',
-  'Shopping',
-  'Subscriptions',
-  'Travel',
-  'Education',
-  'Childcare',
-  'Entertainment',
-  'Gifts & donations',
-]
+// The default category list lives in the shared library, so the AI connector uses the same one
+export { DEFAULT_CATEGORIES } from '../../lib/ledger/defaults'
 
 /** Preselected on first setup — a sensible minimum the user can change. */
 export const STARTER_CATEGORIES = ['Housing', 'Groceries', 'Utilities', 'Transport', 'Insurance', 'Health']

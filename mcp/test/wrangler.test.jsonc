@@ -2,6 +2,7 @@
 {
   "name": "finbuddy-mcp-test",
   "main": "harness.ts",
+  "alias": { "@finbuddy/core": "../../frontend/src/lib" },
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"]
 }

@@ -2,7 +2,22 @@
  * The user's financial profile (countries, accounts, categories, goals, household, investments, tax) kept in
  * the Profile tab of their own Ledger, one row per field, so it stays in their Drive and not on our servers.
  */
-import type { UserSchemaDefinition } from '../../types'
+/** The user's financial profile. */
+export interface UserSchemaDefinition {
+  residenceCountries: string[]
+  accountTypes: string[]
+  expenseCategories: string[]
+  declaredGoals?: string[]
+  householdMembers?: Array<{ name: string; relationship: string }>
+  investmentPreferences?: {
+    hasInvestments: boolean
+    types?: string[]
+  }
+  taxSettings?: {
+    country: string
+    fillingStatus?: string
+  }
+}
 
 export const PROFILE_COLUMNS = ['key', 'value', 'updated_at'] as const
 
