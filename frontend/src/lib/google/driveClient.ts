@@ -33,6 +33,7 @@ import {
 } from '../ledger/portfolio'
 import { BUDGET_COLUMNS, budgetToRow, rowToBudget, type Budget } from '../ledger/budgets'
 import { ANALYSIS_COLUMNS, analysisToRow, rowToAnalysis, type Analysis } from '../ledger/analysis'
+import { PROFILE_COLUMNS, profileRowToRow, rowToProfileRow, type ProfileRow } from '../ledger/profile'
 
 const DRIVE = 'https://www.googleapis.com/drive/v3'
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3'
@@ -47,6 +48,7 @@ export const BALANCE_SHEET = 'Balances'
 export const GOAL_SHEET = 'Goals'
 export const BUDGET_SHEET = 'Budgets'
 export const ANALYSIS_SHEET = 'Analysis'
+export const PROFILE_SHEET = 'Profile'
 const META_SHEET = 'Meta'
 
 /** Tabs with a header row, created when missing (in this order, after Transactions). */
@@ -57,9 +59,10 @@ const DATA_TABS: Array<[string, readonly string[]]> = [
   [GOAL_SHEET, GOAL_COLUMNS],
   [BUDGET_SHEET, BUDGET_COLUMNS],
   [ANALYSIS_SHEET, ANALYSIS_COLUMNS],
+  [PROFILE_SHEET, PROFILE_COLUMNS],
 ]
 
-type RowSheet = typeof TX_SHEET | typeof DOC_SHEET | typeof ACCOUNT_SHEET | typeof GOAL_SHEET | typeof BUDGET_SHEET | typeof ANALYSIS_SHEET
+type RowSheet = typeof TX_SHEET | typeof DOC_SHEET | typeof ACCOUNT_SHEET | typeof GOAL_SHEET | typeof BUDGET_SHEET | typeof ANALYSIS_SHEET | typeof PROFILE_SHEET
 
 /** Last column letter for a table of n columns (n ≤ 26). */
 const lastCol = (n: number) => String.fromCharCode(64 + n)
@@ -274,6 +277,21 @@ export class LedgerClient {
 
   async listBudgets(spreadsheetId: string): Promise<Budget[]> {
     return (await this.readTab(spreadsheetId, BUDGET_SHEET)).map((r, i) => rowToBudget(r, i + 2)).filter((b): b is Budget => b !== null)
+  }
+
+  async listProfile(spreadsheetId: string): Promise<ProfileRow[]> {
+    return (await this.readTab(spreadsheetId, PROFILE_SHEET)).map((r, i) => rowToProfileRow(r, i + 2)).filter((p): p is ProfileRow => p !== null)
+  }
+
+  /** Writes profile fields: rows that exist are updated in place (the key is the row key), new ones are appended. */
+  async saveProfile(spreadsheetId: string, rows: ProfileRow[], existing: ProfileRow[]) {
+    const fresh: ProfileRow[] = []
+    for (const r of rows) {
+      const old = existing.find((e) => e.key === r.key)
+      if (old?.row) await this.replaceRow(spreadsheetId, PROFILE_SHEET, old.row, r.key, profileRowToRow(r))
+      else fresh.push(r)
+    }
+    await this.append(spreadsheetId, PROFILE_SHEET, fresh.map(profileRowToRow))
   }
 
   async listAnalysis(spreadsheetId: string): Promise<Analysis[]> {
