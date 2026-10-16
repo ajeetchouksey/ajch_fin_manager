@@ -11,6 +11,10 @@ build/
 .env.local
 .env.*.local
 .dev.vars
+# Local secrets saved with an extra extension (for example .dev.vars.txt or .env.local.txt)
+.dev.vars*
+!.dev.vars.example
+.env*.txt
 .wrangler
 
 # Python
