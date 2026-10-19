@@ -9,6 +9,7 @@ import { statementRow, type Sign } from '../../lib/ledger/statement'
 import { DEFAULT_MATCH_DAYS, matchToLedger, type LedgerMatch } from '../../lib/ledger/reconcile'
 import { isExtractable, parseStatement, parseStatementBalance, readFileText, rowsToCsv, type ExtractProgress, type StatementBalance } from '../../lib/ledger/extract'
 import { accountType } from '../../lib/ledger/portfolio'
+import { INSTITUTIONS } from '../../lib/ledger/accounts'
 import { CURRENCIES, dedupeKey, formatMoney, parseTags, todayIso } from '../../lib/ledger/types'
 import { CategorySelect, ErrorNote, Field, TagInput, inputClass, selectClass } from './ui'
 
@@ -27,7 +28,11 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
   const [headerRow, setHeaderRow] = useState(0)
   const [firstRow, setFirstRow] = useState(1)
   const [map, setMap] = useState<ColumnMap>({})
-  const [bank, setBank] = useState<string | undefined>()
+  // The bank the user chose, or the one recognised from the file; the user's choice wins
+  const [detectedBank, setDetectedBank] = useState<string | undefined>()
+  const [pickedBank, setPickedBank] = useState<string | undefined>()
+  const bank = pickedBank || detectedBank
+  const [otherBank, setOtherBank] = useState(false)
   const [showMapping, setShowMapping] = useState(false)
   const [dateFormat, setDateFormat] = useState<DateFormat>('auto')
   const [sign, setSign] = useState<Sign>('negative-out')
@@ -86,7 +91,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
     setHeaderRow(a.headerRow)
     setFirstRow(a.firstRow)
     setMap(a.map)
-    setBank(a.bank)
+    setDetectedBank(a.bank)
     if (a.currency) setCurrency(a.currency)
     const found = statementBalance ?? findCsvBalance(t, a)
     setFoundBalance(found)
@@ -281,6 +286,27 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
     return (
       <Dialog onClose={onClose} title="Import transactions" subtitle="From a bank export (CSV), a PDF statement or pasted rows" fitContent>
         <div className="space-y-5 px-4 py-5 sm:px-6">
+          <div>
+            <label htmlFor="imp-bank" className="mb-1.5 block text-sm font-medium text-slate-300">Which bank is this statement from?</label>
+            <select
+              id="imp-bank"
+              className={selectClass}
+              value={otherBank ? '__other__' : pickedBank ?? ''}
+              onChange={(e) => {
+                const v = e.target.value
+                setOtherBank(v === '__other__')
+                setPickedBank(v === '__other__' || v === '' ? undefined : v)
+              }}
+            >
+              <option value="">Detect from the file</option>
+              {INSTITUTIONS.map((b) => <option key={b}>{b}</option>)}
+              <option value="__other__">Another bank…</option>
+            </select>
+            {otherBank && (
+              <input className={`${inputClass} mt-2`} placeholder="Bank name" maxLength={80} value={pickedBank ?? ''} onChange={(e) => setPickedBank(e.target.value.trim() || undefined)} aria-label="Bank name" />
+            )}
+            <p className="mt-1.5 text-xs text-slate-500">Used to name the account. PDFs and photos don't show their bank, so choose it here.</p>
+          </div>
           <button type="button" disabled={!!extracting} onClick={() => fileRef.current?.click()} className="flex w-full items-center gap-4 rounded-2xl border border-line-strong p-4 text-left hover:border-brand-soft/50">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-brand-soft"><FileUp className="h-5 w-5" /></span>
             <span>
