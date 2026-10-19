@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { clearDriveToken, getStoredDriveToken, requestDriveToken } from '../lib/google/gis'
-import { ACCOUNT_SHEET, BUDGET_SHEET, DOC_SHEET, DriveError, GOAL_SHEET, LedgerClient, TRASH_SHEET, TX_SHEET } from '../lib/google/driveClient'
-import { documentToTrash, expiredItems, transactionToTrash, type TrashItem } from '../lib/ledger/trash'
+import { ACCOUNT_SHEET, ANALYSIS_SHEET, BUDGET_SHEET, DOC_SHEET, DriveError, GOAL_SHEET, LedgerClient, TRASH_SHEET, TX_SHEET } from '../lib/google/driveClient'
+import { accountToTrash, analysisToTrash, documentToTrash, expiredItems, transactionToTrash, type TrashItem } from '../lib/ledger/trash'
 import type { ImportBatch } from '../lib/ledger/imports'
 import type { Budget } from '../lib/ledger/budgets'
 import type { Analysis, AnalysisStatus } from '../lib/ledger/analysis'
@@ -61,6 +61,8 @@ interface LedgerContextValue {
   deleteDocumentRecord: (d: LedgerDocument) => Promise<void>
   /** Moves every transaction in an import batch to Trash. They can be restored from there. */
   undoImport: (batch: ImportBatch) => Promise<void>
+  /** Moves dismissed AI analysis entries to Trash. Open and done entries are kept. */
+  clearDismissedAnalysis: () => Promise<void>
   /** Items removed and not yet erased, newest last. */
   trash: TrashItem[]
   /** Puts a trashed transaction or document back in the Ledger. */
@@ -410,13 +412,30 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         const loc = requireLoc()
         if (item.kind === 'transaction') {
           await client.appendTransactions(loc.spreadsheetId, [item.payload as Transaction])
-        } else {
+        } else if (item.kind === 'document') {
           await client.appendDocuments(loc.spreadsheetId, [item.payload as LedgerDocument])
+        } else if (item.kind === 'account') {
+          await client.appendAccounts(loc.spreadsheetId, [item.payload as Account])
+        } else {
+          await client.appendAnalysis(loc.spreadsheetId, [item.payload as Analysis])
         }
         await client.deleteRow(loc.spreadsheetId, TRASH_SHEET, item.row ?? 0, item.id)
         await load(loc)
       }),
     [run, client, load],
+  )
+
+  const clearDismissedAnalysis: LedgerContextValue['clearDismissedAnalysis'] = useCallback(
+    () =>
+      run(async () => {
+        const loc = requireLoc()
+        const dismissed = analysis.filter((a) => a.status === 'dismissed')
+        if (dismissed.length === 0) return
+        await client.appendTrash(loc.spreadsheetId, dismissed.map((a) => analysisToTrash(a, new Date())))
+        await client.deleteRows(loc.spreadsheetId, ANALYSIS_SHEET, dismissed.map((a) => ({ row: a.row, id: a.id })))
+        await load(loc)
+      }),
+    [run, client, load, analysis],
   )
 
   const eraseFromTrash: LedgerContextValue['eraseFromTrash'] = useCallback(
@@ -486,7 +505,8 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     (a) =>
       run(async () => {
         const loc = requireLoc()
-        // Balance history stays in the sheet; it is ignored once the account is gone
+        // Trash first. Balance history stays in the sheet, so restoring brings it back with the account
+        await client.appendTrash(loc.spreadsheetId, [accountToTrash(a, new Date())])
         await client.deleteRow(loc.spreadsheetId, ACCOUNT_SHEET, a.row ?? 0, a.id)
         await load(loc)
       }),
@@ -590,6 +610,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     deleteDocumentRecord,
     trash,
     undoImport,
+    clearDismissedAnalysis,
     restoreFromTrash,
     eraseFromTrash,
     saveAccount,
