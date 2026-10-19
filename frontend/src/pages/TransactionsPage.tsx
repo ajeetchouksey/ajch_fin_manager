@@ -8,6 +8,7 @@ import { ConnectDrive } from '../components/ledger/ConnectDrive'
 import { TransactionDialog } from '../components/ledger/TransactionDialog'
 import { ImportDialog } from '../components/ledger/ImportDialog'
 import { RecentImports } from '../components/ledger/RecentImports'
+import { BulkCategoryBar } from '../components/ledger/BulkCategoryBar'
 import { TransactionDetails } from '../components/ledger/TransactionDetails'
 import { UploadDocumentsDialog } from '../components/ledger/UploadDocumentsDialog'
 import { ErrorNote, TagChips, inputClass } from '../components/ledger/ui'
@@ -31,6 +32,8 @@ function monthLabel(ym: string) {
 export function TransactionsPage() {
   const { status, transactions, trash, refresh, busy, error } = useLedger()
   const [open, setOpen] = useState<Open>(null)
+  const [selecting, setSelecting] = useState(false)
+  const [picked, setPicked] = useState<Set<string>>(new Set())
   const [params] = useSearchParams()
   const [query, setQuery] = useState(params.get('q') ?? '')
   const [dir, setDir] = useState<'all' | 'out' | 'in'>('all')
@@ -42,6 +45,14 @@ export function TransactionsPage() {
       .filter((t) => !q || [t.description, t.category, t.account, t.notes, t.tags.join(' ')].join(' ').toLowerCase().includes(q))
       .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))
   }, [transactions, query, dir])
+
+  const togglePick = (id: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   const groups = useMemo(() => {
     const map = new Map<string, Transaction[]>()
@@ -105,6 +116,16 @@ export function TransactionsPage() {
                   </button>
                 ))}
               </div>
+              <button
+                type="button"
+                className={`btn ${selecting ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => {
+                  setSelecting((on) => !on)
+                  setPicked(new Set())
+                }}
+              >
+                {selecting ? 'Done' : 'Select'}
+              </button>
               <button type="button" className="icon-btn border border-line-strong" aria-label="Reload from Drive" onClick={() => void refresh()} disabled={busy}>
                 <RefreshCw className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} />
               </button>
@@ -135,7 +156,17 @@ export function TransactionsPage() {
                 <ul className="divide-y divide-line">
                   {list.map((t) => (
                     <li key={t.id}>
-                      <button type="button" onClick={() => setOpen({ kind: 'details', tx: t })} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.03] sm:px-5">
+                      <button
+                        type="button"
+                        onClick={() => (selecting ? togglePick(t.id) : setOpen({ kind: 'details', tx: t }))}
+                        aria-pressed={selecting ? picked.has(t.id) : undefined}
+                        className={`flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.03] sm:px-5 ${picked.has(t.id) ? 'bg-brand/10' : ''}`}
+                      >
+                        {selecting && (
+                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${picked.has(t.id) ? 'border-brand bg-brand text-white' : 'border-line-strong'}`} aria-hidden="true">
+                            {picked.has(t.id) ? '✓' : ''}
+                          </span>
+                        )}
                         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isTransfer(t) ? 'bg-white/5 text-slate-400' : t.direction === 'in' ? 'bg-brand-success/15 text-brand-success' : 'bg-white/5 text-slate-300'}`}>
                           {isTransfer(t) ? <ArrowLeftRight className="h-4 w-4" /> : t.direction === 'in' ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
                         </span>
@@ -162,6 +193,10 @@ export function TransactionsPage() {
             )
           })}
         </div>
+      )}
+
+      {ready && transactions.length > 0 && (
+        <BulkCategoryBar selected={transactions.filter((t) => picked.has(t.id))} onDone={() => setPicked(new Set())} />
       )}
 
       {open?.kind === 'add' && <TransactionDialog onClose={() => setOpen(null)} onImportStatement={(file) => setOpen({ kind: 'import', file })} />}
