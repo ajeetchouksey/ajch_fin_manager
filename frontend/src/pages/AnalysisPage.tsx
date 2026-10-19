@@ -89,7 +89,9 @@ function EntryCard({ entry, stale, currency, busy, onStatus }: { entry: Analysis
 
 /** AI analysis, recommendations and projections saved to the user's Analysis tab, with their checks. */
 export function AnalysisPage() {
-  const { status, analysis, transactions, setAnalysisStatus, busy, error, clearError } = useLedger()
+  const { status, analysis, transactions, setAnalysisStatus, clearDismissedAnalysis, busy, error, clearError } = useLedger()
+  const [confirmClear, setConfirmClear] = useState(false)
+  const dismissedCount = analysis.filter((a) => a.status === 'dismissed').length
   const [kind, setKind] = useState<AnalysisKind | 'all'>('all')
   const [filter, setFilter] = useState<AnalysisStatus | 'all'>('open')
   const [localError, setLocalError] = useState<string | null>(null)
@@ -152,6 +154,33 @@ export function AnalysisPage() {
               {s}
             </button>
           ))}
+          {dismissedCount > 0 && !confirmClear && (
+            <button type="button" className="min-h-9 rounded-full px-3 text-sm text-slate-400 hover:text-white" onClick={() => setConfirmClear(true)} disabled={busy}>
+              Clear dismissed ({dismissedCount})
+            </button>
+          )}
+          {confirmClear && (
+            <span className="flex flex-wrap items-center gap-2 text-sm text-slate-300">
+              Move {dismissedCount} dismissed {dismissedCount === 1 ? 'entry' : 'entries'} to Trash? You can restore them for 30 days.
+              <button type="button" className="min-h-9 rounded-full border border-line-strong px-3 text-slate-300 hover:text-white" onClick={() => setConfirmClear(false)} disabled={busy}>Keep</button>
+              <button
+                type="button"
+                className="min-h-9 rounded-full bg-red-500/90 px-3 text-white hover:bg-red-500"
+                disabled={busy}
+                onClick={async () => {
+                  try {
+                    await clearDismissedAnalysis()
+                  } catch {
+                    /* shown by the error note */
+                  } finally {
+                    setConfirmClear(false)
+                  }
+                }}
+              >
+                Move to Trash
+              </button>
+            </span>
+          )}
         </div>
       </div>
 

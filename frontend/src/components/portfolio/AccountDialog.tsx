@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Loader2, Trash2 } from 'lucide-react'
+import { accountRemovalImpact } from '../../lib/ledger/removal'
 import { Dialog } from '../Dialog'
 import { useLedger } from '../../context/LedgerContext'
 import { useLedgerOptions } from '../../hooks/useLedgerOptions'
@@ -13,7 +14,8 @@ const parseNum = (s: string) => Number(s.replace(/\s/g, '').replace(',', '.'))
 
 /** Add or edit an account, investment, debt or insurance policy. */
 export function AccountDialog({ onClose, existing, initialType }: { onClose: () => void; existing?: Account; initialType?: string }) {
-  const { saveAccount, deleteAccount, busy, error } = useLedger()
+  const { saveAccount, deleteAccount, transactions, balances, busy, error } = useLedger()
+  const impact = existing ? accountRemovalImpact(existing, transactions, balances) : null
   const opts = useLedgerOptions()
   const [type, setType] = useState(existing?.type ?? initialType ?? 'current')
   const [name, setName] = useState(existing?.name ?? '')
@@ -83,7 +85,7 @@ export function AccountDialog({ onClose, existing, initialType }: { onClose: () 
           {existing ? (
             confirmDelete ? (
               <button type="button" className="btn btn-ghost text-red-300" onClick={() => void remove()} disabled={busy}>
-                <Trash2 className="h-4 w-4" /> Yes, remove
+                <Trash2 className="h-4 w-4" /> Move to Trash
               </button>
             ) : (
               <button type="button" className="btn btn-ghost" onClick={() => setConfirmDelete(true)} disabled={busy}>
@@ -110,6 +112,16 @@ export function AccountDialog({ onClose, existing, initialType }: { onClose: () 
           void submit()
         }}
       >
+        {confirmDelete && impact && (
+          <div role="alert" className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+            <p className="font-medium">Move {existing?.name} to Trash?</p>
+            <ul className="mt-1.5 list-disc space-y-1 pl-5 text-amber-100/90">
+              <li>{impact.transactions === 0 ? 'No transactions use this account.' : `${impact.transactions} ${impact.transactions === 1 ? 'transaction keeps' : 'transactions keep'} the name "${existing?.name}". They are not changed.`}</li>
+              <li>{impact.balanceRecords === 0 ? 'No balance history to keep.' : `${impact.balanceRecords} balance ${impact.balanceRecords === 1 ? 'entry is' : 'entries are'} kept and return if you restore the account.`}</li>
+              <li>You can restore it from Trash for 30 days.</li>
+            </ul>
+          </div>
+        )}
         <Field label="What is it?" htmlFor="acc-type">
           <select id="acc-type" className={selectClass} value={type} onChange={(e) => setType(e.target.value)}>
             {GROUPS.map((g) => (

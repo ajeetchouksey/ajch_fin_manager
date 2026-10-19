@@ -1,3 +1,5 @@
+import type { Analysis } from './analysis'
+import type { Account } from './portfolio'
 import type { LedgerDocument, Transaction } from './types'
 
 /**
@@ -11,7 +13,9 @@ export const TRASH_COLUMNS = ['id', 'kind', 'deleted_at', 'title', 'payload'] as
 /** Days a removed item is kept before it is erased for good. */
 export const TRASH_RETENTION_DAYS = 30
 
-export type TrashKind = 'transaction' | 'document'
+export const TRASH_KINDS = ['transaction', 'document', 'account', 'analysis'] as const
+
+export type TrashKind = (typeof TRASH_KINDS)[number]
 
 export interface TrashItem {
   id: string
@@ -34,9 +38,9 @@ export function trashToRow(t: TrashItem): (string | number)[] {
 export function rowToTrash(r: unknown[], row: number): TrashItem | null {
   const id = String(r[0] ?? '').trim()
   const kind = String(r[1] ?? '')
-  if (!id || (kind !== 'transaction' && kind !== 'document')) return null
+  if (!id || !(TRASH_KINDS as readonly string[]).includes(kind)) return null
   try {
-    return { id, kind, deletedAt: String(r[2] ?? ''), title: String(r[3] ?? ''), payload: JSON.parse(String(r[4] ?? 'null')), row }
+    return { id, kind: kind as TrashKind, deletedAt: String(r[2] ?? ''), title: String(r[3] ?? ''), payload: JSON.parse(String(r[4] ?? 'null')), row }
   } catch {
     return null
   }
@@ -73,4 +77,16 @@ export function transactionToTrash(t: Transaction, now: Date): TrashItem {
 export function documentToTrash(d: LedgerDocument, now: Date): TrashItem {
   const { row: _row, ...payload } = d
   return { id: d.id, kind: 'document', deletedAt: now.toISOString(), title: d.title || d.fileName || 'Document', payload }
+}
+
+/** Trash entry for an account. Its balance history stays in the Balances tab and returns with it. */
+export function accountToTrash(a: Account, now: Date): TrashItem {
+  const { row: _row, ...payload } = a
+  return { id: a.id, kind: 'account', deletedAt: now.toISOString(), title: a.name || 'Account', payload }
+}
+
+/** Trash entry for an AI analysis entry that was dismissed. */
+export function analysisToTrash(a: Analysis, now: Date): TrashItem {
+  const { row: _row, ...payload } = a
+  return { id: a.id, kind: 'analysis', deletedAt: now.toISOString(), title: a.title || 'Analysis', payload }
 }

@@ -21,7 +21,8 @@ test('a trashed item round-trips with its original payload', () => {
 })
 
 test('unknown kinds and unreadable payloads are not restored', () => {
-  assert.equal(rowToTrash(['x', 'account', '2026-10-01', 'a', '{}'], 2), null)
+  assert.equal(rowToTrash(['x', 'goal', '2026-10-01', 'a', '{}'], 2), null)
+  assert.equal(rowToTrash(['x', 'account', '2026-10-01', 'a', '{}'], 2)?.kind, 'account')
   assert.equal(rowToTrash(['x', 'document', '2026-10-01', 'a', 'not json'], 2), null)
   assert.equal(rowToTrash(['', 'document', '2026-10-01', 'a', '{}'], 2), null)
 })

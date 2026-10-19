@@ -7,7 +7,7 @@ import { ConnectDrive } from '../components/ledger/ConnectDrive'
 import { ErrorNote } from '../components/ledger/ui'
 import { TRASH_RETENTION_DAYS, daysLeft, type TrashItem } from '../lib/ledger/trash'
 
-const KIND_LABEL: Record<TrashItem['kind'], string> = { transaction: 'Transaction', document: 'Document' }
+const KIND_LABEL: Record<TrashItem['kind'], string> = { transaction: 'Transaction', document: 'Document', account: 'Account', analysis: 'AI analysis' }
 
 /** Items removed from the Ledger. Restore puts them back; erase removes them for good now. */
 export function TrashPage() {
