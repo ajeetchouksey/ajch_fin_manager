@@ -11,6 +11,9 @@ const LAST_KEY = 'aarya.lastEntry'
 export interface LastEntry {
   currency?: string
   account?: string
+  /** The last category used for money out and for money in, so the next entry starts from it */
+  categoryOut?: string
+  categoryIn?: string
 }
 
 export function readLastEntry(): LastEntry {
