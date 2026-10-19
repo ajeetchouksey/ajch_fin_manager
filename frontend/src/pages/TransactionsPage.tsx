@@ -7,6 +7,7 @@ import { useLedger } from '../context/LedgerContext'
 import { ConnectDrive } from '../components/ledger/ConnectDrive'
 import { TransactionDialog } from '../components/ledger/TransactionDialog'
 import { ImportDialog } from '../components/ledger/ImportDialog'
+import { RecentImports } from '../components/ledger/RecentImports'
 import { TransactionDetails } from '../components/ledger/TransactionDetails'
 import { UploadDocumentsDialog } from '../components/ledger/UploadDocumentsDialog'
 import { ErrorNote, TagChips, inputClass } from '../components/ledger/ui'
@@ -90,6 +91,7 @@ export function TransactionsPage() {
         </div>
       ) : (
         <div className="space-y-4">
+          <RecentImports />
           <div className="flex flex-col gap-2 sm:flex-row">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />

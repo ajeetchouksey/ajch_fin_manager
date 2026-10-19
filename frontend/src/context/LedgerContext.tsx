@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth'
 import { clearDriveToken, getStoredDriveToken, requestDriveToken } from '../lib/google/gis'
 import { ACCOUNT_SHEET, BUDGET_SHEET, DOC_SHEET, DriveError, GOAL_SHEET, LedgerClient, TRASH_SHEET, TX_SHEET } from '../lib/google/driveClient'
 import { documentToTrash, expiredItems, transactionToTrash, type TrashItem } from '../lib/ledger/trash'
+import type { ImportBatch } from '../lib/ledger/imports'
 import type { Budget } from '../lib/ledger/budgets'
 import type { Analysis, AnalysisStatus } from '../lib/ledger/analysis'
 import { mergeProfile, profileToRows, rowsToProfile, type ProfileRow } from '../lib/ledger/profile'
@@ -56,6 +57,8 @@ interface LedgerContextValue {
   uploadDocuments: (drafts: DocumentDraft[], transactionId?: string) => Promise<LedgerDocument[]>
   /** Moves the document record to Trash. The file stays in Drive. */
   deleteDocumentRecord: (d: LedgerDocument) => Promise<void>
+  /** Moves every transaction in an import batch to Trash. They can be restored from there. */
+  undoImport: (batch: ImportBatch) => Promise<void>
   /** Items removed and not yet erased, newest last. */
   trash: TrashItem[]
   /** Puts a trashed transaction or document back in the Ledger. */
@@ -377,6 +380,18 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [run, client, load],
   )
 
+  const undoImport: LedgerContextValue['undoImport'] = useCallback(
+    (batch) =>
+      run(async () => {
+        const loc = requireLoc()
+        // Trash first, as for a single delete: a failed removal leaves the rows in both places, never lost
+        await client.appendTrash(loc.spreadsheetId, batch.transactions.map((t) => transactionToTrash(t, new Date())))
+        await client.deleteRows(loc.spreadsheetId, TX_SHEET, batch.transactions.map((t) => ({ row: t.row, id: t.id })))
+        await load(loc)
+      }),
+    [run, client, load],
+  )
+
   const restoreFromTrash: LedgerContextValue['restoreFromTrash'] = useCallback(
     (item) =>
       run(async () => {
@@ -561,6 +576,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     uploadDocuments,
     deleteDocumentRecord,
     trash,
+    undoImport,
     restoreFromTrash,
     eraseFromTrash,
     saveAccount,
