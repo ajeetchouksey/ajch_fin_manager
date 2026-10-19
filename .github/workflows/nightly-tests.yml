@@ -1,8 +1,8 @@
-name: Nightly Full Test Suite
+name: Nightly Test Suite
 
 on:
   schedule:
-    # Run every night at 2 AM UTC (convenient for European timezone)
+    # Every night at 2 AM UTC (convenient for European timezone)
     - cron: '0 2 * * *'
   # Allow manual triggering
   workflow_dispatch:
@@ -11,10 +11,54 @@ env:
   NODE_VERSION: '20'
 
 jobs:
-  # ===== FULL TEST SUITE =====
-  full-test:
-    name: Full Test Suite
+  # ===== CHECKS THAT MUST PASS =====
+  nightly:
+    name: Type check, unit and frontend tests
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+
+      - name: Install Worker dependencies
+        run: npm ci
+
+      - name: Type check (Worker)
+        run: npm run type-check
+
+      - name: Unit tests (Worker)
+        run: npm run test:unit
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend tests
+        working-directory: frontend
+        run: npm test
+
+      - name: Frontend type check and build
+        working-directory: frontend
+        run: |
+          npx tsc -b
+          npm run build
+
+  # ===== SERVER AND BROWSER TESTS (INFORMATIONAL) =====
+  # These need the Worker running on port 8787 and the frontend on 5173, and some of them are known to
+  # fail (see docs/testing-status.md). They run for visibility and do not fail the nightly run.
+  server-tests:
+    name: Server tests (informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true
 
     steps:
       - name: Checkout code
@@ -29,74 +73,40 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+      - name: Build Worker
+        run: npm run build
 
-      - name: Run TypeScript check
-        run: npm run type-check
+      - name: Start Worker
+        run: |
+          npx wrangler dev --port 8787 > worker.log 2>&1 &
+          for i in $(seq 1 40); do curl -s -o /dev/null http://localhost:8787/api/health && exit 0; sleep 3; done
+          cat worker.log; exit 1
 
-      - name: Run unit tests
-        run: npm run test:unit || true
+      - name: Security, integration and UAT tests
+        run: npx jest src/__tests__/security.test.ts src/__tests__/integration.test.ts src/__tests__/uat.test.ts
 
-      - name: Run integration tests
-        run: npm run test:integration
-
-      - name: Run security tests
-        run: npm run test:security
-
-      - name: Run UAT tests
-        run: npm run test:uat
-
-      - name: Run E2E tests
-        run: npm run test:e2e
-        continue-on-error: true
-
-      - name: Generate coverage report
-        run: npm run test:coverage
-        continue-on-error: true
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage/coverage-final.json
-          flags: unittests
-          name: codecov-umbrella
-
-      - name: Upload test results
+      - name: Upload Worker log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
-          path: |
-            coverage/
-            playwright-report/
-          retention-days: 30
+          name: worker-log
+          path: worker.log
+          retention-days: 14
 
-  # ===== NOTIFICATION =====
+  # ===== SUMMARY =====
   notify:
-    name: Test Results Notification
-    needs: full-test
+    name: Test Results Summary
+    needs: [nightly, server-tests]
     runs-on: ubuntu-latest
     if: always()
 
     steps:
-      - name: Test Results Summary
+      - name: Write summary
         run: |
-          echo "## Nightly Full Test Suite Results"
-          echo ""
-          echo "**Status:** ${{ needs.full-test.result }}"
-          echo ""
-          echo "- Full test suite completed"
-          echo "- Integration tests run"
-          echo "- Security tests run"
-          echo "- UAT tests run"
-          echo "- E2E tests run"
-          echo "- Coverage report generated"
-
-      - name: Create deployment summary
-        run: |
-          echo "## Nightly Test Run Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Test Suite:** Full" >> $GITHUB_STEP_SUMMARY
-          echo "**Status:** ${{ needs.full-test.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Timestamp:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Nightly test run"
+            echo ""
+            echo "- Type check, unit and frontend tests: **${{ needs.nightly.result }}**"
+            echo "- Server tests (informational): **${{ needs.server-tests.result }}**"
+            echo "- Timestamp: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -21,7 +21,8 @@
     "test:e2e": "playwright test",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:headed": "playwright test --headed",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test:unit": "jest src/__tests__/schema-delete.test.ts src/__tests__/auth-flags.test.ts src/__tests__/onboarding-prompts.test.ts"
   },
   "dependencies": {
     "google-auth-library": "^9.4.1",
