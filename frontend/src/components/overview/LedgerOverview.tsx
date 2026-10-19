@@ -9,6 +9,7 @@ import { AccountList, CategoryBars, KpiTiles, RecentList, SectionHeader, TrendCh
 import { BudgetCard } from './BudgetCard'
 import { BudgetDialog } from './BudgetDialog'
 import { AskAI } from './AskAI'
+import { HeadlineCard } from './HeadlineCard'
 import { budgetProgress } from '../../lib/ledger/budgets'
 import { byAccount, currenciesByUse, inSpan, monthName, spendingByCategory, totalsFor, type Span, type TrendPoint } from '../../lib/ledger/summary'
 import { buildPeriods, type Period, type PeriodMode } from '../../lib/ledger/periods'
@@ -125,6 +126,16 @@ export function LedgerOverview() {
 
   return (
     <div className="space-y-6">
+      <HeadlineCard
+        transactions={transactions}
+        currency={currency}
+        today={today}
+        period={spanOf(cur)}
+        previous={prev ? spanOf(prev) : null}
+        periodNoun={`in ${title}`}
+        previousNoun={useSalary ? 'the cycle before' : prev ? monthName(prev.start.slice(0, 7)) : 'the month before'}
+      />
+
       {/* Filters in one row above the charts */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
