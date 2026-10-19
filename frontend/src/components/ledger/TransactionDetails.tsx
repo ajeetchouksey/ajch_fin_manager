@@ -27,7 +27,7 @@ export function TransactionDetails({ tx, onClose, onEdit, onAttach }: { tx: Tran
       footer={
         confirming ? (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-slate-300">Delete this transaction from your Ledger? Attached files stay in Drive.</p>
+            <p className="text-sm text-slate-300">Move this transaction to Trash? You can restore it for 30 days. Attached files stay in Drive.</p>
             <div className="flex justify-end gap-2">
               <button type="button" className="btn btn-ghost" onClick={() => setConfirming(false)} disabled={busy}>Keep</button>
               <button
@@ -43,7 +43,7 @@ export function TransactionDetails({ tx, onClose, onEdit, onAttach }: { tx: Tran
                   }
                 }}
               >
-                {busy && <Loader2 className="h-4 w-4 animate-spin" />}Delete
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />}Move to Trash
               </button>
             </div>
           </div>

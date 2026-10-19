@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, FileUp, Paperclip, Plus, RefreshCw, Search } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, FileUp, Paperclip, Plus, RefreshCw, Search, Trash2 } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
 import { useLedger } from '../context/LedgerContext'
@@ -28,7 +28,7 @@ function monthLabel(ym: string) {
 }
 
 export function TransactionsPage() {
-  const { status, transactions, refresh, busy, error } = useLedger()
+  const { status, transactions, trash, refresh, busy, error } = useLedger()
   const [open, setOpen] = useState<Open>(null)
   const [params] = useSearchParams()
   const [query, setQuery] = useState(params.get('q') ?? '')
@@ -54,6 +54,9 @@ export function TransactionsPage() {
   const ready = status === 'ready'
   const actions = ready ? (
     <>
+      <Link to="/trash" className="btn btn-ghost">
+        <Trash2 className="h-4 w-4" /> Trash{trash.length > 0 ? ` (${trash.length})` : ''}
+      </Link>
       <button type="button" className="btn btn-secondary" onClick={() => setOpen({ kind: 'import' })}>
         <FileUp className="h-4 w-4" /> Import
       </button>

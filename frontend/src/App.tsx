@@ -7,6 +7,7 @@ import { InsightsPage } from './pages/InsightsPage'
 import { ReportPage } from './pages/ReportPage'
 import { AnalysisPage } from './pages/AnalysisPage'
 import { TransactionsPage } from './pages/TransactionsPage'
+import { TrashPage } from './pages/TrashPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { StoragePage } from './pages/StoragePage'
 import { LedgerProvider } from './context/LedgerContext'
@@ -38,6 +39,7 @@ function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/accounts" element={<AccountsPage />} />
         <Route path="/transactions" element={<TransactionsPage />} />
+        <Route path="/trash" element={<TrashPage />} />
         <Route path="/documents" element={<DocumentsPage />} />
         <Route path="/goals" element={<GoalsPage />} />
         <Route path="/insights" element={<InsightsPage />} />

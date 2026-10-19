@@ -33,6 +33,7 @@ import {
 } from '../ledger/portfolio'
 import { BUDGET_COLUMNS, budgetToRow, rowToBudget, type Budget } from '../ledger/budgets'
 import { ANALYSIS_COLUMNS, analysisToRow, rowToAnalysis, type Analysis } from '../ledger/analysis'
+import { TRASH_COLUMNS, rowToTrash, trashToRow, type TrashItem } from '../ledger/trash'
 import { PROFILE_COLUMNS, profileRowToRow, rowToProfileRow, type ProfileRow } from '../ledger/profile'
 
 const DRIVE = 'https://www.googleapis.com/drive/v3'
@@ -49,6 +50,7 @@ export const GOAL_SHEET = 'Goals'
 export const BUDGET_SHEET = 'Budgets'
 export const ANALYSIS_SHEET = 'Analysis'
 export const PROFILE_SHEET = 'Profile'
+export const TRASH_SHEET = 'Trash'
 const META_SHEET = 'Meta'
 
 /** Tabs with a header row, created when missing (in this order, after Transactions). */
@@ -60,9 +62,10 @@ const DATA_TABS: Array<[string, readonly string[]]> = [
   [BUDGET_SHEET, BUDGET_COLUMNS],
   [ANALYSIS_SHEET, ANALYSIS_COLUMNS],
   [PROFILE_SHEET, PROFILE_COLUMNS],
+  [TRASH_SHEET, TRASH_COLUMNS],
 ]
 
-type RowSheet = typeof TX_SHEET | typeof DOC_SHEET | typeof ACCOUNT_SHEET | typeof GOAL_SHEET | typeof BUDGET_SHEET | typeof ANALYSIS_SHEET | typeof PROFILE_SHEET
+type RowSheet = typeof TX_SHEET | typeof DOC_SHEET | typeof ACCOUNT_SHEET | typeof GOAL_SHEET | typeof BUDGET_SHEET | typeof ANALYSIS_SHEET | typeof PROFILE_SHEET | typeof TRASH_SHEET
 
 /** Last column letter for a table of n columns (n ≤ 26). */
 const lastCol = (n: number) => String.fromCharCode(64 + n)
@@ -292,6 +295,15 @@ export class LedgerClient {
       else fresh.push(r)
     }
     await this.append(spreadsheetId, PROFILE_SHEET, fresh.map(profileRowToRow))
+  }
+
+  /** Removed items, newest last. Rows that cannot be read are skipped rather than restored. */
+  async listTrash(spreadsheetId: string): Promise<TrashItem[]> {
+    return (await this.readTab(spreadsheetId, TRASH_SHEET)).map((r, i) => rowToTrash(r, i + 2)).filter((t): t is TrashItem => t !== null)
+  }
+
+  async appendTrash(spreadsheetId: string, items: TrashItem[]) {
+    await this.append(spreadsheetId, TRASH_SHEET, items.map(trashToRow))
   }
 
   async listAnalysis(spreadsheetId: string): Promise<Analysis[]> {
