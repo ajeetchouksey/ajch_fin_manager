@@ -51,6 +51,8 @@ interface LedgerContextValue {
   disconnect: () => void
   addTransaction: (t: Omit<Transaction, 'id' | 'createdAt' | 'documentIds' | 'source'>, attachments: DocumentDraft[]) => Promise<Transaction>
   updateTransaction: (t: Transaction) => Promise<void>
+  /** Writes several transactions in one request. Used for bulk changes and their undo. */
+  updateTransactions: (txs: Transaction[]) => Promise<void>
   importTransactions: (rows: Array<Omit<Transaction, 'id' | 'createdAt' | 'documentIds' | 'source'>>) => Promise<number>
   /** Moves the transaction to Trash, where it can be restored for 30 days. */
   deleteTransaction: (t: Transaction) => Promise<void>
@@ -345,6 +347,16 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [run, uploadDrafts, client, load],
   )
 
+  const updateTransactions: LedgerContextValue['updateTransactions'] = useCallback(
+    (txs) =>
+      run(async () => {
+        const loc = requireLoc()
+        await client.updateTransactions(loc.spreadsheetId, txs)
+        await load(loc)
+      }),
+    [run, client, load],
+  )
+
   const updateTransaction: LedgerContextValue['updateTransaction'] = useCallback(
     (t) =>
       run(async () => {
@@ -571,6 +583,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     disconnect,
     addTransaction,
     updateTransaction,
+    updateTransactions,
     importTransactions,
     deleteTransaction,
     uploadDocuments,
