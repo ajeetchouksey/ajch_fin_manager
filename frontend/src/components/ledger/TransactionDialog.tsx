@@ -37,7 +37,7 @@ export function TransactionDialog({
   const [currency, setCurrency] = useState(existing?.currency ?? opts.defaultCurrency)
   const [account, setAccount] = useState(existing?.account ?? last.account ?? '')
   const [toAccount, setToAccount] = useState('')
-  const [category, setCategory] = useState(existing?.category ?? '')
+  const [category, setCategory] = useState(existing?.category ?? last.categoryOut ?? '')
   // Once the user picks a category we stop suggesting one
   const [categoryTouched, setCategoryTouched] = useState(!!existing)
   // Once the user picks money in or out, suggestions keep to that direction
@@ -201,7 +201,8 @@ export function TransactionDialog({
       } else {
         await addTransaction(fields, attachments)
       }
-      writeLastEntry({ currency, account: from || undefined })
+      const remembered = kind === 'transfer' ? {} : direction === 'in' ? { categoryIn: category } : { categoryOut: category }
+      writeLastEntry({ ...last, currency, account: from || undefined, ...remembered })
       onClose()
     } catch {
       /* error shown from context */

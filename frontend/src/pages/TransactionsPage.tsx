@@ -70,7 +70,7 @@ export function TransactionsPage() {
         <Trash2 className="h-4 w-4" /> Trash{trash.length > 0 ? ` (${trash.length})` : ''}
       </Link>
       <button type="button" className="btn btn-secondary" onClick={() => setOpen({ kind: 'import' })}>
-        <FileUp className="h-4 w-4" /> Import
+        <FileUp className="h-4 w-4" /> Upload statement
       </button>
       <button type="button" className="btn btn-primary" onClick={() => setOpen({ kind: 'add' })}>
         <Plus className="h-4 w-4" /> Add
@@ -91,11 +91,11 @@ export function TransactionsPage() {
           <EmptyState
             icon={ArrowLeftRight}
             title="No transactions yet"
-            description="Add one by hand with notes and a receipt, or import many at once from your bank's CSV export."
+            description="Add one by hand with notes and a receipt, or upload a bank statement (CSV, PDF or a photo of one) to add many at once."
             action={
               <div className="flex flex-wrap justify-center gap-2">
                 <button type="button" className="btn btn-primary" onClick={() => setOpen({ kind: 'add' })}><Plus className="h-4 w-4" /> Add transaction</button>
-                <button type="button" className="btn btn-secondary" onClick={() => setOpen({ kind: 'import' })}><FileUp className="h-4 w-4" /> Import CSV</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setOpen({ kind: 'import' })}><FileUp className="h-4 w-4" /> Upload statement</button>
               </div>
             }
           />
