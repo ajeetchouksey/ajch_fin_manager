@@ -69,7 +69,8 @@ test('deduction suggestions cover only the year, country hints and money out, an
 test('India uses its own tags, and a country with no hints gets none', () => {
   const india = deductionSuggestions(ledger, 'IN', 2025, 'EUR')
   assert.ok(india.every((d) => d.tag.startsWith('tax:in:')))
-  assert.deepEqual(india.map((d) => d.description), ['Education', 'Gifts & donations', 'Education'])
+  // India's year is April to March: the March 2025 payment belongs to FY 2024-25, so it is left out
+  assert.deepEqual(india.map((d) => d.description), ['Gifts & donations', 'Education'])
 })
 
 test('a confirmed tag is added once and never removes other tags', () => {

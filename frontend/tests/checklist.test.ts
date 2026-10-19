@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { documentChecklist, filingDeadlines, yearBounds } from '../src/lib/tax/checklist.ts'
+import { documentChecklist, filingDeadlines } from '../src/lib/tax/checklist.ts'
+import { yearBounds } from '../src/lib/tax/summary.ts'
 import type { LedgerDocument } from '../src/lib/ledger/types.ts'
 
 const doc = (id: string, type: string, date: string, tags: string[] = []) =>

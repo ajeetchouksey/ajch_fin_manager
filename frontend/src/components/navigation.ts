@@ -1,4 +1,4 @@
-import { ArrowLeftRight, ClipboardList, FileText, LayoutDashboard, Lightbulb, Sparkles, Target, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, ClipboardList, FileText, LayoutDashboard, Lightbulb, Receipt, Sparkles, Target, Wallet, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -14,5 +14,6 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/goals', label: 'Goals', icon: Target },
   { to: '/insights', label: 'Insights', icon: Lightbulb },
   { to: '/report', label: 'Report', icon: ClipboardList },
+  { to: '/tax', label: 'Tax', icon: Receipt },
   { to: '/analysis', label: 'Analysis', icon: Sparkles },
 ]
