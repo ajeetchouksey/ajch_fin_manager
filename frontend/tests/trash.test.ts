@@ -45,3 +45,13 @@ test('days left counts down and stops at zero', () => {
   assert.equal(daysLeft(removed, new Date('2026-10-20T00:00:00Z')), 12)
   assert.equal(daysLeft(removed, new Date('2030-01-01T00:00:00Z')), 0)
 })
+
+test('a transaction goes to trash without its sheet row, and keeps every field', async () => {
+  const { transactionToTrash } = await import('../src/lib/ledger/trash.ts')
+  const tx = { id: 'tx_9', date: '2026-10-02', direction: 'out', amount: 12, currency: 'EUR', account: 'Main', category: 'Food', description: 'Bakery', notes: '', tags: [], documentIds: [], source: 'manual', createdAt: '2026-10-02T08:00:00Z', row: 7 } as never
+  const item = transactionToTrash(tx, new Date('2026-10-03T00:00:00Z'))
+  assert.equal(item.kind, 'transaction')
+  assert.equal(item.deletedAt, '2026-10-03T00:00:00.000Z')
+  assert.equal('row' in (item.payload as object), false)
+  assert.equal((item.payload as { description: string }).description, 'Bakery')
+})

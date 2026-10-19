@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { clearDriveToken, getStoredDriveToken, requestDriveToken } from '../lib/google/gis'
-import { ACCOUNT_SHEET, BUDGET_SHEET, DOC_SHEET, DriveError, GOAL_SHEET, LedgerClient, TX_SHEET } from '../lib/google/driveClient'
+import { ACCOUNT_SHEET, BUDGET_SHEET, DOC_SHEET, DriveError, GOAL_SHEET, LedgerClient, TRASH_SHEET, TX_SHEET } from '../lib/google/driveClient'
+import { documentToTrash, expiredItems, transactionToTrash, type TrashItem } from '../lib/ledger/trash'
 import type { Budget } from '../lib/ledger/budgets'
 import type { Analysis, AnalysisStatus } from '../lib/ledger/analysis'
 import { mergeProfile, profileToRows, rowsToProfile, type ProfileRow } from '../lib/ledger/profile'
@@ -50,9 +51,17 @@ interface LedgerContextValue {
   addTransaction: (t: Omit<Transaction, 'id' | 'createdAt' | 'documentIds' | 'source'>, attachments: DocumentDraft[]) => Promise<Transaction>
   updateTransaction: (t: Transaction) => Promise<void>
   importTransactions: (rows: Array<Omit<Transaction, 'id' | 'createdAt' | 'documentIds' | 'source'>>) => Promise<number>
+  /** Moves the transaction to Trash, where it can be restored for 30 days. */
   deleteTransaction: (t: Transaction) => Promise<void>
   uploadDocuments: (drafts: DocumentDraft[], transactionId?: string) => Promise<LedgerDocument[]>
+  /** Moves the document record to Trash. The file stays in Drive. */
   deleteDocumentRecord: (d: LedgerDocument) => Promise<void>
+  /** Items removed and not yet erased, newest last. */
+  trash: TrashItem[]
+  /** Puts a trashed transaction or document back in the Ledger. */
+  restoreFromTrash: (item: TrashItem) => Promise<void>
+  /** Erases a trashed item now, without waiting for the 30 days. */
+  eraseFromTrash: (item: TrashItem) => Promise<void>
   /** Add an account, or update one; a changed balance is also kept in the Balances history. */
   saveAccount: (draft: AccountDraft, existing?: Account) => Promise<Account>
   deleteAccount: (a: Account) => Promise<void>
@@ -102,6 +111,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const [location, setLocation] = useState<LedgerLocation | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [documents, setDocuments] = useState<LedgerDocument[]>([])
+  const [trash, setTrash] = useState<TrashItem[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
   const [balances, setBalances] = useState<BalanceEntry[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
@@ -145,7 +155,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         checkedTabs.current = loc.spreadsheetId
       }
       const id = loc.spreadsheetId
-      const [tx, docs, accs, bals, gls, buds, anls, prof] = await Promise.all([
+      const [tx, docs, accs, bals, gls, buds, anls, prof, bin] = await Promise.all([
         client.listTransactions(id),
         client.listDocuments(id),
         client.listAccounts(id),
@@ -154,7 +164,12 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         client.listBudgets(id),
         client.listAnalysis(id),
         client.listProfile(id),
+        client.listTrash(id),
       ])
+      // Items past the retention period are erased; a failure here must not stop the Ledger loading
+      const expired = expiredItems(bin, new Date())
+      if (expired.length) await client.deleteRows(id, TRASH_SHEET, expired).catch(() => undefined)
+      setTrash(bin.filter((i) => !expired.includes(i)))
       setTransactions(tx)
       setDocuments(docs)
       setAccounts(accs)
@@ -255,6 +270,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     setBudgets([])
     setAnalysis([])
     setProfileRows([])
+    setTrash([])
     setStatus('disconnected')
   }, [userId])
 
@@ -353,7 +369,34 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     (t) =>
       run(async () => {
         const loc = requireLoc()
+        // Trash first: if the removal then fails, the item is in both places, never lost
+        await client.appendTrash(loc.spreadsheetId, [transactionToTrash(t, new Date())])
         await client.deleteRow(loc.spreadsheetId, TX_SHEET, t.row ?? 0, t.id)
+        await load(loc)
+      }),
+    [run, client, load],
+  )
+
+  const restoreFromTrash: LedgerContextValue['restoreFromTrash'] = useCallback(
+    (item) =>
+      run(async () => {
+        const loc = requireLoc()
+        if (item.kind === 'transaction') {
+          await client.appendTransactions(loc.spreadsheetId, [item.payload as Transaction])
+        } else {
+          await client.appendDocuments(loc.spreadsheetId, [item.payload as LedgerDocument])
+        }
+        await client.deleteRow(loc.spreadsheetId, TRASH_SHEET, item.row ?? 0, item.id)
+        await load(loc)
+      }),
+    [run, client, load],
+  )
+
+  const eraseFromTrash: LedgerContextValue['eraseFromTrash'] = useCallback(
+    (item) =>
+      run(async () => {
+        const loc = requireLoc()
+        await client.deleteRow(loc.spreadsheetId, TRASH_SHEET, item.row ?? 0, item.id)
         await load(loc)
       }),
     [run, client, load],
@@ -388,6 +431,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     (d) =>
       run(async () => {
         const loc = requireLoc()
+        await client.appendTrash(loc.spreadsheetId, [documentToTrash(d, new Date())])
         await client.deleteRow(loc.spreadsheetId, DOC_SHEET, d.row ?? 0, d.id)
         await load(loc)
       }),
@@ -516,6 +560,9 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     deleteTransaction,
     uploadDocuments,
     deleteDocumentRecord,
+    trash,
+    restoreFromTrash,
+    eraseFromTrash,
     saveAccount,
     deleteAccount,
     saveGoal,

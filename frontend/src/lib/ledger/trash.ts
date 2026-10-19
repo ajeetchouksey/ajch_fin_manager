@@ -1,3 +1,5 @@
+import type { LedgerDocument, Transaction } from './types'
+
 /**
  * Trash: things the user removed (a transaction, a document, an import batch) are kept here for 30 days, so a
  * mistake can be restored. The Trash tab is separate from the working tabs, so removing something never changes
@@ -58,4 +60,17 @@ export function expiredItems(items: TrashItem[], now: Date): TrashItem[] {
 /** Whole days left before an item is erased, for showing "restore within N days". */
 export function daysLeft(item: Pick<TrashItem, 'deletedAt'>, now: Date): number {
   return Math.max(0, Math.ceil((purgeAt(item) - now.getTime()) / DAY_MS))
+}
+
+/** Trash entry for a transaction. The row number is not kept: it is only valid while the row is in the sheet. */
+export function transactionToTrash(t: Transaction, now: Date): TrashItem {
+  const { row: _row, ...payload } = t
+  const label = `${t.description || 'Transaction'} · ${t.date}`
+  return { id: t.id, kind: 'transaction', deletedAt: now.toISOString(), title: label, payload }
+}
+
+/** Trash entry for a document record. The file itself stays in Drive; only its row moves. */
+export function documentToTrash(d: LedgerDocument, now: Date): TrashItem {
+  const { row: _row, ...payload } = d
+  return { id: d.id, kind: 'document', deletedAt: now.toISOString(), title: d.title || d.fileName || 'Document', payload }
 }
