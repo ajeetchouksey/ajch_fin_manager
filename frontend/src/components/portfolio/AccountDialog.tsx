@@ -7,10 +7,11 @@ import { useLedgerOptions } from '../../hooks/useLedgerOptions'
 import { ACCOUNT_TYPES, GROUP_LABELS, accountType, type Account, type AccountGroup } from '../../lib/ledger/portfolio'
 import { CURRENCIES, todayIso } from '../../lib/ledger/types'
 import { ErrorNote, Field, inputClass, selectClass } from '../ledger/ui'
+import { parseNumber } from '../../lib/ledger/money'
 
 const GROUPS: AccountGroup[] = ['cash', 'investments', 'retirement', 'property', 'debt', 'cover']
 
-const parseNum = (s: string) => Number(s.replace(/\s/g, '').replace(',', '.'))
+const parseNum = (s: string) => parseNumber(s) ?? NaN
 
 /** Add or edit an account, investment, debt or insurance policy. */
 export function AccountDialog({ onClose, existing, initialType }: { onClose: () => void; existing?: Account; initialType?: string }) {

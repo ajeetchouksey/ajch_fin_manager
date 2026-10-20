@@ -8,6 +8,7 @@
  */
 
 import { newId } from './types'
+import { parseNumber } from './money'
 
 export const ACCOUNT_COLUMNS = ['id', 'name', 'type', 'institution', 'currency', 'balance', 'as_of', 'rate', 'monthly', 'notes', 'created_at'] as const
 export const BALANCE_COLUMNS = ['account_id', 'date', 'balance', 'recorded_at'] as const
@@ -108,7 +109,7 @@ export interface Goal {
 }
 
 const num = (v: unknown, fallback = 0) => {
-  const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(',', '.'))
+  const n = parseNumber(v as string | number) ?? NaN
   return Number.isFinite(n) ? n : fallback
 }
 const str = (v: unknown) => String(v ?? '').trim()

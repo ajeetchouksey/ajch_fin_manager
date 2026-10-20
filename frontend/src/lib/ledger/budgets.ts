@@ -5,6 +5,7 @@
 import { isTransfer } from './categorize'
 import { inSpan, type Span } from './summary'
 import type { Transaction } from './types'
+import { parseNumber } from './money'
 
 export const BUDGET_COLUMNS = ['category', 'monthly', 'currency', 'created_at'] as const
 
@@ -42,8 +43,9 @@ export function budgetToRow(b: Budget): (string | number)[] {
 export function rowToBudget(r: unknown[], row: number): Budget | null {
   const category = String(r[0] ?? '').trim()
   if (!category) return null
-  const monthly = Math.abs(Number(String(r[1] ?? '').replace(',', '.')))
-  if (!Number.isFinite(monthly)) return null
+  const parsed = parseNumber(r[1] as string | number)
+  if (parsed === null) return null
+  const monthly = Math.abs(parsed)
   return { category, monthly, currency: String(r[2] ?? '').trim().toUpperCase() || 'EUR', createdAt: String(r[3] ?? ''), row }
 }
 

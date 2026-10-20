@@ -84,7 +84,7 @@ test('a single payment equal to the move is called out as possible timing', () =
   ]
   const r = report({ transactions: txs })
   const gifts = r.categories.find((c) => c.label === 'Gifts')!
-  assert.match(gifts.note, /one new payment of €600.00 to Car repair garage.*timing/)
+  assert.match(gifts.note, /one new payment of 600,00\s€ to Car repair garage.*timing/)
 })
 
 test('a move the data does not explain is labelled driver to be confirmed', () => {
@@ -102,8 +102,8 @@ test('a move the data does not explain is labelled driver to be confirmed', () =
 test('headline has the period facts, the change, and budget status in at most three sentences', () => {
   const r = report({ budgets: [{ category: 'Dining', monthly: 200, currency: 'EUR', createdAt: '' }] })
   assert.equal(r.headline.length, 3)
-  assert.match(r.headline[0], /In October 2026 you received €3,000\.00 and spent €730\.00/)
-  assert.match(r.headline[1], /Spending was up €230\.00/)
+  assert.match(r.headline[0], /In October 2026 you received 3\.000,00\s€ and spent 730,00\s€/)
+  assert.match(r.headline[1], /Spending was up 230,00\s€/)
   assert.match(r.headline[2], /1 budget over/)
 })
 

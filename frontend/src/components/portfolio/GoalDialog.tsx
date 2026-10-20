@@ -6,8 +6,9 @@ import { useLedgerOptions } from '../../hooks/useLedgerOptions'
 import { accountType, type Goal, type GoalPriority } from '../../lib/ledger/portfolio'
 import { CURRENCIES, formatMoney } from '../../lib/ledger/types'
 import { ErrorNote, Field, inputClass, selectClass } from '../ledger/ui'
+import { parseNumber } from '../../lib/ledger/money'
 
-const parseNum = (s: string) => Number(s.replace(/\s/g, '').replace(',', '.'))
+const parseNum = (s: string) => parseNumber(s) ?? NaN
 
 function monthsUntil(date: string): number {
   const now = new Date()

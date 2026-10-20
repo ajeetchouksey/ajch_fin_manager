@@ -8,6 +8,7 @@ import { isCsvFile, looksLikeStatement, readCsvFile } from '../../lib/ledger/csv
 import { TRANSFER_CATEGORY, suggestCategory } from '../../lib/ledger/categorize'
 import { CURRENCIES, DOCUMENT_TYPES, parseTags, todayIso, type Direction, type Transaction } from '../../lib/ledger/types'
 import { CategorySelect, ErrorNote, Field, FilePicker, TagInput, inputClass, selectClass } from './ui'
+import { parseNumber } from '../../lib/ledger/money'
 
 type Kind = Direction | 'transfer'
 
@@ -171,7 +172,7 @@ export function TransactionDialog({
 
   const submit = async () => {
     setLocalError(null)
-    const value = Number(amount.replace(',', '.'))
+    const value = parseNumber(amount) ?? NaN
     if (!Number.isFinite(value) || value <= 0) return setLocalError('Enter an amount greater than 0.')
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setLocalError('Choose a date.')
     const from = account.trim()

@@ -13,6 +13,7 @@ import type { Transaction } from '../ledger/types'
 import { accountType, type Account, type BalanceEntry, type Goal, type AccountGroup } from '../ledger/portfolio'
 import { isTransfer, payeeKey } from '../ledger/categorize'
 import { shiftMonth, ym } from '../ledger/summary'
+import { formatNumber } from '../ledger/money'
 
 export interface ReviewInput {
   transactions: Transaction[]
@@ -485,7 +486,7 @@ export function findGaps(input: ReviewInput): Gap[] {
   const goals = goalStatus(input.goals.filter((g) => g.currency === currency), input.accounts, input.today)
   const subs = recurring(input.transactions, currency, input.today)
   const gaps: Gap[] = []
-  const fmt = (n: number) => `${Math.round(n).toLocaleString('en')} ${currency}`
+  const fmt = (n: number) => `${formatNumber(Math.round(n), currency, 0)} ${currency}`
   const hasAccounts = input.accounts.length > 0
   const hasCompleteMonth = flow.months.length > 0
 
