@@ -9,6 +9,7 @@ import { AccountList, CategoryBars, KpiTiles, RecentList, SectionHeader, TrendCh
 import { BudgetCard } from './BudgetCard'
 import { BudgetDialog } from './BudgetDialog'
 import { AskAI } from './AskAI'
+import { AccountBalances } from './AccountBalances'
 import { HeadlineCard } from './HeadlineCard'
 import { budgetProgress } from '../../lib/ledger/budgets'
 import { byAccount, currenciesByUse, inSpan, monthName, spendingByCategory, totalsFor, type Span, type TrendPoint } from '../../lib/ledger/summary'
@@ -29,7 +30,7 @@ const cycleShort = (p: Period) => shortDay(p.start)
 
 /** The Overview's money section, computed in the browser from the Ledger in the user's Drive. */
 export function LedgerOverview() {
-  const { status, transactions, budgets } = useLedger()
+  const { status, transactions, budgets, accounts } = useLedger()
   const navigate = useNavigate()
   const [mode, setMode] = usePeriodMode()
   const [picked, setPicked] = useState<{ mode: PeriodMode; key: string } | null>(null)
@@ -217,6 +218,8 @@ export function LedgerOverview() {
           onEdit={() => setEditingBudgets(true)}
         />
       </section>
+
+      <AccountBalances accounts={accounts} currency={currency} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section aria-labelledby="recent-heading" className="card">
