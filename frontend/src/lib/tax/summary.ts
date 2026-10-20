@@ -53,9 +53,14 @@ export interface TaxYearSummary {
 
 const r2 = (n: number) => Math.round(n * 100) / 100
 
+/** First and last day (ISO) of a tax year. Germany: the calendar year. India: April to March, so 2025 is FY 2025-26. */
+export function yearBounds(country: TaxCountry, year: number): { start: string; end: string } {
+  if (country === 'IN') return { start: `${year}-04-01`, end: `${year + 1}-03-31` }
+  return { start: `${year}-01-01`, end: `${year}-12-31` }
+}
+
 export function taxYearSummary(transactions: Transaction[], country: TaxCountry, year: number, currency: string): TaxYearSummary {
-  const from = `${year}-01-01`
-  const to = `${year}-12-31`
+  const { start: from, end: to } = yearBounds(country, year)
   const inYear = transactions.filter((t) => t.date >= from && t.date <= to && t.currency === currency && !isTransfer(t))
   const incomeRows = inYear.filter((t) => t.direction === 'in' && TAXABLE_INCOME_CATEGORIES.includes(t.category))
   const byCat = new Map<string, number>()
@@ -86,8 +91,7 @@ export interface DeductionSuggestion {
 /** Spending in the year that may be deductible, one suggestion per payment. Nothing is saved here. */
 export function deductionSuggestions(transactions: Transaction[], country: TaxCountry, year: number, currency: string): DeductionSuggestion[] {
   const hints = DEDUCTION_HINTS[country]
-  const from = `${year}-01-01`
-  const to = `${year}-12-31`
+  const { start: from, end: to } = yearBounds(country, year)
   const out: DeductionSuggestion[] = []
   for (const t of transactions) {
     if (t.direction !== 'out' || t.currency !== currency || t.date < from || t.date > to || isTransfer(t)) continue

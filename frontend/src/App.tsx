@@ -4,6 +4,7 @@ import { OAuthCallbackPage } from './pages/OAuthCallbackPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { AccountsPage, GoalsPage } from './pages/PortfolioPages'
 import { InsightsPage } from './pages/InsightsPage'
+import { TaxPage } from './pages/TaxPage'
 import { ReportPage } from './pages/ReportPage'
 import { AnalysisPage } from './pages/AnalysisPage'
 import { TransactionsPage } from './pages/TransactionsPage'
@@ -43,6 +44,7 @@ function App() {
         <Route path="/documents" element={<DocumentsPage />} />
         <Route path="/goals" element={<GoalsPage />} />
         <Route path="/insights" element={<InsightsPage />} />
+        <Route path="/tax" element={<TaxPage />} />
         <Route path="/report" element={<ReportPage />} />
         <Route path="/analysis" element={<AnalysisPage />} />
         <Route path="/settings/storage" element={<StoragePage />} />

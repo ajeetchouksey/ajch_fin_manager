@@ -1,5 +1,5 @@
 import type { LedgerDocument } from '../ledger/types'
-import type { TaxCountry } from './summary'
+import { yearBounds, type TaxCountry } from './summary'
 
 /**
  * Documents to gather for a tax year, and the filing dates. A year counts from its start: Germany is the
@@ -31,13 +31,6 @@ export const CHECKLIST: Record<TaxCountry, ChecklistItem[]> = {
   ],
 }
 
-/** First day and last day (ISO) of a tax year, or null when the year is not covered. */
-export function yearBounds(country: TaxCountry, year: number): { start: string; end: string } | null {
-  if (country === 'DE') return { start: `${year}-01-01`, end: `${year}-12-31` }
-  if (country === 'IN') return { start: `${year}-04-01`, end: `${year + 1}-03-31` }
-  return null
-}
-
 export interface ChecklistResult extends ChecklistItem {
   found: LedgerDocument[]
   missing: boolean
@@ -46,7 +39,6 @@ export interface ChecklistResult extends ChecklistItem {
 /** Each item with the documents that satisfy it. Dated documents outside the year are not counted. */
 export function documentChecklist(documents: LedgerDocument[], country: TaxCountry, year: number): ChecklistResult[] {
   const bounds = yearBounds(country, year)
-  if (!bounds) return []
   const inYear = documents.filter((d) => d.date >= bounds.start && d.date <= bounds.end)
   return CHECKLIST[country].map((item) => {
     const found = inYear.filter((d) => item.documentTypes.includes(d.type) || d.tags.some((t) => item.tags.includes(t)))
