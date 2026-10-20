@@ -5,8 +5,9 @@ import { useLedger } from '../../context/LedgerContext'
 import { useLedgerOptions } from '../../hooks/useLedgerOptions'
 import { type Budget } from '../../lib/ledger/budgets'
 import { ErrorNote, Field, inputClass } from '../ledger/ui'
+import { parseNumber } from '../../lib/ledger/money'
 
-const parseNum = (s: string) => Number(s.replace(/\s/g, '').replace(',', '.'))
+const parseNum = (s: string) => parseNumber(s) ?? NaN
 
 /**
  * Sets the monthly limit for each spending category in one currency. Empty means no budget; only

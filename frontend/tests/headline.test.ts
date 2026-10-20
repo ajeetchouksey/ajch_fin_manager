@@ -23,7 +23,7 @@ test('no transactions says so and nothing else', () => {
 test('a period with money out and in gives the spend, the income, and the comparison', () => {
   const lines = headlineLines(totals(1000, 800, 5), totals(1000, 1000, 4), 'this month', 'last month', 'EUR')
   assert.equal(lines.length, 3)
-  assert.match(lines[0], /You spent .*800.*received .*1,000/)
+  assert.match(lines[0], /You spent .*800.*received .*1\.000/)
   assert.match(lines[1], /You kept/)
   assert.equal(lines[2], 'Spending is 20% lower than last month.')
 })

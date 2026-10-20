@@ -1,3 +1,4 @@
+import { parseNumber } from './money'
 /**
  * Bank-export friendly CSV parsing for bulk import.
  * Handles , ; and tab delimiters, quoted fields, German number format (1.234,56)
@@ -49,34 +50,8 @@ export function parseCsv(text: string, delimiter: Delimiter = detectDelimiter(te
   return rows
 }
 
-/** Parse "1.234,56", "1,234.56", "-12.5", "(12.50)", "12,50 €" → number, or null. */
-export function parseAmount(raw: string): number | null {
-  let s = String(raw ?? '').trim()
-  if (!s) return null
-  let negative = false
-  if (/^\(.*\)$/.test(s)) {
-    negative = true
-    s = s.slice(1, -1)
-  }
-  s = s.replace(/[^\d,.\-+]/g, '')
-  if (s.startsWith('-')) negative = !negative
-  s = s.replace(/[+-]/g, '')
-  if (!s || !/\d/.test(s)) return null
-  const lastComma = s.lastIndexOf(',')
-  const lastDot = s.lastIndexOf('.')
-  if (lastComma > lastDot) {
-    // decimal comma: 1.234,56
-    s = s.replace(/\./g, '').replace(',', '.')
-  } else if (lastDot > lastComma) {
-    // decimal dot: 1,234.56
-    s = s.replace(/,/g, '')
-  } else {
-    s = s.replace(/,/g, '')
-  }
-  const n = Number(s)
-  if (!Number.isFinite(n)) return null
-  return negative ? -n : n
-}
+/** Parse "1.234,56", "1,234.56", "-12.5", "(12.50)", "12,50 €" → number, or null. Rules live in money.ts. */
+export const parseAmount = parseNumber
 
 export type DateFormat = 'auto' | 'ymd' | 'dmy' | 'mdy'
 

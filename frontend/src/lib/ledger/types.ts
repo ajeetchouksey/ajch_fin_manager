@@ -1,3 +1,4 @@
+import { moneyLocale } from './money'
 /**
  * Ledger data contract v1 (ADR-001). The Ledger is a Google Sheet in the user's own Drive.
  * Column order is part of the contract — append new columns at the end only, and bump
@@ -238,7 +239,7 @@ export function currencyForCountry(country?: string): string {
 export function formatMoney(amount: number, currency: string, direction?: Direction): string {
   let s: string
   try {
-    s = new Intl.NumberFormat(undefined, { style: 'currency', currency: currency || 'EUR' }).format(amount)
+    s = new Intl.NumberFormat(moneyLocale(currency), { style: 'currency', currency: currency || 'EUR' }).format(amount)
   } catch {
     s = `${amount.toFixed(2)} ${currency}`
   }
