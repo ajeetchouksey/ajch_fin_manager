@@ -1,14 +1,23 @@
 import { Link } from 'react-router-dom'
 import { formatMoney } from '../../lib/ledger/types'
-import { accountBalances } from '../../lib/ledger/balances'
-import type { Account } from '../../lib/ledger/portfolio'
+import { accountBalances, type AccountBalanceRow } from '../../lib/ledger/balances'
+import type { Account, BalanceEntry } from '../../lib/ledger/portfolio'
+import type { Transaction } from '../../lib/ledger/types'
 import { SectionHeader } from './OverviewParts'
 
 const shortDate = (iso: string) => (iso ? new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'no date')
 
 /** Each account's current balance, with totals for the currency shown. Debts are shown as amounts owed. */
-export function AccountBalances({ accounts, currency }: { accounts: Account[]; currency: string }) {
-  const b = accountBalances(accounts, currency)
+/** The line under each balance: what it is built from, so the figure can be checked against a statement. */
+function basisLine(r: AccountBalanceRow): string {
+  const b = r.basis
+  const anchor = `${b.anchorDate ? shortDate(b.anchorDate) : 'entered'} balance`
+  if (b.transactionsSince === 0) return `${anchor}`
+  return `${anchor} + ${b.transactionsSince} ${b.transactionsSince === 1 ? 'transaction' : 'transactions'} since`
+}
+
+export function AccountBalances({ accounts, currency, history, transactions }: { accounts: Account[]; currency: string; history: BalanceEntry[]; transactions: Transaction[] }) {
+  const b = accountBalances(accounts, currency, history, transactions)
 
   return (
     <section aria-labelledby="balances-heading" className="card">
@@ -25,7 +34,7 @@ export function AccountBalances({ accounts, currency }: { accounts: Account[]; c
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-medium text-white">{r.name}</span>
                   <span className="block truncate text-xs text-slate-400">
-                    {[r.institution, r.groupLabel].filter(Boolean).join(' · ')} · as of {shortDate(r.asOf)}
+                    {[r.institution, r.groupLabel].filter(Boolean).join(' · ')} · {basisLine(r)}
                     {!r.counted && ' · not in net worth'}
                   </span>
                 </span>

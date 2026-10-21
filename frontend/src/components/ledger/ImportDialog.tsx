@@ -202,7 +202,8 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
   const runImport = async () => {
     if (!toImport.length) return
     try {
-      const n = await importTransactions(toImport.map((p) => p.tx))
+      // Rows link to the account they were imported into, so its balance counts them whatever the name is typed as
+      const n = await importTransactions(toImport.map((p) => ({ ...p.tx, accountId: targetAccount?.id })))
       if (balanceToSave !== null) {
         // The transactions are already saved; a failed balance update is reported, not thrown
         const saved = await saveAccount(
