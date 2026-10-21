@@ -30,7 +30,7 @@ const cycleShort = (p: Period) => shortDay(p.start)
 
 /** The Overview's money section, computed in the browser from the Ledger in the user's Drive. */
 export function LedgerOverview() {
-  const { status, transactions, budgets, accounts } = useLedger()
+  const { status, transactions, budgets, accounts, balances } = useLedger()
   const navigate = useNavigate()
   const [mode, setMode] = usePeriodMode()
   const [picked, setPicked] = useState<{ mode: PeriodMode; key: string } | null>(null)
@@ -219,7 +219,7 @@ export function LedgerOverview() {
         />
       </section>
 
-      <AccountBalances accounts={accounts} currency={currency} />
+      <AccountBalances accounts={accounts} currency={currency} history={balances} transactions={transactions} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section aria-labelledby="recent-heading" className="card">
