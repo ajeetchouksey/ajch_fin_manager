@@ -81,7 +81,7 @@ check('update_transactions', !r.error && r.data?.updated?.[0]?.category === 'Gif
 r = await call('add_transactions', { transactions: [{ date: '2026-10-02', amount: 45.5, direction: 'out', description: 'EDEKA Center' }, { date: '2026-09-03', amount: 54.2, direction: 'out', description: 'REWE Markt GmbH Berlin Kartenzahlung 02.09' }] })
 check('add_transactions auto-category + dedupe', !r.error && r.data?.added?.length === 1 && r.data.added[0].category === 'Groceries', r.text.split('\n')[0])
 
-r = await call('save_account', { name: 'Commerzbank current', type: 'current', balance: 2400 })
+r = await call('save_account', { name: 'Commerzbank current', type: 'current', balance: 2400, as_of: '2026-10-19' })
 check('save_account', !r.error, r.text.split('\n')[0])
 const accId = r.data.id
 
