@@ -10,6 +10,7 @@ import { BudgetCard } from './BudgetCard'
 import { BudgetDialog } from './BudgetDialog'
 import { AskAI } from './AskAI'
 import { AccountBalances } from './AccountBalances'
+import { TotalHero } from './TotalHero'
 import { HeadlineCard } from './HeadlineCard'
 import { budgetProgress } from '../../lib/ledger/budgets'
 import { byAccount, currenciesByUse, inSpan, monthName, spendingByCategory, totalsFor, type Span, type TrendPoint } from '../../lib/ledger/summary'
@@ -127,6 +128,8 @@ export function LedgerOverview() {
 
   return (
     <div className="space-y-6">
+      <TotalHero accounts={accounts} history={balances} transactions={transactions} currency={currency} today={today} />
+
       <HeadlineCard
         transactions={transactions}
         currency={currency}
@@ -188,6 +191,8 @@ export function LedgerOverview() {
 
       <KpiTiles now={data.now} before={data.before} currency={currency} />
 
+      <AccountBalances accounts={accounts} currency={currency} history={balances} transactions={transactions} />
+
       <AskAI period={title} />
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -218,8 +223,6 @@ export function LedgerOverview() {
           onEdit={() => setEditingBudgets(true)}
         />
       </section>
-
-      <AccountBalances accounts={accounts} currency={currency} history={balances} transactions={transactions} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section aria-labelledby="recent-heading" className="card">
