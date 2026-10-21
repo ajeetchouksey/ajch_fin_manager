@@ -42,3 +42,35 @@ test('rows are grouped cash first, then by balance, with debts after assets', ()
 test('no accounts gives zero totals', () => {
   assert.deepEqual(accountBalances([], 'EUR'), { rows: [], assets: 0, debts: 0, net: 0 })
 })
+const tx = (accountName: string, date: string, direction: 'in' | 'out', amount: number, accountId?: string) =>
+  ({ id: `${accountName}-${date}-${amount}`, account: accountName, accountId, date, direction, amount, currency: 'EUR' }) as never
+
+test('the statement balance is the anchor, and transactions after it move the balance', () => {
+  const current = acc('c', 'Current', 'current', 1000)
+  const history = [{ accountId: 'c', date: '2026-10-10', balance: 1200, recordedAt: '' }]
+  const txs = [tx('Current', '2026-10-05', 'out', 999), tx('Current', '2026-10-12', 'out', 200), tx('Current', '2026-10-15', 'in', 50)]
+  const b = accountBalances([current], 'EUR', history, txs, '2026-10-20')
+  assert.equal(b.rows[0].balance, 1050) // 1200 − 200 + 50; the 5 October payment is before the anchor
+  assert.equal(b.rows[0].basis.anchorDate, '2026-10-10')
+  assert.equal(b.rows[0].basis.transactionsSince, 2)
+})
+
+test('a credit card owes more after spending and less after a payment', () => {
+  const card = { ...acc('k', 'Visa', 'credit_card', 300), asOf: '2026-10-01' }
+  const txs = [tx('Visa', '2026-10-12', 'out', 120), tx('Visa', '2026-10-14', 'in', 100)]
+  const b = accountBalances([card], 'EUR', [], txs, '2026-10-20')
+  assert.equal(b.rows[0].balance, 320)
+  assert.equal(b.debts, 320)
+})
+
+test('transactions dated after today are not yet counted', () => {
+  const current = acc('c', 'Current', 'current', 1000)
+  const b = accountBalances([current], 'EUR', [], [tx('Current', '2026-11-01', 'out', 400)], '2026-10-20')
+  assert.equal(b.rows[0].balance, 1000)
+})
+
+test('a transaction linked by id counts for that account even under another name', () => {
+  const current = { ...acc('c', 'Current', 'current', 1000), asOf: '2026-10-01' }
+  const b = accountBalances([current], 'EUR', [], [tx('Old name', '2026-10-12', 'out', 100, 'c')], '2026-10-20')
+  assert.equal(b.rows[0].balance, 900)
+})
