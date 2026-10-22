@@ -9,6 +9,7 @@ import { TRANSFER_CATEGORY, suggestCategory } from '../../lib/ledger/categorize'
 import { CURRENCIES, DOCUMENT_TYPES, parseTags, todayIso, type Direction, type Transaction } from '../../lib/ledger/types'
 import { CategoryChips, ErrorNote, Field, FilePicker, TagInput, inputClass, selectClass } from './ui'
 import { parseNumber } from '../../lib/ledger/money'
+import type { QuickDraft } from './QuickAdd'
 
 type Kind = Direction | 'transfer'
 
@@ -21,11 +22,14 @@ export function TransactionDialog({
   onClose,
   existing,
   onImportStatement,
+  initial,
 }: {
   onClose: () => void
   existing?: Transaction
   /** Opens the import flow for a bank statement the user attached here */
   onImportStatement?: (file: File) => void
+  /** Values typed in Quick add before opening the full form */
+  initial?: QuickDraft
 }) {
   const { addTransaction, updateTransaction, busy, error, transactions } = useLedger()
   const opts = useLedgerOptions()
@@ -37,20 +41,20 @@ export function TransactionDialog({
   }, [transactions])
   const last = readLastEntry()
 
-  const [direction, setDirection] = useState<Direction>(existing?.direction ?? 'out')
-  const [kind, setKind] = useState<Kind>(existing?.category === TRANSFER_CATEGORY ? 'transfer' : existing?.direction ?? 'out')
+  const [direction, setDirection] = useState<Direction>(existing?.direction ?? initial?.direction ?? 'out')
+  const [kind, setKind] = useState<Kind>(existing?.category === TRANSFER_CATEGORY ? 'transfer' : existing?.direction ?? initial?.direction ?? 'out')
   const [date, setDate] = useState(existing?.date ?? todayIso())
-  const [amount, setAmount] = useState(existing ? String(existing.amount) : '')
+  const [amount, setAmount] = useState(existing ? String(existing.amount) : initial?.amount ?? '')
   const [currency, setCurrency] = useState(existing?.currency ?? opts.defaultCurrency)
   const [account, setAccount] = useState(existing?.account ?? last.account ?? '')
   const [toAccount, setToAccount] = useState('')
-  const [category, setCategory] = useState(existing?.category ?? last.categoryOut ?? '')
+  const [category, setCategory] = useState(existing?.category ?? (initial ? initial.category : last.categoryOut) ?? '')
   // Once the user picks a category we stop suggesting one
-  const [categoryTouched, setCategoryTouched] = useState(!!existing)
+  const [categoryTouched, setCategoryTouched] = useState(!!existing || !!initial?.category)
   // Once the user picks money in or out, suggestions keep to that direction
   const [kindTouched, setKindTouched] = useState(!!existing)
   const [suggestedFrom, setSuggestedFrom] = useState<string | null>(null)
-  const [description, setDescription] = useState(existing?.description ?? '')
+  const [description, setDescription] = useState(existing?.description ?? initial?.description ?? '')
   const [notes, setNotes] = useState(existing?.notes ?? '')
   const [tags, setTags] = useState(existing?.tags.join(', ') ?? '')
   const [files, setFiles] = useState<File[]>([])

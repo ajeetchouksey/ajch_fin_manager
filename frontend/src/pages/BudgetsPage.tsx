@@ -22,6 +22,8 @@ const HISTORY = 3
  * Budgets (design): how this period is going, where the money went last period, and monthly limits
  * set against the last three periods' actual spending, with suggestions.
  */
+const limitId = (c: string) => `limit-${c.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+
 export function BudgetsPage() {
   const { status, transactions, budgets, saveBudget, deleteBudget, busy, error } = useLedger()
   const [mode] = usePeriodMode()
@@ -107,13 +109,46 @@ export function BudgetsPage() {
   }
 
   const hasBudgets = existing.size > 0
+  // Phones without budgets (design: MobileBudgets): last month's spending, and a limit per category from there
+  const setLimitFor = (c: string, spent: number) => {
+    const s = suggestions.find((x) => x.category === c)?.suggested ?? Math.ceil(spent)
+    if (!valueOf(c)) setValues((v) => ({ ...v, [c]: String(s) }))
+    const el = document.getElementById(limitId(c)) as HTMLInputElement | null
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el?.focus({ preventScroll: true })
+  }
   const spikes = rows.filter((r) => 'spike' in r && r.spike)
 
   return (
     <>
-      <PageHeader title="Budgets" description={`Limits in ${currency} for each ${p.salary ? 'salary cycle' : 'month'}.`} />
+      <PageHeader eyebrow={hasBudgets ? undefined : 'No budgets yet'} title="Budgets" description={`Limits in ${currency} for each ${p.salary ? 'salary cycle' : 'month'}.`} />
 
-      <div className="grid items-start gap-6 lg:grid-cols-5">
+      {!hasBudgets && last && lastTotal > 0 && (
+        <div className="flex flex-col gap-3 md:hidden">
+          <section aria-label="Last month's spending" className="card flex flex-col gap-3 p-4">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-slate-400">Spent in {p.salary ? `the cycle from ${label(last)}` : monthName(last.start.slice(0, 7)).split(' ')[0]}</span>
+              <b className="tabular-nums text-ink">{formatMoney(lastTotal, currency)}</b>
+            </div>
+            <div role="img" aria-label={`Split: ${lastShares.map((s) => `${s.category} ${formatMoney(s.amount, currency)}`).join(', ')}`} className="flex h-3 gap-0.5 overflow-hidden rounded-full">
+              {lastShares.map((s) => <div key={s.category} style={{ flex: s.amount, background: categoryColor(s.category) }} />)}
+            </div>
+            <span className="text-sm text-slate-400">Set a limit for the categories you want to watch. We'll start from what you spent.</span>
+          </section>
+          {lastShares.map((s) => (
+            <div key={s.category} className="flex items-center gap-3 rounded-[14px] border border-line bg-surface px-3.5 py-3">
+              <span aria-hidden className="h-3 w-3 shrink-0 rounded" style={{ background: categoryColor(s.category) }} />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <b className="truncate text-ink">{s.category}</b>
+                <span className="text-xs text-slate-400">{label(last)} <span className="tabular-nums">{formatMoney(s.amount, currency)}</span></span>
+              </div>
+              <button type="button" className="btn btn-secondary min-h-10" onClick={() => setLimitFor(s.category, s.amount)}>Set limit</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className={`grid items-start gap-6 lg:grid-cols-5 ${!hasBudgets && last && lastTotal > 0 ? 'max-md:hidden' : ''}`}>
         <section aria-labelledby="now-heading" className="card lg:col-span-3">
           <h2 id="now-heading" className="px-5 pt-5 text-lg font-semibold text-ink sm:px-6">{p.salary ? 'This cycle' : 'This month'}</h2>
           {hasBudgets ? (
@@ -204,6 +239,7 @@ export function BudgetsPage() {
                     ))}
                     <td className="px-3 py-2 text-right">
                       <input
+                        id={limitId(r.category)}
                         aria-label={`${r.category} monthly limit`}
                         inputMode="decimal"
                         className={`${inputClass} ml-auto w-28 text-right tabular-nums`}

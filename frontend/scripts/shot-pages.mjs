@@ -57,6 +57,8 @@ if (process.env.SHOT_GOALS) {
 }
 // SHOT_NOPROFILE=1 starts without a profile, so the first-time setup opens
 if (process.env.SHOT_NOPROFILE) tabs.Profile = [['key', 'value', 'updated_at']]
+// SHOT_NOBUDGETS=1 shows Budgets before any limit is set
+if (process.env.SHOT_NOBUDGETS && tabs.Budgets) tabs.Budgets = tabs.Budgets.slice(0, 1)
 const SHEETS = ['Transactions', 'Documents', 'Accounts', 'Balances', 'Goals', 'Budgets', 'Analysis', 'Profile', 'Trash', 'Meta']
 
 async function mock(ctx) {
