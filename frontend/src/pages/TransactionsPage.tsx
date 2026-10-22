@@ -38,11 +38,15 @@ export function TransactionsPage() {
   const [query, setQuery] = useState(params.get('q') ?? '')
 
   // "+" in the tab bar and sidebar links here with ?add=1: open the add dialog, then drop the flag
+  // ...and ?import=1 (sidebar "Upload file") opens the statement import
   useEffect(() => {
-    if (params.get('add') !== '1') return
-    setOpen({ kind: 'add' })
+    const add = params.get('add') === '1'
+    const imp = params.get('import') === '1'
+    if (!add && !imp) return
+    setOpen(imp ? { kind: 'import' } : { kind: 'add' })
     const next = new URLSearchParams(params)
     next.delete('add')
+    next.delete('import')
     setParams(next, { replace: true })
   }, [params, setParams])
   const [dir, setDir] = useState<'all' | 'out' | 'in'>('all')

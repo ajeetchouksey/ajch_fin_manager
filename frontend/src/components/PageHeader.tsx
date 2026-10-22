@@ -1,21 +1,22 @@
 import type { ReactNode } from 'react'
 
 interface PageHeaderProps {
-  eyebrow?: string
+  eyebrow?: ReactNode
   title: ReactNode
-  description?: string
+  description?: ReactNode
   actions?: ReactNode
 }
 
+/** Page header (design): accent eyebrow, Barlow Condensed 38px title, actions on the right. */
 export function PageHeader({ eyebrow, title, description, actions }: PageHeaderProps) {
   return (
-    <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
-      <div className="min-w-0">
-        {eyebrow && <p className="eyebrow mb-2">{eyebrow}</p>}
-        <h1 className="text-[32px] leading-[1.1] font-semibold text-ink sm:text-[40px]">{title}</h1>
-        {description && <p className="mt-1.5 text-sm text-slate-400 sm:text-base">{description}</p>}
+    <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div className="flex min-w-0 flex-col gap-1">
+        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+        <h1 className="m-0 font-display text-[32px] leading-[1.1] font-bold tracking-[-0.01em] text-ink sm:text-[38px]">{title}</h1>
+        {description && <p className="text-slate-400">{description}</p>}
       </div>
-      {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
-    </div>
+      {actions && <div className="flex flex-wrap items-center gap-3">{actions}</div>}
+    </header>
   )
 }

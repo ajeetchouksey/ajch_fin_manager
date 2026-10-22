@@ -1,41 +1,51 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { ChevronDown, Plus } from 'lucide-react'
-import { Logo } from './Logo'
+import { Logo, LogoMark } from './Logo'
 import { UserMenu } from './UserMenu'
-import { ADD_TRANSACTION_PATH, MORE_ITEMS, NAV_ITEMS, TAB_ITEMS, type NavItem } from './navigation'
-
-const linkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex min-h-10 items-center gap-3 rounded-xl px-3 text-[15px] font-medium transition-colors ${
-    isActive ? 'bg-brand/15 text-brand-tint' : 'text-slate-400 hover:bg-wash/5 hover:text-ink'
-  }`
+import { useLedger } from '../context/LedgerContext'
+import { ADD_TRANSACTION_PATH, IMPORT_PATH, MORE_ITEMS, NAV_ITEMS, TAB_ITEMS, type NavItem } from './navigation'
 
 function SideLink({ to, label, icon: Icon }: NavItem) {
   return (
-    <NavLink to={to} className={linkClass}>
-      {({ isActive }) => (
-        <>
-          <Icon className={`h-[18px] w-[18px] shrink-0 ${isActive ? 'text-brand-soft' : ''}`} strokeWidth={isActive ? 2.1 : 1.75} aria-hidden />
-          {label}
-        </>
-      )}
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        `flex min-h-11 items-center gap-3 rounded-[10px] px-3 font-medium transition-colors ${
+          isActive ? 'bg-tint text-accent' : 'text-slate-300 hover:bg-subtle hover:text-ink'
+        }`
+      }
+    >
+      <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={2} aria-hidden />
+      {label}
     </NavLink>
   )
 }
 
-/** Desktop and tablet: fixed sidebar (design decision D2). */
+const shortDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+
+/** Desktop and tablet sidebar (design): lockup, navigation, More, import reminder, account. */
 export function Sidebar() {
   const { pathname } = useLocation()
+  const { transactions } = useLedger()
   const inMore = MORE_ITEMS.some((m) => pathname.startsWith(m.to))
   const [moreOpen, setMoreOpen] = useState(inMore)
   const showMore = moreOpen || inMore
+  const lastEntry = useMemo(() => transactions.reduce((m, t) => (t.date > m ? t.date : m), ''), [transactions])
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-line bg-canvas/80 pt-safe pl-safe backdrop-blur-xl md:flex">
-      <Link to="/dashboard" className="mx-4 mt-5 mb-6 rounded-lg" aria-label="AaryaAI Finance home">
-        <Logo />
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[232px] flex-col gap-7 border-r border-line bg-surface px-5 pt-7 pb-4 pl-[max(1.25rem,env(safe-area-inset-left))] md:flex">
+      <Link to="/dashboard" className="flex items-center gap-2.5 rounded-lg" aria-label="AaryaAI Finance Manager home">
+        <LogoMark className="h-10 w-10 shrink-0" />
+        <span className="flex flex-col gap-0.5 leading-[1.05]">
+          <span className="font-display text-2xl font-semibold tracking-[-0.02em] text-ink">
+            aarya<span className="text-accent">ai</span>
+          </span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-accent">Finance Manager</span>
+        </span>
       </Link>
-      <nav aria-label="Main" className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-6">
+
+      <nav aria-label="Main" className="-mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-1">
         {NAV_ITEMS.map((n) => (
           <SideLink key={n.to} {...n} />
         ))}
@@ -43,28 +53,35 @@ export function Sidebar() {
           type="button"
           aria-expanded={showMore}
           onClick={() => setMoreOpen((o) => !o)}
-          className="mt-3 flex min-h-9 items-center gap-2 rounded-lg px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-ink"
+          className="mt-2 flex min-h-9 items-center gap-2 rounded-lg px-3 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 hover:text-ink"
         >
           More
           <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showMore ? 'rotate-180' : ''}`} aria-hidden />
         </button>
         {showMore && MORE_ITEMS.map((n) => <SideLink key={n.to} {...n} />)}
       </nav>
-      <div className="border-t border-line p-3">
-        <Link to={ADD_TRANSACTION_PATH} className="btn btn-primary w-full">
-          <Plus className="h-4 w-4" aria-hidden /> Add transaction
-        </Link>
+
+      <div className="flex flex-col gap-2 rounded-[14px] bg-tint p-4">
+        <p className="font-semibold text-ink">Import a statement</p>
+        <p className="text-sm leading-[1.45] text-slate-400">
+          {lastEntry ? `Your ledger runs to ${shortDate(lastEntry)}. Import your next statement when it is ready.` : 'Bring in your bank’s CSV export to get started.'}
+        </p>
+        <Link to={IMPORT_PATH} className="btn btn-secondary w-full">Upload file</Link>
+      </div>
+
+      <div className="-mx-2 border-t border-line pt-3">
+        <UserMenu variant="sidebar" />
       </div>
     </aside>
   )
 }
 
-/** Top bar: logo on phones; the account menu everywhere. */
+/** Phones: top bar with logo and account menu (the sidebar takes over from md up). */
 export function Header() {
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-canvas/80 pt-safe backdrop-blur-xl backdrop-saturate-150 md:border-b-0 md:bg-transparent md:backdrop-blur-none">
-      <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-6 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] sm:h-16 lg:px-8">
-        <Link to="/dashboard" className="shrink-0 rounded-lg md:hidden" aria-label="AaryaAI Finance home">
+    <header className="sticky top-0 z-30 border-b border-line bg-canvas/90 pt-safe backdrop-blur-xl md:hidden">
+      <div className="flex h-14 w-full items-center gap-6 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
+        <Link to="/dashboard" className="shrink-0 rounded-lg" aria-label="AaryaAI Finance home">
           <Logo />
         </Link>
         <div className="ml-auto flex items-center">
@@ -80,7 +97,7 @@ export function TabBar() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-canvas/90 pb-safe pl-safe pr-safe backdrop-blur-xl backdrop-saturate-150 md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 pb-safe pl-safe pr-safe backdrop-blur-xl md:hidden"
     >
       <ul className="mx-auto grid max-w-lg grid-cols-5">
         {TAB_ITEMS.map((item) =>
@@ -100,16 +117,12 @@ export function TabBar() {
                 to={item.to}
                 className={({ isActive }) =>
                   `flex h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
-                    isActive ? 'text-ink' : 'text-slate-500 active:text-slate-300'
+                    isActive ? 'text-accent' : 'text-slate-400 active:text-slate-300'
                   }`
                 }
               >
-                {({ isActive }) => (
-                  <>
-                    <item.icon className={`h-[22px] w-[22px] ${isActive ? 'text-brand-soft' : ''}`} strokeWidth={isActive ? 2.1 : 1.75} />
-                    {item.label}
-                  </>
-                )}
+                <item.icon className="h-[22px] w-[22px]" strokeWidth={2} aria-hidden />
+                {item.label}
               </NavLink>
             </li>
           ),

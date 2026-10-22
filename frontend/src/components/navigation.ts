@@ -58,3 +58,6 @@ export const PHONE_MENU_ITEMS: NavItem[] = [
 
 /** Opens the add-transaction dialog from anywhere. */
 export const ADD_TRANSACTION_PATH = '/transactions?add=1'
+
+/** Opens the statement import from anywhere. */
+export const IMPORT_PATH = '/transactions?import=1'
