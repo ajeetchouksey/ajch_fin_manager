@@ -2,9 +2,9 @@ import { useId, useRef, useState, type ReactNode } from 'react'
 import { FileText, Image as ImageIcon, Paperclip, X } from 'lucide-react'
 
 export const inputClass =
-  'min-h-11 w-full min-w-0 rounded-xl border border-line-strong bg-canvas/60 px-4 text-[15px] text-white placeholder:text-slate-500 focus:border-brand-soft/60 focus:outline-none disabled:opacity-60'
+  'min-h-11 w-full min-w-0 rounded-xl border border-line-strong bg-canvas/60 px-4 text-[15px] text-ink placeholder:text-slate-500 focus:border-brand-soft/60 focus:outline-none disabled:opacity-60'
 export const selectClass =
-  'min-h-11 w-full min-w-0 rounded-xl border border-line-strong bg-canvas px-3 text-[15px] text-white focus:border-brand-soft/60 focus:outline-none'
+  'min-h-11 w-full min-w-0 rounded-xl border border-line-strong bg-canvas px-3 text-[15px] text-ink focus:border-brand-soft/60 focus:outline-none'
 
 export function Field({ label, hint, children, htmlFor }: { label: ReactNode; hint?: ReactNode; children: ReactNode; htmlFor?: string }) {
   return (
@@ -38,7 +38,7 @@ export function TagInput({ value, onChange, suggestions = [], id }: { value: str
               key={s}
               type="button"
               onClick={() => onChange(current.length ? `${current.join(', ')}, ${s}` : s)}
-              className="rounded-full border border-line-strong px-3 py-1 text-xs text-slate-300 hover:border-brand-soft/50 hover:text-white"
+              className="rounded-full border border-line-strong px-3 py-1 text-xs text-slate-300 hover:border-brand-soft/50 hover:text-ink"
             >
               + {s}
             </button>
@@ -89,7 +89,7 @@ export function FilePicker({ files, onChange, multiple = true, label = 'Attach r
           add(e.dataTransfer.files)
         }}
         className={`flex min-h-16 w-full items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-4 text-sm transition-colors ${
-          over ? 'border-brand-soft bg-brand/10 text-white' : 'border-line-strong text-slate-300 hover:border-brand-soft/50 hover:text-white'
+          over ? 'border-brand-soft bg-brand/10 text-ink' : 'border-line-strong text-slate-300 hover:border-brand-soft/50 hover:text-ink'
         }`}
       >
         <Paperclip className="h-4 w-4" />

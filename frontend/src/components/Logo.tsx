@@ -26,7 +26,7 @@ export function LogoMark({ className = 'h-9 w-9', title, variant = 'solid' }: Lo
         strokeWidth={solid ? 0 : 2.5}
       />
       <g
-        stroke="#f2f2f3"
+        stroke={solid ? '#f2f2f3' : 'var(--logo-stroke)'}
         strokeWidth={solid ? 4.2 : 3.4}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -48,7 +48,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
       <LogoMark variant="outline" className="h-8 w-8 shrink-0" />
       {!compact && (
         <span className="flex items-baseline gap-2.5">
-          <span className="font-display text-[26px] leading-none font-semibold tracking-[-0.02em] text-brand-paper">
+          <span className="font-display text-[26px] leading-none font-semibold tracking-[-0.02em] text-ink">
             aarya<span className="text-brand-lilac">ai</span>
           </span>
           <span className="hidden text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500 min-[380px]:inline">

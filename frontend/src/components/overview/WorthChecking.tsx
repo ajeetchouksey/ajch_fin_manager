@@ -72,7 +72,7 @@ export function WorthChecking() {
     <section aria-labelledby="checks-heading" className="card">
       <div className="flex items-center gap-2 px-5 pt-5 sm:px-6">
         <Lightbulb className="h-5 w-5 text-amber-200" aria-hidden />
-        <h2 id="checks-heading" className="text-lg font-semibold text-white">Worth checking</h2>
+        <h2 id="checks-heading" className="text-lg font-semibold text-ink">Worth checking</h2>
         <span className="ml-auto text-sm text-slate-400">{checks.length}</span>
       </div>
       {done && <p className="mx-5 mt-3 rounded-lg bg-brand-success/10 px-3 py-2 text-sm text-emerald-200 sm:mx-6" role="status">{done}</p>}

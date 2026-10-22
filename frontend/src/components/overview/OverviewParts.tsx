@@ -20,9 +20,9 @@ function compact(n: number, currency: string) {
 export function SectionHeader({ id, title, to, linkLabel = 'View all' }: { id: string; title: string; to?: string; linkLabel?: string }) {
   return (
     <div className="flex items-center justify-between border-b border-line px-5 py-3.5 sm:px-6">
-      <h2 id={id} className="text-xl font-semibold text-white">{title}</h2>
+      <h2 id={id} className="text-xl font-semibold text-ink">{title}</h2>
       {to && (
-        <Link to={to} className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-soft hover:text-white pointer-fine:min-h-0">
+        <Link to={to} className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-soft hover:text-ink pointer-fine:min-h-0">
           {linkLabel} <ArrowRight className="h-4 w-4" />
         </Link>
       )}
@@ -63,7 +63,7 @@ export function KpiTiles({ now, before, currency }: { now: MonthTotals; before: 
             {t.swatch && <span className="h-2.5 w-2.5 rounded-sm" style={{ background: t.swatch }} aria-hidden />}
             {t.label}
           </p>
-          <p className="mt-1 font-display text-[32px] leading-tight font-semibold tabular-nums text-white">{t.value}</p>
+          <p className="mt-1 font-display text-[32px] leading-tight font-semibold tabular-nums text-ink">{t.value}</p>
           <p className="mt-0.5 text-xs">{t.delta}</p>
         </div>
       ))}
@@ -91,7 +91,7 @@ export function CategoryBars({ rows, currency, onPick, before, noun = 'this mont
             title={`${r.category}: ${formatMoney(r.amount, currency)} · ${(r.share * 100).toFixed(0)}% · ${r.count} transactions`}
           >
             <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
-              <span className="flex min-w-0 items-center gap-2 text-slate-200 group-enabled:group-hover:text-white">
+              <span className="flex min-w-0 items-center gap-2 text-slate-200 group-enabled:group-hover:text-ink">
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: categoryColor(r.category) }} aria-hidden />
                 <span className="truncate">{r.category}</span>
               </span>
@@ -104,7 +104,7 @@ export function CategoryBars({ rows, currency, onPick, before, noun = 'this mont
                 )}
               </span>
             </div>
-            <div className="h-2 rounded-full bg-white/5">
+            <div className="h-2 rounded-full bg-wash/5">
               <div className="h-2 rounded-full transition-[width]" style={{ width: `${Math.max(2, (r.amount / max) * 100)}%`, background: categoryColor(r.category) }} />
             </div>
           </button>
@@ -171,7 +171,7 @@ export function TrendChart({
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: IN }} />Money in</span>
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: OUT }} />Money out</span>
         </div>
-        <button type="button" className="text-xs font-medium text-brand-soft hover:text-white" onClick={() => setAsTable((v) => !v)}>
+        <button type="button" className="text-xs font-medium text-brand-soft hover:text-ink" onClick={() => setAsTable((v) => !v)}>
           {asTable ? 'Show chart' : 'Show as table'}
         </button>
       </div>
@@ -183,7 +183,7 @@ export function TrendChart({
           </thead>
           <tbody className="divide-y divide-line">
             {points.map((p) => (
-              <tr key={p.month} className={p.month === selected ? 'text-white' : 'text-slate-300'}>
+              <tr key={p.month} className={p.month === selected ? 'text-ink' : 'text-slate-300'}>
                 <td className="py-1.5">{labelOf(p)}</td>
                 <td className="py-1.5 text-right tabular-nums">{formatMoney(p.income, currency)}</td>
                 <td className="py-1.5 text-right tabular-nums">{formatMoney(p.spending, currency)}</td>
@@ -198,7 +198,7 @@ export function TrendChart({
             {[0, 0.5, 1].map((f) => (
               <g key={f}>
                 <line x1={padL} x2={W} y1={y(nice * f)} y2={y(nice * f)} stroke="rgb(148 163 184 / 0.14)" strokeWidth={1} />
-                <text x={padL - 8} y={y(nice * f) + 4} textAnchor="end" fontSize={12} fill="rgb(148 163 184)">{compact(nice * f, currency)}</text>
+                <text x={padL - 8} y={y(nice * f) + 4} textAnchor="end" fontSize={12} fill="var(--chart-label)">{compact(nice * f, currency)}</text>
               </g>
             ))}
             {points.map((p, i) => {
@@ -210,7 +210,7 @@ export function TrendChart({
                   {active && <rect x={gx + 4} y={padT} width={groupW - 8} height={plotH} rx={6} fill="rgb(148 163 184 / 0.07)" />}
                   <path d={barPath(cx - barW - 1, y(p.income), barW, y(0) - y(p.income), 4)} fill={IN} />
                   <path d={barPath(cx + 1, y(p.spending), barW, y(0) - y(p.spending), 4)} fill={OUT} />
-                  <text x={cx} y={H - 8} textAnchor="middle" fontSize={13} fill={p.month === selected ? 'white' : 'rgb(148 163 184)'} fontWeight={p.month === selected ? 600 : 400}>
+                  <text x={cx} y={H - 8} textAnchor="middle" fontSize={13} fill={p.month === selected ? 'var(--color-ink)' : 'var(--chart-label)'} fontWeight={p.month === selected ? 600 : 400}>
                     {labelOf(p, 'short')}
                   </text>
                   <rect
@@ -248,10 +248,10 @@ export function TrendChart({
               className="pointer-events-none absolute top-1 z-10 w-44 rounded-xl border border-line-strong bg-surface px-3 py-2 text-xs shadow-xl shadow-black/40"
               style={{ left: `clamp(0px, calc(${((padL + (hover + 0.5) * groupW) / W) * 100}% - 88px), calc(100% - 176px))` }}
             >
-              <p className="mb-1 font-semibold text-white">{labelOf(hovered)}</p>
+              <p className="mb-1 font-semibold text-ink">{labelOf(hovered)}</p>
               <p className="flex justify-between text-slate-300"><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ background: IN }} />In</span><span className="tabular-nums">{formatMoney(hovered.income, currency)}</span></p>
               <p className="flex justify-between text-slate-300"><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ background: OUT }} />Out</span><span className="tabular-nums">{formatMoney(hovered.spending, currency)}</span></p>
-              <p className="mt-1 flex justify-between border-t border-line pt-1 text-white"><span>Net</span><span className="tabular-nums">{formatMoney(hovered.net, currency)}</span></p>
+              <p className="mt-1 flex justify-between border-t border-line pt-1 text-ink"><span>Net</span><span className="tabular-nums">{formatMoney(hovered.net, currency)}</span></p>
             </div>
           )}
         </div>
@@ -266,17 +266,17 @@ export function RecentList({ items }: { items: Transaction[] }) {
     <ul className="divide-y divide-line">
       {items.map((t) => (
         <li key={t.id} className="flex items-center gap-3 px-5 py-3 sm:px-6">
-          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${t.direction === 'in' ? 'bg-brand-success/15 text-brand-success' : 'bg-white/5 text-slate-300'}`}>
+          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${t.direction === 'in' ? 'bg-brand-success/15 text-brand-success' : 'bg-wash/5 text-slate-300'}`}>
             {t.direction === 'in' ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
           </span>
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-1.5">
-              <span className="truncate text-[15px] font-medium text-white">{t.description}</span>
+              <span className="truncate text-[15px] font-medium text-ink">{t.description}</span>
               {t.documentIds.length > 0 && <Paperclip className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-label="Has documents" />}
             </span>
             <span className="block truncate text-xs text-slate-400">{t.date} · {t.category}{t.notes ? ` · ${t.notes}` : ''}</span>
           </span>
-          <span className={`shrink-0 font-semibold tabular-nums ${t.direction === 'in' ? 'text-brand-success' : 'text-white'}`}>{formatMoney(t.amount, t.currency, t.direction)}</span>
+          <span className={`shrink-0 font-semibold tabular-nums ${t.direction === 'in' ? 'text-brand-success' : 'text-ink'}`}>{formatMoney(t.amount, t.currency, t.direction)}</span>
         </li>
       ))}
     </ul>
@@ -292,12 +292,12 @@ export function AccountList({ rows, currency }: { rows: AccountFlow[]; currency:
         return (
           <li key={a.account} className="flex items-center gap-3 px-5 py-3 sm:px-6">
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-medium text-white">{a.account}</span>
+              <span className="block truncate text-[15px] font-medium text-ink">{a.account}</span>
               <span className="block text-xs text-slate-400">
                 In {formatMoney(a.income, currency)} · Out {formatMoney(a.spending, currency)} · {a.count} {a.count === 1 ? 'transaction' : 'transactions'}
               </span>
             </span>
-            <span className="shrink-0 text-sm font-semibold tabular-nums text-white">{net >= 0 ? '+' : '−'}{formatMoney(Math.abs(net), currency)}</span>
+            <span className="shrink-0 text-sm font-semibold tabular-nums text-ink">{net >= 0 ? '+' : '−'}{formatMoney(Math.abs(net), currency)}</span>
           </li>
         )
       })}

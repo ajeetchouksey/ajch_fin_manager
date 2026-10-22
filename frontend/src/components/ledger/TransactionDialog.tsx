@@ -270,7 +270,7 @@ export function TransactionDialog({
                 // An existing row can switch between in and out, but not become half of a transfer
                 disabled={!!existing && (k === 'transfer') !== isTransfer}
                 onClick={() => chooseKind(k)}
-                className={`min-h-10 rounded-lg text-sm font-semibold transition-colors disabled:opacity-40 ${kind === k ? 'bg-brand text-white' : 'text-slate-400 hover:text-white'}`}
+                className={`min-h-10 rounded-lg text-sm font-semibold transition-colors disabled:opacity-40 ${kind === k ? 'bg-brand text-white' : 'text-slate-400 hover:text-ink'}`}
               >
                 {k === 'out' ? 'Money out' : k === 'in' ? 'Money in' : 'Transfer'}
               </button>
@@ -344,7 +344,7 @@ export function TransactionDialog({
             <FilePicker files={files} onChange={setFiles} />
             {shownStatement && (
               <div role="status" className="rounded-xl border border-brand-soft/40 bg-brand/10 p-3 text-sm">
-                <p className="flex items-center gap-1.5 font-medium text-white">
+                <p className="flex items-center gap-1.5 font-medium text-ink">
                   <FileSpreadsheet className="h-4 w-4 shrink-0 text-brand-soft" />
                   This is a {shownStatement.bank ? `${shownStatement.bank} ` : ''}bank statement with {shownStatement.rows} transactions
                 </p>

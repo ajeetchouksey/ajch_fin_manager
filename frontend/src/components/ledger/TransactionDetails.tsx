@@ -65,7 +65,7 @@ export function TransactionDetails({ tx, onClose, onEdit, onAttach }: { tx: Tran
           {rows.map(([k, v]) => (
             <div key={k}>
               <dt className="text-slate-500">{k}</dt>
-              <dd className="text-white">{v}</dd>
+              <dd className="text-ink">{v}</dd>
             </div>
           ))}
         </dl>
@@ -85,7 +85,7 @@ export function TransactionDetails({ tx, onClose, onEdit, onAttach }: { tx: Tran
             <ul className="space-y-1.5">
               {docs.map((d) => (
                 <li key={d.id}>
-                  <a href={d.link} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-slate-200 hover:border-brand-soft/50 hover:text-white">
+                  <a href={d.link} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-slate-200 hover:border-brand-soft/50 hover:text-ink">
                     <FileText className="h-4 w-4 shrink-0 text-slate-400" />
                     <span className="min-w-0 flex-1 truncate">{d.title}</span>
                     <span className="text-xs text-slate-500">{d.type}</span>

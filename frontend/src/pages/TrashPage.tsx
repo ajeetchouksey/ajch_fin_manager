@@ -58,7 +58,7 @@ export function TrashPage() {
             return (
               <li key={item.id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <div className="min-w-0">
-                  <p className="truncate font-medium text-white">{item.title}</p>
+                  <p className="truncate font-medium text-ink">{item.title}</p>
                   <p className="text-sm text-slate-500">
                     {KIND_LABEL[item.kind]} · removed {item.deletedAt.slice(0, 10)} · {left} {left === 1 ? 'day' : 'days'} left
                   </p>

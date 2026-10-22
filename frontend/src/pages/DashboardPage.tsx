@@ -83,7 +83,7 @@ export function DashboardPage() {
       <section aria-labelledby="getting-started" className="card card-accent-top overflow-hidden">
         <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
           <div>
-            <h2 id="getting-started" className="text-xl font-semibold text-white">
+            <h2 id="getting-started" className="text-xl font-semibold text-ink">
               Getting started
             </h2>
             <p className="mt-0.5 text-sm text-slate-400">
@@ -106,7 +106,7 @@ export function DashboardPage() {
                 {done ? <Check className="h-5 w-5" strokeWidth={2.5} /> : <Icon className="h-5 w-5" strokeWidth={1.75} />}
               </span>
               <div className="min-w-0 flex-1">
-                <p className={`text-base font-medium ${done ? 'text-slate-400 line-through decoration-slate-600' : 'text-white'}`}>
+                <p className={`text-base font-medium ${done ? 'text-slate-400 line-through decoration-slate-600' : 'text-ink'}`}>
                   <span className="sr-only">Step {i + 1}: </span>
                   {title}
                 </p>

@@ -46,13 +46,13 @@ export function HeadlineCard({
             role="radio"
             aria-checked={scope === key}
             onClick={() => setScope(key)}
-            className={`min-h-8 rounded-lg px-3 text-sm font-medium ${scope === key ? 'bg-brand text-white' : 'text-slate-400 hover:text-white'}`}
+            className={`min-h-8 rounded-lg px-3 text-sm font-medium ${scope === key ? 'bg-brand text-white' : 'text-slate-400 hover:text-ink'}`}
           >
             {label}
           </button>
         ))}
       </div>
-      <p className="text-lg font-semibold text-white">{lines[0]}</p>
+      <p className="text-lg font-semibold text-ink">{lines[0]}</p>
       {lines.slice(1).map((l) => (
         <p key={l} className="text-[15px] text-slate-300">{l}</p>
       ))}

@@ -149,7 +149,7 @@ export function LedgerOverview() {
               <ChevronLeft className="h-4 w-4" />
             </button>
             <div className="min-w-44 text-center" aria-live="polite">
-              <h2 className="text-lg font-semibold text-white">{title}</h2>
+              <h2 className="text-lg font-semibold text-ink">{title}</h2>
               {subtitle && <p className="text-xs text-slate-400">{subtitle}</p>}
             </div>
             <button type="button" className="icon-btn border border-line-strong" aria-label="Next period" disabled={!next} onClick={() => pick(next)}>
@@ -167,7 +167,7 @@ export function LedgerOverview() {
                   setMode(m)
                   setPicked(null)
                 }}
-                className={`min-h-9 rounded-lg px-3 text-sm font-medium ${mode === m ? 'bg-brand text-white' : 'text-slate-400 hover:text-white'}`}
+                className={`min-h-9 rounded-lg px-3 text-sm font-medium ${mode === m ? 'bg-brand text-white' : 'text-slate-400 hover:text-ink'}`}
               >
                 {m === 'calendar' ? 'Calendar month' : 'Salary cycle'}
               </button>
@@ -177,7 +177,7 @@ export function LedgerOverview() {
         {currencies.length > 1 && (
           <div role="radiogroup" aria-label="Currency" className="flex gap-1 rounded-xl border border-line-strong p-1">
             {currencies.map((c) => (
-              <button key={c} type="button" role="radio" aria-checked={c === currency} onClick={() => setPickedCurrency(c)} className={`min-h-9 rounded-lg px-3 text-sm font-medium ${c === currency ? 'bg-brand text-white' : 'text-slate-400 hover:text-white'}`}>
+              <button key={c} type="button" role="radio" aria-checked={c === currency} onClick={() => setPickedCurrency(c)} className={`min-h-9 rounded-lg px-3 text-sm font-medium ${c === currency ? 'bg-brand text-white' : 'text-slate-400 hover:text-ink'}`}>
                 {c}
               </button>
             ))}

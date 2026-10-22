@@ -29,10 +29,10 @@ function Table({ lines, currency, empty }: { lines: ReportLine[]; currency: stri
           {lines.map((l) => (
             <tr key={l.label} className={l.flag ? 'bg-amber-300/5' : ''}>
               <td className="px-5 py-2.5 align-top sm:px-6">
-                <span className="text-white">{l.label}</span>
+                <span className="text-ink">{l.label}</span>
                 {l.note && <span className="mt-0.5 block text-xs text-slate-400">{l.note}</span>}
               </td>
-              <td className="px-3 py-2.5 text-right tabular-nums text-white">{l.label.startsWith('Savings rate') ? `${Math.round(l.current)}%` : formatMoney(l.current, currency)}</td>
+              <td className="px-3 py-2.5 text-right tabular-nums text-ink">{l.label.startsWith('Savings rate') ? `${Math.round(l.current)}%` : formatMoney(l.current, currency)}</td>
               <td className="px-3 py-2.5 text-right tabular-nums text-slate-300">
                 {l.previous === null ? '–' : l.label.startsWith('Savings rate') ? `${Math.round(l.previous)}%` : formatMoney(l.previous, currency)}
               </td>
@@ -126,7 +126,7 @@ export function ReportPage() {
             <button type="button" className="icon-btn border border-line-strong" aria-label="Previous period" disabled={!previous} onClick={() => setDate(previous?.start)}>
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <h2 className="min-w-44 text-center text-lg font-semibold text-white" aria-live="polite">{chosen ? label(chosen) : 'No period yet'}</h2>
+            <h2 className="min-w-44 text-center text-lg font-semibold text-ink" aria-live="polite">{chosen ? label(chosen) : 'No period yet'}</h2>
             <button type="button" className="icon-btn border border-line-strong" aria-label="Next period" disabled={!next} onClick={() => setDate(next?.start)}>
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -142,7 +142,7 @@ export function ReportPage() {
                   setMode(m)
                   setDate(undefined)
                 }}
-                className={`min-h-9 rounded-lg px-3 text-sm font-medium ${mode === m ? 'bg-brand text-white' : 'text-slate-400 hover:text-white'}`}
+                className={`min-h-9 rounded-lg px-3 text-sm font-medium ${mode === m ? 'bg-brand text-white' : 'text-slate-400 hover:text-ink'}`}
               >
                 {m === 'calendar' ? 'Calendar month' : 'Salary cycle'}
               </button>
@@ -175,7 +175,7 @@ export function ReportPage() {
       ) : (
         <div className="space-y-6">
           <section className="card px-5 py-5 sm:px-6" aria-labelledby="headline-heading">
-            <h3 id="headline-heading" className="mb-2 text-sm font-semibold text-white">Headline</h3>
+            <h3 id="headline-heading" className="mb-2 text-sm font-semibold text-ink">Headline</h3>
             <div className="space-y-2">
               {report.headline.map((h) => (
                 <p key={h} className="text-[15px] leading-relaxed text-slate-200">{h}</p>

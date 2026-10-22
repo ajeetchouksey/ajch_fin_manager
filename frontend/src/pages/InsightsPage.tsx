@@ -15,8 +15,8 @@ import type { Area, Gap, Severity } from '../lib/analysis/engine'
 const SEVERITY: Record<Severity, { label: string; tone: string; icon: typeof Info }> = {
   high: { label: 'Act now', tone: 'text-red-300 bg-red-400/10', icon: AlertTriangle },
   medium: { label: 'Important', tone: 'text-amber-200 bg-amber-300/10', icon: AlertTriangle },
-  low: { label: 'Worth a look', tone: 'text-slate-200 bg-white/5', icon: Lightbulb },
-  info: { label: 'Tip', tone: 'text-slate-300 bg-white/5', icon: Info },
+  low: { label: 'Worth a look', tone: 'text-slate-200 bg-wash/5', icon: Lightbulb },
+  info: { label: 'Tip', tone: 'text-slate-300 bg-wash/5', icon: Info },
 }
 
 /** Where to fix each kind of gap. */
@@ -60,10 +60,10 @@ function GapCard({ gap }: { gap: Gap }) {
         <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${s.tone}`}><Icon className="h-4 w-4" /></span>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{gap.area} · {s.label}</p>
-          <h3 className="mt-0.5 font-semibold text-white">{gap.title}</h3>
+          <h3 className="mt-0.5 font-semibold text-ink">{gap.title}</h3>
           <p className="mt-1 text-sm text-slate-300">{gap.detail}</p>
           <p className="mt-2 text-sm text-slate-200"><span className="font-medium text-brand-soft">Next step:</span> {gap.action}</p>
-          {link && <Link to={link.to} className="mt-2 inline-block text-sm font-medium text-brand-soft hover:text-white">{link.label} →</Link>}
+          {link && <Link to={link.to} className="mt-2 inline-block text-sm font-medium text-brand-soft hover:text-ink">{link.label} →</Link>}
         </div>
       </div>
     </li>
@@ -102,27 +102,27 @@ export function InsightsPage() {
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="card flex items-center gap-4 px-5 py-4">
-            {review.score !== null ? <ScoreRing score={review.score} /> : <span className="flex h-[84px] w-[84px] items-center justify-center rounded-full border-8 border-white/10 text-slate-500">–</span>}
+            {review.score !== null ? <ScoreRing score={review.score} /> : <span className="flex h-[84px] w-[84px] items-center justify-center rounded-full border-8 border-wash/10 text-slate-500">–</span>}
             <div>
               <p className="text-sm font-medium text-slate-400">Financial health</p>
-              <p className="text-lg font-semibold text-white">{review.score !== null ? scoreWord(review.score) : 'Not enough data'}</p>
+              <p className="text-lg font-semibold text-ink">{review.score !== null ? scoreWord(review.score) : 'Not enough data'}</p>
             </div>
           </div>
           <div className="card px-5 py-4">
             <p className="text-sm font-medium text-slate-400">Net worth</p>
-            <p className="mt-1 font-display text-[28px] leading-tight font-semibold tabular-nums text-white">{formatMoney(nw.netWorth, cur)}</p>
+            <p className="mt-1 font-display text-[28px] leading-tight font-semibold tabular-nums text-ink">{formatMoney(nw.netWorth, cur)}</p>
             <p className="text-xs text-slate-400">{formatMoney(nw.liabilities, cur)} owed</p>
           </div>
           <div className="card px-5 py-4">
             <p className="text-sm font-medium text-slate-400">Savings rate</p>
-            <p className={`mt-1 font-display text-[28px] leading-tight font-semibold tabular-nums ${cf.savingsRate !== null && cf.savingsRate < 0 ? 'text-amber-200' : 'text-white'}`}>
+            <p className={`mt-1 font-display text-[28px] leading-tight font-semibold tabular-nums ${cf.savingsRate !== null && cf.savingsRate < 0 ? 'text-amber-200' : 'text-ink'}`}>
               {cf.savingsRate !== null ? `${Math.round(cf.savingsRate * 100)}%` : '–'}
             </p>
             <p className="text-xs text-slate-400">{cf.months.length ? `${formatMoney(surplus, cur)} left a month (avg of ${cf.months.length})` : 'Needs a complete month'}</p>
           </div>
           <div className="card px-5 py-4">
             <p className="text-sm font-medium text-slate-400">Emergency fund</p>
-            <p className="mt-1 font-display text-[28px] leading-tight font-semibold tabular-nums text-white">{essential > 0 ? `${(nw.liquid / essential).toFixed(1)} mo` : '–'}</p>
+            <p className="mt-1 font-display text-[28px] leading-tight font-semibold tabular-nums text-ink">{essential > 0 ? `${(nw.liquid / essential).toFixed(1)} mo` : '–'}</p>
             <p className="text-xs text-slate-400">{formatMoney(nw.liquid, cur)} in reach</p>
           </div>
         </div>
@@ -133,7 +133,7 @@ export function InsightsPage() {
             <>
               <ul className="divide-y divide-line">{visibleGaps.map((g) => <GapCard key={g.id} gap={g} />)}</ul>
               {review.gaps.length > 6 && (
-                <button type="button" className="w-full border-t border-line py-3 text-sm font-medium text-brand-soft hover:text-white" onClick={() => setShowAll((v) => !v)}>
+                <button type="button" className="w-full border-t border-line py-3 text-sm font-medium text-brand-soft hover:text-ink" onClick={() => setShowAll((v) => !v)}>
                   {showAll ? 'Show fewer' : `Show all ${review.gaps.length}`}
                 </button>
               )}
@@ -167,10 +167,10 @@ export function InsightsPage() {
                   <li key={r.key} className="flex items-center gap-3 px-5 py-3 sm:px-6">
                     <Repeat className="h-4 w-4 shrink-0 text-slate-500" />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm text-white">{r.name}</span>
+                      <span className="block truncate text-sm text-ink">{r.name}</span>
                       <span className="block text-xs text-slate-400">{r.category} · {r.cadence} · next around {r.nextDate}</span>
                     </span>
-                    <span className="shrink-0 text-sm font-medium tabular-nums text-white">{formatMoney(r.monthly, cur)}<span className="text-xs text-slate-500">/mo</span></span>
+                    <span className="shrink-0 text-sm font-medium tabular-nums text-ink">{formatMoney(r.monthly, cur)}<span className="text-xs text-slate-500">/mo</span></span>
                   </li>
                 ))}
               </ul>
@@ -186,7 +186,7 @@ export function InsightsPage() {
                 {cf.byCategory.slice(0, 10).map((c) => (
                   <li key={c.category} className="flex items-center justify-between gap-3 px-5 py-2.5 text-sm sm:px-6">
                     <span className="text-slate-200">{c.category}{c.essential && <span className="ml-2 text-xs text-slate-500">essential</span>}</span>
-                    <span className="tabular-nums text-white">{formatMoney(c.monthly, cur)}</span>
+                    <span className="tabular-nums text-ink">{formatMoney(c.monthly, cur)}</span>
                   </li>
                 ))}
               </ul>

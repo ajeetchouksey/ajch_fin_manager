@@ -35,7 +35,7 @@ export function BudgetCard({ rows, currency, noun, onEdit, hasBudgets }: { rows:
                   {formatMoney(r.spent, currency)} <span className="text-slate-500">of {formatMoney(r.limit, currency)}</span>
                 </span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-white/5" role="img" aria-label={`${r.category}: ${pct}% of budget used`}>
+              <div className="h-2 overflow-hidden rounded-full bg-wash/5" role="img" aria-label={`${r.category}: ${pct}% of budget used`}>
                 <div className={`h-2 rounded-full transition-[width] ${BAR[r.state]}`} style={{ width: `${Math.max(pct ? 2 : 0, pct)}%` }} />
               </div>
               <p className={`mt-1 text-xs ${r.state === 'over' ? 'text-rose-300' : r.state === 'warn' ? 'text-amber-200' : 'text-slate-500'}`}>

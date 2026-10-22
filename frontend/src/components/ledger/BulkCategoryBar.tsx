@@ -100,7 +100,7 @@ export function BulkCategoryBar({ selected, onDone }: { selected: Transaction[];
               <ul className="space-y-1 text-sm">
                 {plan.changes.slice(0, REVIEW_LIMIT).map((c) => (
                   <li key={c.before.id} className="flex flex-wrap gap-x-2 text-slate-300">
-                    <span className="min-w-0 truncate text-white">{c.before.description}</span>
+                    <span className="min-w-0 truncate text-ink">{c.before.description}</span>
                     <span className="text-slate-500">{c.before.category || 'No category'} → {c.after.category}</span>
                   </li>
                 ))}

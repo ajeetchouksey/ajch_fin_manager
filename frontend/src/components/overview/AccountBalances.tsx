@@ -32,14 +32,14 @@ export function AccountBalances({ accounts, currency, history, transactions }: {
             {b.rows.map((r) => (
               <li key={r.id} className="flex items-center gap-3 px-5 py-3 sm:px-6">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-medium text-white">{r.name}</span>
+                  <span className="block truncate text-[15px] font-medium text-ink">{r.name}</span>
                   <span className="block truncate text-xs text-slate-400">
                     {[r.institution, r.groupLabel].filter(Boolean).join(' · ')} · {basisLine(r)}
                     {!r.counted && ' · not in net worth'}
                   </span>
                 </span>
                 <span className="shrink-0 text-right">
-                  <span className={`block text-sm font-semibold tabular-nums ${r.group === 'debt' ? 'text-amber-200' : 'text-white'}`}>
+                  <span className={`block text-sm font-semibold tabular-nums ${r.group === 'debt' ? 'text-amber-200' : 'text-ink'}`}>
                     {r.group === 'debt' ? `${formatMoney(r.balance, currency)} owed` : formatMoney(r.balance, currency)}
                   </span>
                 </span>
@@ -49,7 +49,7 @@ export function AccountBalances({ accounts, currency, history, transactions }: {
           <dl className="grid grid-cols-3 gap-3 border-t border-line px-5 py-4 text-sm sm:px-6">
             <div>
               <dt className="text-slate-400">Assets</dt>
-              <dd className="font-semibold tabular-nums text-white">{formatMoney(b.assets, currency)}</dd>
+              <dd className="font-semibold tabular-nums text-ink">{formatMoney(b.assets, currency)}</dd>
             </div>
             <div>
               <dt className="text-slate-400">Debts</dt>
@@ -57,7 +57,7 @@ export function AccountBalances({ accounts, currency, history, transactions }: {
             </div>
             <div>
               <dt className="text-slate-400">Net worth</dt>
-              <dd className="font-semibold tabular-nums text-white">{formatMoney(b.net, currency)}</dd>
+              <dd className="font-semibold tabular-nums text-ink">{formatMoney(b.net, currency)}</dd>
             </div>
           </dl>
         </>

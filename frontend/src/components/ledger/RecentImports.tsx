@@ -30,7 +30,7 @@ export function RecentImports() {
         {batches.map((b) => (
           <li key={b.createdAt} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0 text-sm">
-              <p className="text-white">
+              <p className="text-ink">
                 {b.count} {b.count === 1 ? 'transaction' : 'transactions'} imported {new Date(b.createdAt).toLocaleString()}
               </p>
               <p className="text-slate-500">

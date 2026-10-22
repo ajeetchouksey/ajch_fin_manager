@@ -97,7 +97,7 @@ export function FirstLoginOnboarding({ onComplete, onSkip }: FirstLoginOnboardin
         <div className="flex min-h-full flex-col justify-center px-6 py-10 sm:px-10">
           <LogoMark className="h-14 w-14" />
           <p className="eyebrow mt-6">Welcome to AaryaAI Finance</p>
-          <h3 className="mt-2 text-[32px] leading-[1.1] font-semibold text-white sm:text-[38px]">
+          <h3 className="mt-2 text-[32px] leading-[1.1] font-semibold text-ink sm:text-[38px]">
             Let's set up your <span className="heading-gradient">finances</span>
           </h3>
           <p className="mt-2 max-w-md text-base leading-relaxed text-slate-400">

@@ -29,7 +29,7 @@ export function LoginPage() {
         <Logo />
         <div className="max-w-md">
           <p className="eyebrow mb-3">AaryaAI Finance</p>
-          <h2 className="text-5xl font-semibold leading-[1.05] text-white">
+          <h2 className="text-5xl font-semibold leading-[1.05] text-ink">
             Your money, <span className="heading-gradient">clearly organised.</span>
           </h2>
           <ul className="mt-10 space-y-6">
@@ -39,7 +39,7 @@ export function LoginPage() {
                   <Icon className="h-5 w-5" strokeWidth={1.75} />
                 </span>
                 <div>
-                  <p className="font-medium text-white">{title}</p>
+                  <p className="font-medium text-ink">{title}</p>
                   <p className="mt-0.5 text-sm text-slate-400">{text}</p>
                 </div>
               </li>
@@ -55,7 +55,7 @@ export function LoginPage() {
           <div className="lg:hidden">
             <Logo />
           </div>
-          <h1 className="mt-10 text-[34px] leading-tight font-semibold text-white lg:mt-0">
+          <h1 className="mt-10 text-[34px] leading-tight font-semibold text-ink lg:mt-0">
             Sign in to <span className="heading-gradient">Finance</span>
           </h1>
           <p className="mt-2 text-base text-slate-400">{AI_ENABLED ? 'Track spending, plan goals and get answers about your money.' : 'Track spending and plan your goals in one place.'}</p>
@@ -69,7 +69,7 @@ export function LoginPage() {
           <button
             type="button"
             onClick={() => (window.location.href = getGoogleAuthUrl())}
-            className="btn mt-10 h-12 w-full border border-slate-300 bg-white text-base font-semibold text-slate-800 hover:bg-slate-100"
+            className="btn mt-10 h-12 w-full border border-[#dadce0] bg-white text-base font-semibold text-[#1f1f1f] hover:bg-[#f8f9fa]"
           >
             <GoogleIcon />
             Continue with Google
