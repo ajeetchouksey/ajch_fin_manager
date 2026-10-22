@@ -183,9 +183,17 @@ export function mentionsOwnName(text: string, ownNames: string[] = []): boolean 
   })
 }
 
-/** The names that count as "the user" for transfers: the signed-in name plus household members. */
-export function ownNamesFrom(userName?: string, household?: Array<{ name: string }>): string[] {
-  return Array.from(new Set([userName ?? '', ...(household ?? []).map((m) => m.name)].map((n) => n.trim()).filter((n) => n.includes(' '))))
+/**
+ * The names that count as "the user" for transfers: names saved in the profile (as banks print them),
+ * the signed-in name, and household members. Only full names (two words or more) are used.
+ */
+export function ownNamesFrom(
+  userName?: string,
+  household?: Array<{ name: string }>,
+  saved?: string[],
+): string[] {
+  const all = [...(saved ?? []), userName ?? '', ...(household ?? []).map((m) => m.name)]
+  return Array.from(new Set(all.map((n) => n.trim().replace(/\s+/g, ' ')).filter((n) => n.includes(' '))))
 }
 
 const INVESTMENT_RULE = RULES.find((r) => r.category === 'Savings & investments')!

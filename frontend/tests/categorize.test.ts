@@ -86,6 +86,8 @@ test('learned history matches near spellings of a long payee name', () => {
 test('payments to or from the user are transfers, unless a clear rule says otherwise', () => {
   const ownNames = ownNamesFrom('Asha Verma', [{ name: 'Ravi Verma' }, { name: 'Mum' }])
   assert.deepEqual(ownNames, ['Asha Verma', 'Ravi Verma'])
+  // Names saved in the profile come first; the connector has no sign-in name
+  assert.deepEqual(ownNamesFrom(undefined, [], ['  ASHA  K VERMA ', 'Asha']), ['ASHA K VERMA'])
   assert.ok(mentionsOwnName('WISE PAYMENTS LTD ASHA KUMARI VERMA', ownNames))
   assert.ok(mentionsOwnName('Verma, Asha', ownNames))
   assert.ok(!mentionsOwnName('Asha Sharma', ownNames))

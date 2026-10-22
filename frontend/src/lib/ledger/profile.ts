@@ -9,6 +9,8 @@ export interface UserSchemaDefinition {
   expenseCategories: string[]
   declaredGoals?: string[]
   householdMembers?: Array<{ name: string; relationship: string }>
+  /** The user's name as banks print it ("ASHA K VERMA"); payments to or from it are transfers */
+  ownNames?: string[]
   investmentPreferences?: {
     hasInvestments: boolean
     types?: string[]
@@ -30,6 +32,7 @@ export const PROFILE_KEYS = [
   'householdMembers',
   'investmentPreferences',
   'taxSettings',
+  'ownNames',
 ] as const
 export type ProfileKey = (typeof PROFILE_KEYS)[number]
 
@@ -74,6 +77,8 @@ export function rowsToProfile(rows: ProfileRow[]): UserSchemaDefinition | null {
       .filter((m): m is { name: unknown; relationship: unknown } => !!m && typeof m === 'object')
       .map((m) => ({ name: String(m.name ?? ''), relationship: String(m.relationship ?? '') }))
   }
+  const own = get('ownNames')
+  if (Array.isArray(own)) profile.ownNames = own.map(String).map((n) => n.trim()).filter(Boolean)
   const inv = get('investmentPreferences')
   if (inv && typeof inv === 'object') profile.investmentPreferences = inv as UserSchemaDefinition['investmentPreferences']
   const tax = get('taxSettings')

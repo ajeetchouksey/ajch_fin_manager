@@ -24,7 +24,7 @@ interface AreaSetupProps {
 }
 
 const AREAS: Array<{ id: FocusArea; label: string; description: string; icon: LucideIcon }> = [
-  { id: 'household', label: 'Household', description: 'Partner, children and other dependants', icon: Users },
+  { id: 'household', label: 'Household', description: 'Partner, children, dependants, and your name on bank statements', icon: Users },
   { id: 'goals', label: 'Goals', description: 'What you are saving for', icon: Target },
   { id: 'investments', label: 'Investments', description: 'What kinds of investments you hold', icon: TrendingUp },
   { id: 'tax', label: 'Tax', description: 'Tax country and assessment type', icon: FileText },
@@ -35,7 +35,9 @@ function summary(area: FocusArea, p: UserSchemaDefinition | null): string | null
   if (!p) return null
   switch (area) {
     case 'household':
-      return p.householdMembers?.length ? `${p.householdMembers.length} added` : null
+      return p.householdMembers?.length || p.ownNames?.length
+        ? [p.householdMembers?.length ? `${p.householdMembers.length} added` : '', p.ownNames?.length ? 'your name set' : ''].filter(Boolean).join(' · ')
+        : null
     case 'goals':
       return p.declaredGoals?.length ? `${p.declaredGoals.length} ${p.declaredGoals.length === 1 ? 'goal' : 'goals'}` : null
     case 'investments':
@@ -170,6 +172,7 @@ interface AreaFormProps {
 function AreaForm({ area, profile, saving, error, onSave, onCancel }: AreaFormProps) {
   // Local draft state per area, initialised from the saved profile
   const [members, setMembers] = useState<Member[]>(profile.householdMembers ?? [])
+  const [ownNames, setOwnNames] = useState<string[]>(profile.ownNames ?? [])
   const presetGoals = (profile.declaredGoals ?? []).filter((g) => GOALS.includes(g))
   const [goals, setGoals] = useState<string[]>(presetGoals)
   const [customGoals, setCustomGoals] = useState<string[]>((profile.declaredGoals ?? []).filter((g) => !GOALS.includes(g)))
@@ -185,7 +188,7 @@ function AreaForm({ area, profile, saving, error, onSave, onCancel }: AreaFormPr
   const build = (): { fields: ProfileUpdate; valid: boolean } => {
     switch (area) {
       case 'household':
-        return { fields: { householdMembers: members }, valid: true }
+        return { fields: { householdMembers: members, ownNames: ownNames.map((n) => n.trim()).filter(Boolean) }, valid: true }
       case 'goals':
         return { fields: { declaredGoals: [...goals, ...customGoals] }, valid: true }
       case 'investments':
@@ -218,6 +221,13 @@ function AreaForm({ area, profile, saving, error, onSave, onCancel }: AreaFormPr
           <>
             <StepIntro title="Who's in your household?" text="People whose costs you share or support. First names are enough." />
             <MemberList members={members} onChange={setMembers} relationships={RELATIONSHIPS} />
+            <div className="mt-8">
+              <FieldLabel>Your name as your bank shows it</FieldLabel>
+              <p className="mb-3 text-sm text-slate-400">
+                Money sent to or from this name (for example to your own account at Wise) is counted as a transfer, not as spending.
+              </p>
+              <CustomEntries values={ownNames} onChange={setOwnNames} placeholder="e.g. ASHA K VERMA" addLabel="Add" />
+            </div>
           </>
         )}
         {area === 'goals' && (

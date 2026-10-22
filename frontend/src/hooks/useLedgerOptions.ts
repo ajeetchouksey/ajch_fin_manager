@@ -62,6 +62,6 @@ export function useLedgerOptions() {
     const income = Array.from(new Set([...INCOME_CATEGORIES, ...usedFor('in')])).filter((c) => !expense.includes(c))
     const tags = Array.from(new Set(transactions.flatMap((t) => t.tags))).slice(0, 30)
     const defaultCurrency = readLastEntry().currency || currencyForCountry(profile?.taxSettings?.country || profile?.residenceCountries?.[0])
-    return { accounts, expenseCategories: Array.from(new Set([...expense, 'Other'])), incomeCategories: income, tags, defaultCurrency, learned: learnFromLedger(transactions), ownNames: ownNamesFrom(userName, profile?.householdMembers) }
+    return { accounts, expenseCategories: Array.from(new Set([...expense, 'Other'])), incomeCategories: income, tags, defaultCurrency, learned: learnFromLedger(transactions), ownNames: ownNamesFrom(userName, profile?.householdMembers, profile?.ownNames) }
   }, [profile, transactions, userName])
 }
