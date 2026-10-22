@@ -55,6 +55,13 @@ if (process.env.SHOT_GOALS) {
     ['goal_2', 'Family trip', 2500, 'EUR', '2027-03-01', 600, 150, '', 'medium', '', ''],
   ]
 }
+// SHOT_INR=1 adds an INR account and payments plus a typed rate, for the second-currency views (SHOT_NORATE=1 leaves the rate out)
+if (process.env.SHOT_INR) {
+  const inr = (date, direction, amount, category, description) => [`tx_i${++n}`, date, direction, amount, 'INR', 'Indian account', category, description, '', '', '', 'import', `${date}T10:00:00Z`, '']
+  tabs.Transactions.push(inr('2026-10-02', 'in', 36000, 'Other income', 'Interest'), inr('2026-10-09', 'out', 18000, 'Housing', 'Family support'), inr('2026-10-14', 'out', 4200, 'Groceries', 'Local market'))
+  tabs.Accounts.push(['acc_3', 'Indian account', 'current', 'Example Bank India', 'INR', 540000, '2026-10-21', '', '', '', ''])
+  if (!process.env.SHOT_NORATE) tabs.Profile.push(['exchangeRate', '{"base":"EUR","quote":"INR","rate":90}', ''])
+}
 // SHOT_NOPROFILE=1 starts without a profile, so the first-time setup opens
 if (process.env.SHOT_NOPROFILE) tabs.Profile = [['key', 'value', 'updated_at']]
 // SHOT_NOBUDGETS=1 shows Budgets before any limit is set
@@ -99,7 +106,7 @@ for (const size of sizeNames) {
       const steps = [...(process.env.SHOT_FILE ? ['@file'] : []), ...(process.env.SHOT_CLICKS ? process.env.SHOT_CLICKS.split(',') : [])]
       for (const [i, step] of steps.entries()) {
         if (step === '@file') await page.locator('input[type=file]').first().setInputFiles(process.env.SHOT_FILE)
-        else await page.getByRole('button', { name: step, exact: true }).first().click()
+        else await page.getByRole('button', { name: step, exact: true }).or(page.getByRole('radio', { name: step, exact: true })).first().click()
         await page.waitForTimeout(Number(process.env.SHOT_WAIT || 900))
         await page.screenshot({ path: `${outDir}/${name}-${i + 1}-${size}-${theme}.png`, fullPage: true, animations: 'disabled' })
       }
