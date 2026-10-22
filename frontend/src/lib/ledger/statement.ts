@@ -24,6 +24,8 @@ export interface RowOptions {
   tags: string
   notes: string
   learned?: Map<string, { category: string; direction: Direction }>
+  /** The user's own name(s); payments to or from them become transfers */
+  ownNames?: string[]
   /** Categories the user already has, so a bank's own category can be kept when it matches */
   knownCategories: string[]
 }
@@ -65,7 +67,7 @@ export function statementRow(r: string[], map: ColumnMap, o: RowOptions): Statem
   let category = o.category
   let suggested = false
   if (!category) {
-    const hit = suggestCategory([party, purpose, cell(map.kind), bankCategory].join(' '), direction, o.learned)
+    const hit = suggestCategory([party, purpose, cell(map.kind), bankCategory].join(' '), direction, o.learned, { ownNames: o.ownNames })
     const knownBank = o.knownCategories.find((c) => c.toLowerCase() === bankCategory.toLowerCase())
     category = hit?.category ?? knownBank ?? (direction === 'out' ? 'Other' : 'Other income')
     suggested = !!hit

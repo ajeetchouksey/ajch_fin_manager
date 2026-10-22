@@ -3,7 +3,8 @@ import { useProfile } from './useProfile'
 import { useLedger } from '../context/LedgerContext'
 import { ACCOUNT_TYPES, DEFAULT_CATEGORIES } from '../components/setup/options'
 import { INCOME_CATEGORIES, MORE_EXPENSE_CATEGORIES, currencyForCountry } from '../lib/ledger/types'
-import { TRANSFER_CATEGORY, learnFromLedger } from '../lib/ledger/categorize'
+import { TRANSFER_CATEGORY, learnFromLedger, ownNamesFrom } from '../lib/ledger/categorize'
+import { useAuth } from './useAuth'
 import type { UserSchemaDefinition } from '../types'
 
 const LAST_KEY = 'aarya.lastEntry'
@@ -36,6 +37,8 @@ export function writeLastEntry(e: LastEntry) {
 export function useLedgerOptions() {
   const { load } = useProfile()
   const { transactions } = useLedger()
+  const { user } = useAuth()
+  const userName = user?.name
   const [profile, setProfile] = useState<UserSchemaDefinition | null>(null)
 
   useEffect(() => {
@@ -59,6 +62,6 @@ export function useLedgerOptions() {
     const income = Array.from(new Set([...INCOME_CATEGORIES, ...usedFor('in')])).filter((c) => !expense.includes(c))
     const tags = Array.from(new Set(transactions.flatMap((t) => t.tags))).slice(0, 30)
     const defaultCurrency = readLastEntry().currency || currencyForCountry(profile?.taxSettings?.country || profile?.residenceCountries?.[0])
-    return { accounts, expenseCategories: Array.from(new Set([...expense, 'Other'])), incomeCategories: income, tags, defaultCurrency, learned: learnFromLedger(transactions) }
-  }, [profile, transactions])
+    return { accounts, expenseCategories: Array.from(new Set([...expense, 'Other'])), incomeCategories: income, tags, defaultCurrency, learned: learnFromLedger(transactions), ownNames: ownNamesFrom(userName, profile?.householdMembers) }
+  }, [profile, transactions, userName])
 }
