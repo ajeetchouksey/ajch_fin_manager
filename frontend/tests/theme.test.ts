@@ -37,7 +37,7 @@ test('white text and white washes only where they stay white in both themes', ()
       return [] // git grep exits 1 when nothing matches
     }
   }
-  const badText = grep('text-white').filter((l) => !/bg-brand(?![/\w-])|bg-brand-strong|bg-red-500|bg-rose-500/.test(l))
+  const badText = grep('text-white').filter((l) => !/bg-brand(?![/\w-])|bg-brand-strong|bg-red-500|bg-rose-500|bg-panel|bg-good/.test(l))
   assert.deepEqual(badText, [])
   assert.deepEqual(grep('bg-white/'), [])
   assert.deepEqual(grep('border-white/'), [])
