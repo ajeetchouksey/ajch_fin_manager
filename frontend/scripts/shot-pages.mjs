@@ -40,6 +40,14 @@ const tabs = {
   ],
   Profile: [['key', 'value', 'updated_at'], ['residenceCountries', '["DE"]', ''], ['accountTypes', '["current"]', ''], ['expenseCategories', '["Housing","Groceries"]', '']],
 }
+// SHOT_GOALS=1 adds two goals, to see the page with goals instead of the empty state
+if (process.env.SHOT_GOALS) {
+  tabs.Goals = [
+    ['id', 'name', 'target', 'currency', 'target_date', 'saved', 'monthly', 'account_id', 'priority', 'notes', 'created_at'],
+    ['goal_1', 'Emergency fund', 10000, 'EUR', '2027-06-01', 3200, 400, '', 'high', '', ''],
+    ['goal_2', 'Family trip', 2500, 'EUR', '2027-03-01', 600, 150, '', 'medium', '', ''],
+  ]
+}
 const SHEETS = ['Transactions', 'Documents', 'Accounts', 'Balances', 'Goals', 'Budgets', 'Analysis', 'Profile', 'Trash', 'Meta']
 
 async function mock(ctx) {
