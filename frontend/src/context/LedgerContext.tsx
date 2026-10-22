@@ -77,6 +77,8 @@ interface LedgerContextValue {
   /** Adds or changes the budget for a category (one per category). */
   saveBudget: (draft: Omit<Budget, 'createdAt' | 'row'>, existing?: Budget) => Promise<Budget>
   deleteBudget: (b: Budget) => Promise<void>
+  /** Delete all data: transactions and accounts go to Trash; goals and budgets are removed. Documents and the profile stay. */
+  clearLedger: () => Promise<void>
   /** Marks an AI analysis entry open, done or dismissed. Entries are never deleted here. */
   setAnalysisStatus: (a: Analysis, status: AnalysisStatus) => Promise<void>
   /** Saves profile fields to the Profile tab. Fields sent replace what is stored; others are kept. */
@@ -438,6 +440,24 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [run, client, load, analysis],
   )
 
+  const clearLedger: LedgerContextValue['clearLedger'] = useCallback(
+    () =>
+      run(async () => {
+        const loc = requireLoc()
+        const id = loc.spreadsheetId
+        const now = new Date()
+        // Trash first, as for a single delete: a failed removal leaves the rows in both places, never lost
+        const trashed = [...transactions.map((t) => transactionToTrash(t, now)), ...accounts.map((a) => accountToTrash(a, now))]
+        if (trashed.length) await client.appendTrash(id, trashed)
+        if (transactions.length) await client.deleteRows(id, TX_SHEET, transactions.map((t) => ({ row: t.row, id: t.id })))
+        if (accounts.length) await client.deleteRows(id, ACCOUNT_SHEET, accounts.map((a) => ({ row: a.row, id: a.id })))
+        if (goals.length) await client.deleteRows(id, GOAL_SHEET, goals.map((g) => ({ row: g.row, id: g.id })))
+        if (budgets.length) await client.deleteRows(id, BUDGET_SHEET, budgets.map((b) => ({ row: b.row, id: b.category })))
+        await load(loc)
+      }),
+    [run, client, load, transactions, accounts, goals, budgets],
+  )
+
   const eraseFromTrash: LedgerContextValue['eraseFromTrash'] = useCallback(
     (item) =>
       run(async () => {
@@ -610,6 +630,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     deleteDocumentRecord,
     trash,
     undoImport,
+    clearLedger,
     clearDismissedAnalysis,
     restoreFromTrash,
     eraseFromTrash,
