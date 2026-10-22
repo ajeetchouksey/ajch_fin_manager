@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { HardDrive, LogOut, Monitor, Moon, SlidersHorizontal, Sparkles, Sun } from 'lucide-react'
 import { useTheme } from '../hooks/useTheme'
 import type { ThemeChoice } from '../lib/theme'
+import { PHONE_MENU_ITEMS } from './navigation'
 import { useAuth } from '../hooks/useAuth'
 import { useSetup } from '../context/SetupContext'
 
@@ -64,13 +65,20 @@ export function UserMenu() {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-line-strong bg-surface p-1.5 shadow-2xl shadow-black/60 animate-dialog-in"
+          className="absolute right-0 top-full z-50 mt-2 max-h-[calc(100dvh-5rem)] w-64 overflow-y-auto rounded-2xl border border-line-strong bg-surface p-1.5 shadow-2xl shadow-black/60 animate-dialog-in"
         >
           <div className="px-3 py-2.5">
             <p className="truncate text-sm font-semibold text-ink">{user.name}</p>
             <p className="truncate text-xs text-slate-400">{user.email}</p>
           </div>
           <div className="my-1 h-px bg-line" />
+          {/* Phones: pages that are not in the tab bar */}
+          <div className="md:hidden">
+            {PHONE_MENU_ITEMS.map((n) => (
+              <MenuItem key={n.to} icon={n.icon} label={n.label} onClick={run(() => navigate(n.to))} />
+            ))}
+            <div className="my-1 h-px bg-line" />
+          </div>
           {hasProfile === false && (
             <MenuItem icon={Sparkles} label="Complete quick setup" onClick={run(openQuickSetup)} />
           )}
@@ -100,11 +108,11 @@ const THEMES: Array<{ value: ThemeChoice; label: string; icon: typeof Sun }> = [
 ]
 
 /** Appearance: System / Light / Dark, kept on this device. */
-function ThemeSwitch() {
+export function ThemeSwitch({ showLabel = true }: { showLabel?: boolean }) {
   const { choice, setChoice } = useTheme()
   return (
     <div className="px-3 py-2">
-      <p className="mb-1.5 text-xs text-slate-400">Appearance</p>
+      {showLabel && <p className="mb-1.5 text-xs text-slate-400">Appearance</p>}
       <div role="radiogroup" aria-label="Appearance" className="grid grid-cols-3 gap-1 rounded-xl border border-line-strong p-1">
         {THEMES.map(({ value, label, icon: Icon }) => (
           <button

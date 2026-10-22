@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, FileUp, Paperclip, Plus, RefreshCw, Search, Trash2 } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
@@ -34,8 +34,17 @@ export function TransactionsPage() {
   const [open, setOpen] = useState<Open>(null)
   const [selecting, setSelecting] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const [query, setQuery] = useState(params.get('q') ?? '')
+
+  // "+" in the tab bar and sidebar links here with ?add=1: open the add dialog, then drop the flag
+  useEffect(() => {
+    if (params.get('add') !== '1') return
+    setOpen({ kind: 'add' })
+    const next = new URLSearchParams(params)
+    next.delete('add')
+    setParams(next, { replace: true })
+  }, [params, setParams])
   const [dir, setDir] = useState<'all' | 'out' | 'in'>('all')
 
   const filtered = useMemo(() => {
