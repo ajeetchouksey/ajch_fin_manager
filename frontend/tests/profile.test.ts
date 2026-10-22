@@ -21,6 +21,7 @@ const full: UserSchemaDefinition = {
   investmentPreferences: { hasInvestments: true, types: ['etf'] },
   taxSettings: { country: 'DE', fillingStatus: 'joint' },
   ownNames: ['ASHA K VERMA'],
+  categoryRules: [{ match: 'Lidl', category: 'Groceries' }],
 }
 
 test('a profile round-trips through the Profile tab rows', () => {
@@ -62,4 +63,9 @@ test('profiles compare equal regardless of key order, and differ on any value', 
   assert.ok(sameProfile(full, reordered))
   assert.ok(!sameProfile(full, { ...full, householdMembers: [] }))
   assert.ok(!sameProfile(full, null))
+})
+
+test('category rules survive the round trip, and rows without text or category are dropped', () => {
+  const rows = profileToRows({ ...full, categoryRules: [{ match: ' Lidl ', category: 'Groceries' }, { match: '', category: 'Other' }, { match: 'x', category: '' }] }, 'now').map((r, i) => rowToProfileRow(profileRowToRow(r), i + 2)!)
+  assert.deepEqual(rowsToProfile(rows)!.categoryRules, [{ match: 'Lidl', category: 'Groceries' }])
 })

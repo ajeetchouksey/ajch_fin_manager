@@ -1,12 +1,14 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronRight, Download, ExternalLink, HardDrive, SlidersHorizontal, Trash2, Users } from 'lucide-react'
+import { ChevronRight, Download, ExternalLink, HardDrive, Plus, SlidersHorizontal, Trash2, Users, X } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { ThemeSwitch } from '../components/UserMenu'
 import { useSetup } from '../context/SetupContext'
 import { useLedger } from '../context/LedgerContext'
 import { useAuth } from '../hooks/useAuth'
 import { usePeriodMode } from '../hooks/usePeriodMode'
+import { useProfile } from '../hooks/useProfile'
+import { useLedgerOptions } from '../hooks/useLedgerOptions'
 import { learnFromLedger, payeeKey } from '../lib/ledger/categorize'
 import { categoryColor } from '../lib/ledger/categoryColors'
 import { currenciesByUse } from '../lib/ledger/summary'
@@ -25,6 +27,20 @@ export function SettingsPage() {
   const { user } = useAuth()
   const { transactions, trash } = useLedger()
   const [mode, setMode] = usePeriodMode()
+  const { save, saving, error: saveError } = useProfile()
+  const opts = useLedgerOptions()
+  const myRules = opts.userRules
+  const categories = useMemo(() => Array.from(new Set([...opts.expenseCategories, ...opts.incomeCategories])), [opts.expenseCategories, opts.incomeCategories])
+  const [ruleMatch, setRuleMatch] = useState('')
+  const [ruleCat, setRuleCat] = useState('')
+  const addRule = async () => {
+    const match = ruleMatch.trim()
+    const category = ruleCat || categories[0]
+    if (!match || !category) return
+    const next = [...myRules.filter((r) => r.match.toLowerCase() !== match.toLowerCase()), { match, category }]
+    if (await save({ categoryRules: next })) setRuleMatch('')
+  }
+  const removeRule = (match: string) => void save({ categoryRules: myRules.filter((r) => r.match !== match) })
   const currencies = useMemo(() => currenciesByUse(transactions), [transactions])
 
   // Rules: what the app has learned from the categories you chose (payee → category), most used first
@@ -97,9 +113,39 @@ export function SettingsPage() {
         <section aria-labelledby="rl-heading" className="card flex flex-col gap-1 p-6">
           <div className="mb-2 flex flex-col gap-1">
             <h2 id="rl-heading" className="card-title">Categorisation rules</h2>
-            <span className="text-sm text-slate-400">Learned from the categories you choose. Change a payment’s category and new imports follow it.</span>
+            <span className="text-sm text-slate-400">Your own rules come first, then what the app learned from the categories you choose.</span>
           </div>
-          {rules.length === 0 && <p className="text-slate-400">No rules yet. They appear once you categorise the same payee a few times.</p>}
+          <form
+            className="mb-2 flex flex-wrap items-end gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void addRule()
+            }}
+          >
+            <label className="flex min-w-40 flex-1 flex-col gap-1 text-[13px] font-semibold text-slate-300">
+              If text contains
+              <input className="field" value={ruleMatch} onChange={(e) => setRuleMatch(e.target.value)} placeholder="e.g. Lidl" />
+            </label>
+            <label className="flex min-w-40 flex-1 flex-col gap-1 text-[13px] font-semibold text-slate-300">
+              Category
+              <select className="field" value={ruleCat || categories[0] || ''} onChange={(e) => setRuleCat(e.target.value)}>
+                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
+            <button type="submit" className="btn btn-primary" disabled={saving || !ruleMatch.trim()}><Plus className="h-4 w-4" aria-hidden /> Add rule</button>
+          </form>
+          {saveError && <p role="alert" className="text-sm text-bad">{saveError}</p>}
+          {myRules.map((r) => (
+            <div key={`mine-${r.match}`} className="flex flex-wrap items-center gap-2 border-t border-row py-2.5 text-sm">
+              <span className="text-slate-400">If text contains</span>
+              <code className="rounded-md bg-subtle px-2 py-0.5 font-mono text-[13px] text-ink">{r.match}</code>
+              <span className="text-slate-500" aria-hidden>→</span>
+              <span className="flex items-center gap-1.5 font-medium text-ink"><span className="h-2 w-2 rounded-full" style={{ background: categoryColor(r.category) }} />{r.category}</span>
+              <span className="ml-auto text-xs text-slate-500">Your rule</span>
+              <button type="button" className="icon-btn" aria-label={`Delete rule ${r.match}`} onClick={() => removeRule(r.match)} disabled={saving}><X className="h-4 w-4" aria-hidden /></button>
+            </div>
+          ))}
+          {rules.length === 0 && myRules.length === 0 && <p className="text-slate-400">No rules yet. Add one above, or they appear once you categorise the same payee a few times.</p>}
           {rules.map((r) => (
             <div key={`${r.match}-${r.category}`} className="flex flex-wrap items-center gap-2 border-t border-row py-2.5 text-sm">
               <span className="text-slate-400">If text contains</span>

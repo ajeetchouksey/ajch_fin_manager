@@ -114,6 +114,8 @@ export interface Suggestion {
 export interface SuggestOptions {
   /** The user's own name(s) and household members; a payment to or from them is a transfer, not spending. */
   ownNames?: string[]
+  /** The user's own "text contains → category" rules; checked before anything learned. */
+  userRules?: Array<{ match: string; category: string }>
 }
 
 /** Edit distance, capped: returns max+1 as soon as the distance is known to exceed `max`. */
@@ -198,6 +200,20 @@ export function ownNamesFrom(
 
 const INVESTMENT_RULE = RULES.find((r) => r.category === 'Savings & investments')!
 
+/** The first of the user's rules whose text appears in the payment text (case-insensitive). */
+export function matchUserRules(
+  text: string,
+  rules: Array<{ match: string; category: string }> = [],
+): { match: string; category: string } | null {
+  const hay = fold(text)
+  const merchant = fold(merchantText(text))
+  for (const r of rules) {
+    const needle = fold(r.match)
+    if (needle && (hay.includes(needle) || merchant.includes(needle))) return r
+  }
+  return null
+}
+
 function matchRules(s: string, direction?: Direction): Suggestion | null {
   for (const r of RULES) {
     if (direction && r.direction && r.direction !== direction) continue
@@ -221,6 +237,8 @@ export function suggestCategory(
 ): Suggestion | null {
   const s = text.trim()
   if (!s) return null
+  const mine = matchUserRules(s, options.userRules)
+  if (mine) return { category: mine.category, direction, source: 'rule' }
   if (learned) {
     const key = payeeKey(s)
     const dirs: Direction[] = direction ? [direction] : ['out', 'in']

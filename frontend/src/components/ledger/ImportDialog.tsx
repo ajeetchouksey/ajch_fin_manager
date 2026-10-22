@@ -145,7 +145,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
   const parsed = useMemo(() => {
     const knownCategories = [...opts.expenseCategories, ...opts.incomeCategories]
     return body.slice(0, MAX_ROWS).map((r, i) =>
-      statementRow(r, map, { dateFormat, sign, currency, account, category: overrides.get(i) || category, tags, notes, learned: opts.learned, ownNames: opts.ownNames, knownCategories }),
+      statementRow(r, map, { dateFormat, sign, currency, account, category: overrides.get(i) || category, tags, notes, learned: opts.learned, ownNames: opts.ownNames, userRules: opts.userRules, knownCategories }),
     )
   }, [body, map, dateFormat, sign, currency, account, category, overrides, tags, notes, opts])
 
