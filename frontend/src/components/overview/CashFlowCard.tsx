@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { formatMoney } from '../../lib/ledger/types'
+import { privately } from '../../lib/ledger/privacy'
 
 export interface FlowPoint {
   key: string
@@ -21,7 +22,7 @@ export function axisMax(v: number): number {
 
 const short = (n: number, currency: string) => {
   try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(n)
+    return privately(new Intl.NumberFormat(undefined, { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(n))
   } catch {
     return String(Math.round(n))
   }

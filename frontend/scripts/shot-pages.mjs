@@ -80,13 +80,14 @@ const browser = await chromium.launch({ channel: 'msedge' }).catch(() => chromiu
 for (const size of sizeNames) {
   for (const theme of themes) {
     const ctx = await browser.newContext({ viewport: sizes[size], isMobile: size === 'phone', hasTouch: size === 'phone' })
-    await ctx.addInitScript(([t, u]) => {
+    await ctx.addInitScript(([t, u, hide]) => {
       localStorage.setItem('aarya.theme', t)
+      if (hide) localStorage.setItem('aarya.hideAmounts', '1')
       localStorage.setItem('authData', JSON.stringify({ accessToken: 'fake', user: u }))
       // This device "linked Drive before": a stored Ledger location and a fresh Drive token
       localStorage.setItem(`aarya.ledger.${u.id}`, JSON.stringify({ folderId: 'F1', folderName: 'AaryaAI Finance', folderLink: '', documentsFolderId: 'F1', spreadsheetId: 'L1', spreadsheetLink: '' }))
       sessionStorage.setItem('aarya.driveToken', JSON.stringify({ accessToken: 'fake-drive', expiresAt: Date.now() + 3600_000 }))
-    }, [theme, user])
+    }, [theme, user, !!process.env.SHOT_HIDE])
     await mock(ctx)
     const page = await ctx.newPage()
     for (const p of paths) {

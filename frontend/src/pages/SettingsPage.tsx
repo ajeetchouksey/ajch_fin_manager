@@ -8,6 +8,7 @@ import { useLedger } from '../context/LedgerContext'
 import { useAuth } from '../hooks/useAuth'
 import { usePeriodMode } from '../hooks/usePeriodMode'
 import { useProfile } from '../hooks/useProfile'
+import { useHideAmounts } from '../hooks/useHideAmounts'
 import { useLedgerOptions } from '../hooks/useLedgerOptions'
 import { learnFromLedger, payeeKey } from '../lib/ledger/categorize'
 import { categoryColor } from '../lib/ledger/categoryColors'
@@ -28,6 +29,7 @@ export function SettingsPage() {
   const { transactions, trash } = useLedger()
   const [mode, setMode] = usePeriodMode()
   const { save, saving, error: saveError } = useProfile()
+  const [hideAmounts, setHideAmounts] = useHideAmounts()
   const opts = useLedgerOptions()
   const myRules = opts.userRules
   const categories = useMemo(() => Array.from(new Set([...opts.expenseCategories, ...opts.incomeCategories])), [opts.expenseCategories, opts.incomeCategories])
@@ -102,6 +104,22 @@ export function SettingsPage() {
           <h2 id="da-heading" className="card-title">Data & appearance</h2>
           <div className="-mx-3">
             <ThemeSwitch />
+          </div>
+          <div className="flex items-center gap-3 rounded-xl border border-line px-4 py-3">
+            <span className="flex-1">
+              <span className="block font-medium text-ink">Hide amounts</span>
+              <span className="block text-sm text-slate-400">Shows •••  instead of money, for a shared screen. Kept on this device.</span>
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={hideAmounts}
+              aria-label="Hide amounts"
+              onClick={() => setHideAmounts(!hideAmounts)}
+              className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors ${hideAmounts ? 'border-brand bg-brand' : 'border-line bg-seg'}`}
+            >
+              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-panel shadow transition-all ${hideAmounts ? 'left-[22px]' : 'left-0.5'}`} />
+            </button>
           </div>
           <div className="flex flex-wrap gap-2 pt-1">
             <button type="button" className="btn btn-secondary" onClick={exportAll} disabled={!transactions.length}><Download className="h-4 w-4" aria-hidden /> Export all data</button>
