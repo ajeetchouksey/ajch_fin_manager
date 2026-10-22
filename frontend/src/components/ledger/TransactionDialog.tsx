@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { FileSpreadsheet, Loader2, ScanText, ShieldCheck, Sparkles } from 'lucide-react'
 import { Dialog } from '../Dialog'
 import { useLedger } from '../../context/LedgerContext'
@@ -7,7 +7,7 @@ import { EXTRACTABLE_ACCEPT, parseReceipt, readFileText, type ExtractProgress } 
 import { isCsvFile, looksLikeStatement, readCsvFile } from '../../lib/ledger/csv'
 import { TRANSFER_CATEGORY, suggestCategory } from '../../lib/ledger/categorize'
 import { CURRENCIES, DOCUMENT_TYPES, parseTags, todayIso, type Direction, type Transaction } from '../../lib/ledger/types'
-import { CategorySelect, ErrorNote, Field, FilePicker, TagInput, inputClass, selectClass } from './ui'
+import { CategoryChips, ErrorNote, Field, FilePicker, TagInput, inputClass, selectClass } from './ui'
 import { parseNumber } from '../../lib/ledger/money'
 
 type Kind = Direction | 'transfer'
@@ -27,8 +27,14 @@ export function TransactionDialog({
   /** Opens the import flow for a bank statement the user attached here */
   onImportStatement?: (file: File) => void
 }) {
-  const { addTransaction, updateTransaction, busy, error } = useLedger()
+  const { addTransaction, updateTransaction, busy, error, transactions } = useLedger()
   const opts = useLedgerOptions()
+  // How often each category is used, so the chips start with the user's own most used ones
+  const categoryUsage = useMemo(() => {
+    const n = new Map<string, number>()
+    for (const t of transactions) n.set(t.category, (n.get(t.category) ?? 0) + 1)
+    return n
+  }, [transactions])
   const last = readLastEntry()
 
   const [direction, setDirection] = useState<Direction>(existing?.direction ?? 'out')
@@ -260,7 +266,7 @@ export function TransactionDialog({
         )}
 
         <div>
-          <div role="radiogroup" aria-label="Type of transaction" className="grid grid-cols-3 gap-1 rounded-xl border border-line-strong p-1">
+          <div role="radiogroup" aria-label="Type of transaction" className="seg grid grid-cols-3">
             {(['out', 'in', 'transfer'] as const).map((k) => (
               <button
                 key={k}
@@ -270,7 +276,7 @@ export function TransactionDialog({
                 // An existing row can switch between in and out, but not become half of a transfer
                 disabled={!!existing && (k === 'transfer') !== isTransfer}
                 onClick={() => chooseKind(k)}
-                className={`min-h-10 rounded-lg text-sm font-semibold transition-colors disabled:opacity-40 ${kind === k ? 'bg-brand text-white' : 'text-slate-400 hover:text-ink'}`}
+                className="disabled:opacity-40"
               >
                 {k === 'out' ? 'Money out' : k === 'in' ? 'Money in' : 'Transfer'}
               </button>
@@ -279,41 +285,55 @@ export function TransactionDialog({
           {isTransfer && <p className="mt-1.5 text-xs text-slate-500">Between your own accounts, for example current account to savings. Not counted as income or spending.</p>}
         </div>
 
-        <div className="grid grid-cols-[1fr_auto] gap-3">
-          <Field label="Amount" htmlFor="tx-amount">
-            <input id="tx-amount" inputMode="decimal" autoComplete="off" placeholder="0.00" className={inputClass} value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus={!existing} />
-          </Field>
-          <Field label="Currency" htmlFor="tx-currency">
-            <select id="tx-currency" className={selectClass} value={currency} onChange={(e) => setCurrency(e.target.value)}>
+        <Field label="Amount" htmlFor="tx-amount">
+          <span className="flex min-h-16 items-center gap-2 rounded-xl border border-line-strong bg-surface px-4 focus-within:outline focus-within:outline-2 focus-within:outline-brand-soft">
+            <span className={`font-display text-[28px] font-bold ${kind === 'in' ? 'text-good' : 'text-ink'}`} aria-hidden>{kind === 'in' ? '+' : kind === 'out' ? '−' : ''}</span>
+            <input
+              id="tx-amount"
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder="0.00"
+              className={`min-w-0 flex-1 bg-transparent font-display text-[30px] font-bold tabular-nums outline-none ${kind === 'in' ? 'text-good' : 'text-ink'}`}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              autoFocus={!existing}
+            />
+            <select id="tx-currency" aria-label="Currency" className="min-h-10 rounded-lg border border-line bg-surface px-2 text-sm font-semibold text-ink" value={currency} onChange={(e) => setCurrency(e.target.value)}>
               {currencies.map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>
-          </Field>
-        </div>
+          </span>
+        </Field>
 
-        <div className={`grid gap-4 ${isTransfer ? '' : 'sm:grid-cols-2'}`}>
+        <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
+          <Field
+            label={isTransfer ? 'Description (optional)' : direction === 'out' ? 'Payee' : 'From'}
+            htmlFor="tx-desc"
+            hint={isTransfer ? 'For example: monthly savings' : direction === 'out' ? 'Shop, payee or what it was for' : 'Who paid you, or what for'}
+          >
+            <input id="tx-desc" className={inputClass} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={200} placeholder={isTransfer ? 'e.g. Move to Tagesgeld' : direction === 'out' ? 'e.g. REWE weekly shop' : 'e.g. October salary'} />
+          </Field>
           <Field label="Date" htmlFor="tx-date">
             <input id="tx-date" type="date" className={inputClass} value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
-          {!isTransfer && (
-            <Field
-              label="Category"
-              htmlFor="tx-category"
-              hint={suggestedFrom ? <span className="inline-flex items-center gap-1"><Sparkles className="h-3 w-3 text-brand-soft" /> Suggested from {suggestedFrom}</span> : undefined}
-            >
-              <CategorySelect id="tx-category" value={category} onChange={chooseCategory} expense={opts.expenseCategories} income={opts.incomeCategories} />
-            </Field>
-          )}
         </div>
 
-        <Field
-          label={isTransfer ? 'Description (optional)' : 'Description'}
-          htmlFor="tx-desc"
-          hint={isTransfer ? 'For example: monthly savings' : direction === 'out' ? 'Shop, payee or what it was for' : 'Who paid you, or what for'}
-        >
-          <input id="tx-desc" className={inputClass} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={200} placeholder={isTransfer ? 'e.g. Move to Tagesgeld' : direction === 'out' ? 'e.g. REWE weekly shop' : 'e.g. October salary'} />
-        </Field>
+        {!isTransfer && (
+          <div>
+            <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">
+              <span id="tx-cat-label" className="text-sm font-medium text-slate-300">Category</span>
+              {suggestedFrom && <span className="inline-flex items-center gap-1 text-xs text-slate-400"><Sparkles className="h-3 w-3 text-accent" /> Suggested from {suggestedFrom}</span>}
+            </div>
+            <CategoryChips
+              labelledBy="tx-cat-label"
+              value={category}
+              onChange={chooseCategory}
+              options={direction === 'in' ? opts.incomeCategories : opts.expenseCategories}
+              usage={categoryUsage}
+            />
+          </div>
+        )}
 
         <div className={newTransfer ? 'grid gap-4 sm:grid-cols-2' : ''}>
           <Field label={newTransfer ? 'From account' : 'Account'} htmlFor="tx-account" hint={newTransfer ? undefined : 'Optional. Type a name like “Sparkasse current” or pick one.'}>

@@ -1,12 +1,17 @@
-import { useEffect, useState } from 'react'
-import { ArrowLeft, Check, Clock, Globe2, Lock, Tags, Wallet } from 'lucide-react'
-import { Dialog } from '../Dialog'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Check, PenLine, ShieldCheck, Table2, Upload, X } from 'lucide-react'
 import { LogoMark } from '../Logo'
 import { ErrorNote } from '../FirstLoginOnboarding'
+import { ADD_TRANSACTION_PATH, IMPORT_PATH } from '../navigation'
 import { useProfile } from '../../hooks/useProfile'
+import { usePeriodMode } from '../../hooks/usePeriodMode'
+import { readLastEntry, writeLastEntry } from '../../hooks/useLedgerOptions'
+import { categoryColor } from '../../lib/ledger/categoryColors'
+import { CURRENCIES, currencyForCountry } from '../../lib/ledger/types'
 import type { UserSchemaDefinition } from '../../types'
-import { ACCOUNT_TYPES, COUNTRIES, DEFAULT_CATEGORIES, STARTER_CATEGORIES, countryLabel } from './options'
-import { ChipGroup, ChoiceList, CustomEntries, FieldLabel, StepIntro } from './fields'
+import { COUNTRIES, DEFAULT_CATEGORIES } from './options'
+import { CustomEntries } from './fields'
 
 interface QuickSetupProps {
   onComplete: () => void
@@ -15,36 +20,52 @@ interface QuickSetupProps {
   onAddDetail?: () => void
 }
 
-const STEPS = 3
-const TOPICS = [
-  { icon: Globe2, label: 'Where you live and pay tax' },
-  { icon: Wallet, label: 'The kinds of accounts you have' },
-  { icon: Tags, label: 'How you group your spending' },
+const STEP_LABELS = ['About you', 'Bring your money in', 'Categories', 'Done']
+
+type Source = 'import' | 'sheet' | 'manual'
+const SOURCES: Array<{ id: Source; title: string; note: string; icon: typeof Upload; color: string }> = [
+  { id: 'import', title: 'Import a bank statement', note: 'CSV or PDF from your bank — every row is read and sorted for you.', icon: Upload, color: '#2F7FD1' },
+  { id: 'sheet', title: 'Use your FinBuddy ledger', note: 'Your Ledger is a Google Sheet in your Drive. Carry on with what is already there.', icon: Table2, color: '#1F9D8B' },
+  { id: 'manual', title: 'Start by hand', note: 'Add balances and a few transactions yourself.', icon: PenLine, color: '#E5A400' },
 ]
 
-/** Guided first-time setup — no AI. Saves the required part of the financial profile. */
+const NEXT_UP = [
+  { title: 'Your overview', text: "shows money in, money out and what's left, month by month.", color: 'var(--color-accent)' },
+  { title: '“Worth checking”', text: 'flags payments that look miscategorised or duplicated.', color: '#E5A400' },
+  { title: 'Budgets and goals', text: "start from what you actually spend — set them when you're ready.", color: '#1F9D8B' },
+]
+
+const label = 'flex flex-col gap-1.5 text-[13px] font-semibold text-slate-300'
+
+/** Guided first-time setup in four steps — no AI. Saves the profile to the Ledger. */
 export function QuickSetup({ onComplete, onSkip, onAddDetail }: QuickSetupProps) {
   const { load, save, saving, error } = useProfile()
-  const [step, setStep] = useState(0) // 0 intro · 1..3 questions · 4 done
+  const navigate = useNavigate()
+  const [mode, setMode] = usePeriodMode()
+  const [step, setStep] = useState(1) // 1 about you · 2 source · 3 categories · 4 done
   const [existing, setExisting] = useState<UserSchemaDefinition | null>(null)
-  const [countries, setCountries] = useState<string[]>(['DE'])
-  const [taxCountry, setTaxCountry] = useState('DE')
-  const [accounts, setAccounts] = useState<string[]>(['bank'])
-  const [categories, setCategories] = useState<string[]>(STARTER_CATEGORIES)
-  const [customCategories, setCustomCategories] = useState<string[]>([])
+  const [bankName, setBankName] = useState('')
+  const [country, setCountry] = useState('DE')
+  const [currency, setCurrency] = useState(() => readLastEntry().currency || 'EUR')
+  const [currencyTouched, setCurrencyTouched] = useState(() => !!readLastEntry().currency)
+  const [source, setSource] = useState<Source>('import')
+  const [off, setOff] = useState<Set<string>>(new Set())
+  const [custom, setCustom] = useState<string[]>([])
+  const [adding, setAdding] = useState(false)
+  const headingRef = useRef<HTMLHeadingElement>(null)
 
-  // Pre-fill when the user already has a profile (re-running the quick setup)
+  // Pre-fill when the user already has a profile (re-running the setup)
   useEffect(() => {
     let cancelled = false
     load().then((p) => {
       if (cancelled || !p) return
       setExisting(p)
-      if (p.residenceCountries?.length) setCountries(p.residenceCountries)
-      if (p.taxSettings?.country) setTaxCountry(p.taxSettings.country)
-      if (p.accountTypes?.length) setAccounts(p.accountTypes)
+      const c = p.taxSettings?.country || p.residenceCountries?.[0]
+      if (c) setCountry(c)
+      if (p.ownNames?.length) setBankName(p.ownNames[0])
       if (p.expenseCategories?.length) {
-        setCategories(p.expenseCategories.filter((c) => DEFAULT_CATEGORIES.includes(c)))
-        setCustomCategories(p.expenseCategories.filter((c) => !DEFAULT_CATEGORIES.includes(c)))
+        setOff(new Set(DEFAULT_CATEGORIES.filter((d) => !p.expenseCategories.includes(d))))
+        setCustom(p.expenseCategories.filter((c) => !DEFAULT_CATEGORIES.includes(c)))
       }
     })
     return () => {
@@ -52,172 +73,280 @@ export function QuickSetup({ onComplete, onSkip, onAddDetail }: QuickSetupProps)
     }
   }, [load])
 
-  // Keep the tax country one of the selected countries
   useEffect(() => {
-    if (countries.length && !countries.includes(taxCountry)) setTaxCountry(countries[0])
-  }, [countries, taxCountry])
+    headingRef.current?.focus()
+  }, [step])
 
-  const allCategories = [...categories, ...customCategories]
-  const valid = [true, countries.length > 0, accounts.length > 0, allCategories.length > 0][step] ?? true
+  // Full-screen: the page behind must not scroll
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [])
+
+  const skip = onSkip ?? onComplete
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') (step === 4 ? onComplete : skip)()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [step, onComplete, skip])
+
+  const pickCountry = (c: string) => {
+    setCountry(c)
+    if (!currencyTouched) setCurrency(currencyForCountry(c))
+  }
+
+  const categories = [...DEFAULT_CATEGORIES.filter((c) => !off.has(c)), ...custom]
 
   const finish = async () => {
+    const countries = existing?.residenceCountries?.includes(country) ? existing.residenceCountries : [country, ...(existing?.residenceCountries ?? [])]
+    const name = bankName.trim()
+    const otherNames = (existing?.ownNames ?? []).slice(1)
     const saved = await save(
       {
         residenceCountries: countries,
-        accountTypes: accounts,
-        expenseCategories: allCategories,
-        taxSettings: { ...(existing?.taxSettings ?? {}), country: taxCountry },
+        accountTypes: existing?.accountTypes?.length ? existing.accountTypes : ['bank'],
+        expenseCategories: categories,
+        taxSettings: { ...(existing?.taxSettings ?? {}), country },
+        ownNames: name ? [name, ...otherNames.filter((n) => n !== name)] : otherNames,
       },
       { complete: true },
     )
-    if (saved) setStep(4)
+    if (!saved) return
+    writeLastEntry({ ...readLastEntry(), currency })
+    setStep(4)
   }
 
-  const next = () => (step === STEPS ? void finish() : setStep((s) => s + 1))
-  const inQuestions = step >= 1 && step <= STEPS
+  const next = () => (step === 3 ? void finish() : setStep((s) => s + 1))
+  const go = (path: string) => {
+    onComplete()
+    navigate(path)
+  }
 
   return (
-    <Dialog
-      onClose={() => (step === 4 ? onComplete() : (onSkip ?? onComplete)())}
-      closeLabel={step === 4 ? 'Close' : 'Skip setup for now'}
-      title={step === 0 ? 'Welcome' : step === 4 ? 'All set' : 'Set up your profile'}
-      subtitle={inQuestions ? `Question ${step} of ${STEPS}` : undefined}
-      leading={
-        step > 1 && inQuestions ? (
-          <button type="button" onClick={() => setStep((s) => s - 1)} className="icon-btn shrink-0" aria-label="Previous question">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-        ) : undefined
-      }
-      toolbar={
-        inQuestions ? (
-          <div className="h-1 shrink-0 bg-line" role="progressbar" aria-valuemin={0} aria-valuemax={STEPS} aria-valuenow={step - 1}>
-            <div className="h-full bg-brand transition-[width] duration-500" style={{ width: `${(step / STEPS) * 100}%` }} />
-          </div>
-        ) : undefined
-      }
-      footer={
-        step === 0 ? (
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            {onSkip && (
-              <button type="button" onClick={onSkip} className="btn btn-ghost">
-                Skip for now
-              </button>
-            )}
-            <button type="button" onClick={() => setStep(1)} className="btn btn-primary sm:min-w-40">
-              Get started
-            </button>
-          </div>
-        ) : step === 4 ? (
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            {onAddDetail && (
-              <button type="button" onClick={onAddDetail} className="btn btn-secondary">
-                Add more detail
-              </button>
-            )}
-            <button type="button" onClick={onComplete} className="btn btn-primary sm:min-w-40">
-              Go to dashboard
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            {step > 1 && (
-              <button type="button" onClick={() => setStep((s) => s - 1)} className="btn btn-ghost hidden sm:inline-flex">
-                Back
-              </button>
-            )}
-            <button type="button" onClick={next} disabled={!valid || saving} className="btn btn-primary sm:min-w-40">
-              {step === STEPS ? (saving ? 'Saving…' : 'Finish setup') : 'Continue'}
-            </button>
-          </div>
-        )
-      }
-    >
-      <div className="px-5 py-6 sm:px-8 sm:py-8">
-        {step === 0 && (
-          <div className="flex min-h-full flex-col justify-center py-4">
-            <LogoMark className="h-14 w-14" />
-            <p className="eyebrow mt-6">Welcome to AaryaAI Finance</p>
-            <h3 className="mt-2 text-[32px] leading-[1.1] font-semibold text-ink sm:text-[38px]">
-              Let's set up your <span className="heading-gradient">finances</span>
-            </h3>
-            <p className="mt-2 max-w-md text-base leading-relaxed text-slate-400">
-              Three quick questions so your dashboard, categories and goals fit how you actually manage money.
-            </p>
-            <ul className="mt-8 space-y-3">
-              {TOPICS.map(({ icon: Icon, label }) => (
-                <li key={label} className="flex items-center gap-3 text-base text-slate-200">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand/15 text-brand-soft">
-                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                  </span>
-                  {label}
-                </li>
-              ))}
-            </ul>
-            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-500">
-              <span className="inline-flex items-center gap-1.5">
-                <Clock className="h-4 w-4" /> About 1 minute
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Lock className="h-4 w-4" /> You can change answers later
-              </span>
-            </div>
-          </div>
+    <div role="dialog" aria-modal="true" aria-labelledby="qs-title" className="fixed inset-0 z-50 grid overflow-y-auto bg-canvas text-ink md:grid-cols-[minmax(320px,520px)_minmax(0,1fr)]">
+      <aside aria-label="About aaryaai" className="relative hidden flex-col justify-between overflow-hidden bg-panel p-12 text-white md:flex">
+        <svg aria-hidden width="420" height="420" viewBox="0 0 64 64" className="pointer-events-none absolute -right-[120px] -bottom-[100px] opacity-20">
+          <path d="M32 2 L58 17 V47 L32 62 L6 47 V17 Z" fill="none" stroke="#A99BFF" strokeWidth="1.2" />
+          <path d="M32 12 L49 22 V42 L32 52 L15 42 V22 Z" fill="none" stroke="#A99BFF" strokeWidth="1" />
+        </svg>
+        <div className="flex items-center gap-3">
+          <LogoMark className="h-11 w-11" />
+          <span className="font-display text-[28px] font-semibold" style={{ color: '#fff' }}>aarya<span style={{ color: '#A99BFF' }}>ai</span></span>
+        </div>
+        <div className="relative flex flex-col gap-4">
+          <p className="font-display text-[52px] leading-none font-bold" style={{ color: '#fff' }}>Know where your money goes.</p>
+          <p className="max-w-[380px] text-base leading-relaxed" style={{ color: '#C9C3EC' }}>
+            Import your bank statements, let aaryaai sort them, and see every month at a glance. Your ledger lives in your own Google Drive.
+          </p>
+        </div>
+        <ol aria-label="Setup progress" className="relative flex flex-col gap-2.5">
+          {STEP_LABELS.map((l, i) => {
+            const n = i + 1
+            const done = n < step
+            const on = n === step
+            return (
+              <li key={l} className="flex items-center gap-3 font-semibold" style={{ color: on || done ? '#fff' : '#8F89B5' }} aria-current={on ? 'step' : undefined}>
+                <span
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-[13px] font-bold"
+                  style={{ borderColor: on || done ? '#A99BFF' : '#4A4570', background: done ? '#5B4BD6' : 'transparent', color: '#fff' }}
+                >
+                  {done ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : n}
+                </span>
+                {l}
+              </li>
+            )
+          })}
+        </ol>
+      </aside>
+
+      <main className="relative flex min-h-full w-full max-w-[760px] flex-col justify-center gap-6 px-5 py-10 sm:px-10 md:px-[72px] md:py-14">
+        <button type="button" onClick={step === 4 ? onComplete : skip} className="icon-btn absolute top-4 right-4" aria-label={step === 4 ? 'Close' : 'Skip setup for now'}>
+          <X className="h-5 w-5" />
+        </button>
+        <div className="flex items-center gap-2 md:hidden">
+          <LogoMark className="h-8 w-8" />
+          <span className="font-display text-2xl font-semibold">aarya<span className="text-accent">ai</span></span>
+        </div>
+
+        {step === 4 && (
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-good text-white">
+            <Check className="h-8 w-8" strokeWidth={2.6} />
+          </span>
         )}
+        <div className="flex flex-col gap-1.5">
+          <span className="eyebrow text-accent">Step {step} of 4</span>
+          <h2 id="qs-title" ref={headingRef} tabIndex={-1} className="font-display text-[40px] leading-tight font-bold outline-none">
+            {['Let’s set you up', 'Bring your money in', 'Choose your categories', 'You’re all set'][step - 1]}
+          </h2>
+          <span className="text-slate-400">
+            {[
+              'Takes about two minutes. You can change all of this later in Settings.',
+              'Pick one to start. You can add more accounts any time.',
+              'Each category keeps its colour everywhere. Turn off the ones you don’t need.',
+              'Here’s what happens next.',
+            ][step - 1]}
+          </span>
+        </div>
 
         {step === 1 && (
-          <>
-            <StepIntro title="Where do you live and manage money?" text="Pick every country where you have income, accounts or property." />
-            <ChipGroup label="Countries" options={COUNTRIES} selected={countries} onChange={setCountries} />
-            {countries.length > 1 && (
-              <div className="mt-7">
-                <FieldLabel hint="Where you are tax resident. You can add details later.">Where do you mainly pay tax?</FieldLabel>
-                <ChoiceList
-                  label="Tax country"
-                  options={countries.map((c) => ({ value: c, label: countryLabel(c) }))}
-                  value={taxCountry}
-                  onChange={setTaxCountry}
-                />
+          <div className="flex flex-col gap-5">
+            <label className={label}>
+              Your name as your bank shows it
+              <input className="field" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="e.g. ASHA K VERMA" maxLength={80} autoComplete="name" />
+              <span className="text-xs font-normal text-slate-400">Payments to or from this name count as moves between your own accounts.</span>
+            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className={label}>
+                Where you live and pay tax
+                <select className="field" value={country} onChange={(e) => pickCountry(e.target.value)}>
+                  {COUNTRIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+              </label>
+              <label className={label}>
+                Main currency
+                <select
+                  className="field"
+                  value={currency}
+                  onChange={(e) => {
+                    setCurrency(e.target.value)
+                    setCurrencyTouched(true)
+                  }}
+                >
+                  {Array.from(new Set([currency, ...CURRENCIES])).map((c) => <option key={c}>{c}</option>)}
+                </select>
+              </label>
+            </div>
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-2 text-[13px] font-semibold text-slate-300">How do you think about a month?</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {([
+                  ['calendar', 'Calendar month', '1st to last day'],
+                  ['salary', 'Salary to salary', 'From payday to the day before the next'],
+                ] as const).map(([value, title, note]) => (
+                  <label key={value} className={`flex cursor-pointer gap-3 rounded-[14px] p-4 ${mode === value ? 'border-2 border-accent bg-tint' : 'border border-line-strong bg-surface'}`}>
+                    <input type="radio" name="qs-period" className="mt-0.5 h-[18px] w-[18px] accent-[var(--color-accent)]" checked={mode === value} onChange={() => setMode(value)} />
+                    <span className="flex flex-col gap-0.5">
+                      <b className="text-ink">{title}</b>
+                      <span className="text-sm text-slate-400">{note}</span>
+                    </span>
+                  </label>
+                ))}
               </div>
-            )}
-          </>
+            </fieldset>
+          </div>
         )}
 
         {step === 2 && (
-          <>
-            <StepIntro title="Which kinds of accounts do you have?" text="Just the types — no account numbers or bank logins." />
-            <ChipGroup label="Account types" options={ACCOUNT_TYPES} selected={accounts} onChange={setAccounts} />
-          </>
-        )}
-
-        {step === 3 && (
-          <>
-            <StepIntro title="How do you group your spending?" text="We've picked common categories to start. Tap to add or remove." />
-            <ChipGroup label="Spending categories" options={DEFAULT_CATEGORIES} selected={categories} onChange={setCategories} />
-            <div className="mt-6">
-              <FieldLabel>Add your own</FieldLabel>
-              <CustomEntries values={customCategories} onChange={setCustomCategories} placeholder="e.g. Pets" addLabel="Add" />
-            </div>
-            {error && <ErrorNote message={error} />}
-          </>
-        )}
-
-        {step === 4 && (
-          <div className="flex flex-col items-center py-8 text-center">
-            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-success/15 text-brand-success">
-              <Check className="h-8 w-8" strokeWidth={2.5} />
-            </span>
-            <h3 className="mt-6 text-[28px] font-semibold text-ink">Your profile is ready</h3>
-            <p className="mt-2 max-w-sm text-base text-slate-400">
-              {countries.map(countryLabel).join(', ')} · {accounts.length} account {accounts.length === 1 ? 'type' : 'types'} ·{' '}
-              {allCategories.length} categories
-            </p>
-            <p className="mt-4 max-w-sm text-sm text-slate-500">
-              Add your household, goals, investments and tax details any time from your account menu.
+          <div className="flex flex-col gap-3">
+            {SOURCES.map(({ id, title, note, icon: Icon, color }) => (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={source === id}
+                onClick={() => setSource(id)}
+                className={`flex items-center gap-4 rounded-2xl border-2 p-[18px] text-left ${source === id ? 'border-accent bg-tint' : 'border-line bg-surface hover:border-line-strong'}`}
+              >
+                <span className="relative flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-[14px]">
+                  <span aria-hidden className="absolute inset-0 opacity-20" style={{ background: color }} />
+                  <Icon className="relative h-6 w-6 text-ink" />
+                </span>
+                <span className="flex flex-col gap-1">
+                  <b className="text-base text-ink">{title}</b>
+                  <span className="text-sm text-slate-400">{note}</span>
+                </span>
+              </button>
+            ))}
+            <p className="mt-1 flex items-center gap-2.5 text-sm text-slate-300">
+              <ShieldCheck className="h-[18px] w-[18px] text-good" aria-hidden /> Your data is stored in your Google Drive, not on our servers.
             </p>
           </div>
         )}
-      </div>
-    </Dialog>
+
+        {step === 3 && (
+          <div className="flex flex-col gap-4">
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {DEFAULT_CATEGORIES.map((c) => {
+                const on = !off.has(c)
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    role="switch"
+                    aria-checked={on}
+                    onClick={() =>
+                      setOff((s) => {
+                        const n = new Set(s)
+                        if (on) n.add(c)
+                        else n.delete(c)
+                        return n
+                      })
+                    }
+                    className={`flex min-h-[52px] items-center gap-3 rounded-xl border px-3.5 text-left ${on ? 'bg-surface' : 'border-line bg-row opacity-50'}`}
+                    style={on ? { borderColor: categoryColor(c) } : undefined}
+                  >
+                    <span aria-hidden className="h-3.5 w-3.5 shrink-0 rounded" style={{ background: categoryColor(c) }} />
+                    <span className="flex-1 font-semibold text-ink">{c}</span>
+                    <span className="text-xs text-slate-400">{on ? 'On' : 'Hidden'}</span>
+                  </button>
+                )
+              })}
+              {custom.map((c) => (
+                <div key={c} className="flex min-h-[52px] items-center gap-3 rounded-xl border bg-surface px-3.5" style={{ borderColor: categoryColor(c) }}>
+                  <span aria-hidden className="h-3.5 w-3.5 shrink-0 rounded" style={{ background: categoryColor(c) }} />
+                  <span className="flex-1 font-semibold text-ink">{c}</span>
+                  <button type="button" className="text-xs text-slate-400 hover:text-ink" onClick={() => setCustom((l) => l.filter((x) => x !== c))} aria-label={`Remove ${c}`}>Remove</button>
+                </div>
+              ))}
+            </div>
+            {adding ? (
+              <CustomEntries values={custom} onChange={setCustom} placeholder="e.g. Pets" addLabel="Add" />
+            ) : (
+              <button type="button" onClick={() => setAdding(true)} className="min-h-11 self-start rounded-[10px] border border-dashed border-line-strong bg-surface px-3.5 font-semibold text-slate-300 hover:text-ink">
+                + Add your own category
+              </button>
+            )}
+            {categories.length === 0 && <p className="text-sm text-warn-text">Keep at least one category on.</p>}
+            {error && <ErrorNote message={error} />}
+          </div>
+        )}
+
+        {step === 4 && (
+          <ul className="flex flex-col gap-3">
+            {NEXT_UP.map((n) => (
+              <li key={n.title} className="flex items-start gap-3 rounded-[14px] border border-line bg-surface px-4 py-3.5">
+                <span aria-hidden className="mt-[5px] h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: n.color }} />
+                <span className="text-slate-300"><b className="text-ink">{n.title}</b> {n.text}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          {step > 1 && step < 4 ? (
+            <button type="button" className="btn btn-secondary min-h-12" onClick={() => setStep((s) => s - 1)}>Back</button>
+          ) : step === 4 && onAddDetail ? (
+            <button type="button" className="btn btn-secondary min-h-12" onClick={onAddDetail}>Add more detail</button>
+          ) : (
+            <span />
+          )}
+          {step < 4 ? (
+            <button type="button" className="btn btn-primary min-h-12 px-6" onClick={next} disabled={saving || (step === 3 && categories.length === 0)}>
+              {step === 3 ? (saving ? 'Saving…' : 'Finish setup') : 'Continue'}
+            </button>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {source === 'import' && <button type="button" className="btn btn-secondary min-h-12" onClick={() => go(IMPORT_PATH)}>Import a statement</button>}
+              {source === 'manual' && <button type="button" className="btn btn-secondary min-h-12" onClick={() => go(ADD_TRANSACTION_PATH)}>Add a transaction</button>}
+              <button type="button" className="btn btn-primary min-h-12 px-6" onClick={() => go('/')}>Go to my overview</button>
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
   )
 }

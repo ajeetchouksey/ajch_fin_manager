@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Check, ClipboardPaste, FileUp, Landmark, Loader2, ShieldCheck, Sparkles } from 'lucide-react'
 import { Dialog } from '../Dialog'
 import { useLedger } from '../../context/LedgerContext'
@@ -11,6 +12,7 @@ import { isExtractable, parseStatement, parseStatementBalance, readFileText, row
 import { accountType } from '../../lib/ledger/portfolio'
 import { INSTITUTIONS } from '../../lib/ledger/accounts'
 import { CURRENCIES, dedupeKey, formatMoney, parseTags, todayIso } from '../../lib/ledger/types'
+import { categoryColor } from '../../lib/ledger/categoryColors'
 import { CategorySelect, ErrorNote, Field, TagInput, inputClass, selectClass } from './ui'
 
 const MAX_ROWS = 2000
@@ -21,6 +23,8 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
   const { importTransactions, uploadDocuments, saveAccount, transactions, accounts, busy, error } = useLedger()
   const opts = useLedgerOptions()
   const fileRef = useRef<HTMLInputElement>(null)
+  const navigate = useNavigate()
+  const [dragOver, setDragOver] = useState(false)
 
   const [step, setStep] = useState<Step>('source')
   const [raw, setRaw] = useState('')
@@ -267,17 +271,22 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
 
   if (done !== null) {
     return (
-      <Dialog onClose={onClose} title="Import complete" fitContent footer={<div className="flex justify-end"><button type="button" className="btn btn-primary" onClick={onClose}>Done</button></div>}>
-        <div className="flex flex-col items-center px-6 py-10 text-center">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-brand-success/15 text-brand-success">
-            <Check className="h-6 w-6" />
+      <Dialog onClose={onClose} title="Import transactions" fitContent>
+        <div className="px-4 pt-4 sm:px-6"><ImportSteps current={2} /></div>
+        <div className="flex flex-col items-center px-6 pb-8 pt-8 text-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-good/15 text-good">
+            <Check className="h-7 w-7" />
           </div>
-          <p className="text-xl font-semibold text-ink">{done} transactions added</p>
-          <p className="mt-1 text-sm text-slate-400">They are in the Transactions tab of your Ledger. You can add notes or tags to any of them.</p>
+          <p className="font-display text-3xl font-semibold text-ink">{done} transactions imported</p>
+          <p className="mt-2 max-w-md text-sm text-slate-400">They are in your Ledger now. Charts, budgets and goals already include them.</p>
           {skippedMatches > 0 && <p className="mt-2 text-sm text-slate-400">{skippedMatches} {skippedMatches === 1 ? 'payment was' : 'payments were'} already in your Ledger and kept as you entered them.</p>}
           {balanceResult && balanceResult !== 'failed' && <p className="mt-2 text-sm text-slate-400">Balance of {balanceResult.name} set to {balanceResult.text}.</p>}
-          {balanceResult === 'failed' && <p className="mt-3 text-sm text-amber-200/90">The balance could not be saved. You can update it on the Accounts page.</p>}
-          {sourceSaveFailed && <p className="mt-3 text-sm text-amber-200/90">The statement file could not be saved to Documents. You can upload it from the Documents page.</p>}
+          {balanceResult === 'failed' && <p className="mt-3 text-sm text-warn-text">The balance could not be saved. You can update it on the Accounts page.</p>}
+          {sourceSaveFailed && <p className="mt-3 text-sm text-warn-text">The statement file could not be saved to Documents. You can upload it from the Documents page.</p>}
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <button type="button" className="btn btn-primary" onClick={() => { onClose(); navigate('/transactions') }}>See transactions</button>
+            <button type="button" className="btn btn-secondary" onClick={() => { onClose(); navigate('/') }}>Go to overview</button>
+          </div>
         </div>
       </Dialog>
     )
@@ -287,6 +296,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
     return (
       <Dialog onClose={onClose} title="Import transactions" subtitle="From a bank export (CSV), a PDF statement or pasted rows" fitContent>
         <div className="space-y-5 px-4 py-5 sm:px-6">
+          <ImportSteps current={0} />
           <div>
             <label htmlFor="imp-bank" className="mb-1.5 block text-sm font-medium text-slate-300">Which bank is this statement from?</label>
             <select
@@ -308,13 +318,25 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
             )}
             <p className="mt-1.5 text-xs text-slate-500">Used to name the account. PDFs and photos don't show their bank, so choose it here.</p>
           </div>
-          <button type="button" disabled={!!extracting} onClick={() => fileRef.current?.click()} className="flex w-full items-center gap-4 rounded-2xl border border-line-strong p-4 text-left hover:border-brand-soft/50">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-brand-soft"><FileUp className="h-5 w-5" /></span>
-            <span>
-              <span className="block font-semibold text-ink">Upload a statement</span>
-              <span className="block text-sm text-slate-400">The CSV export from your bank (Commerzbank, Sparkasse, DKB, ING, N26, HDFC …), a PDF statement, or a photo of one.</span>
-            </span>
-          </button>
+          <div
+            onDragOver={(e) => {
+              e.preventDefault()
+              setDragOver(true)
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setDragOver(false)
+              const f = e.dataTransfer.files?.[0]
+              if (f && !extracting) void loadFile(f)
+            }}
+            className={`flex flex-col items-center rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-colors ${dragOver ? 'border-accent bg-tint' : 'border-line-strong'}`}
+          >
+            <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-tint text-accent"><FileUp className="h-6 w-6" /></span>
+            <p className="font-display text-2xl font-semibold text-ink">Drop your statement here</p>
+            <p className="mt-1 max-w-sm text-sm text-slate-400">A CSV export from your bank, a PDF statement, or a photo of one.</p>
+            <button type="button" disabled={!!extracting} onClick={() => fileRef.current?.click()} className="btn btn-primary mt-4">Choose file</button>
+          </div>
           <input
             ref={fileRef}
             type="file"
@@ -334,8 +356,9 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
           ) : (
             <p className="flex items-center gap-1.5 text-xs text-slate-500"><ShieldCheck className="h-3.5 w-3.5" /> Files are read on this device. Nothing is sent to our servers.</p>
           )}
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200"><ClipboardPaste className="h-4 w-4 text-brand-soft" /> Or paste rows</div>
+          <details className="group rounded-xl border border-line p-3" open={!!raw}>
+            <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-ink"><ClipboardPaste className="h-4 w-4 text-accent" /> Or paste rows</summary>
+            <div className="mt-3">
             <textarea
               rows={6}
               className={`${inputClass} py-3 font-mono text-sm`}
@@ -352,7 +375,8 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
             }}>
               Continue
             </button>
-          </div>
+            </div>
+          </details>
           <ErrorNote>{localError}</ErrorNote>
         </div>
       </Dialog>
@@ -392,6 +416,13 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
       }
     >
       <div className="space-y-6 px-4 py-5 sm:px-6">
+        <ImportSteps current={1} />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <SummaryTile label="Rows found" value={String(toImport.length)} />
+          <SummaryTile label="Money out" value={formatMoney(totals.out, currency)} tone="spend" />
+          <SummaryTile label="Categories suggested" value={`${category ? toImport.length : suggestedCount} of ${toImport.length}`} />
+          <SummaryTile label="Check first" value={String(matched.length + dupCount + badCount)} tone={matched.length + dupCount + badCount > 0 ? 'warn' : undefined} />
+        </div>
         <section>
           <h3 className="mb-3 font-semibold text-ink">1. Which column is which?</h3>
           {!showMapping ? (
@@ -610,6 +641,8 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
                       <td className="whitespace-nowrap px-3 py-2 text-slate-300">{p.tx.date}</td>
                       <td className="max-w-[240px] truncate px-3 py-2 text-ink" title={p.tx.description}>{p.tx.description}</td>
                       <td className="px-2 py-1">
+                        <div className="flex items-center gap-1.5">
+                        <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: p.tx.category ? categoryColor(p.tx.category) : 'var(--color-track)' }} />
                         <CategorySelect
                           value={p.tx.category}
                           onChange={(c) =>
@@ -626,6 +659,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
                           transfer
                           className="min-h-9 w-full min-w-[150px] rounded-lg border border-transparent bg-transparent px-1 text-sm text-slate-200 hover:border-line-strong focus:border-brand-soft/60 focus:outline-none"
                         />
+                        </div>
                       </td>
                       <td className={`whitespace-nowrap px-3 py-2 text-right font-medium ${p.tx.direction === 'in' ? 'text-brand-success' : 'text-ink'}`}>{formatMoney(p.tx.amount, p.tx.currency, p.tx.direction)}</td>
                       <td className="px-3 py-2 text-xs text-slate-400">{p.match ? (p.skipped ? 'Already added' : 'Import anyway') : p.inFileDuplicate ? 'Repeated row' : 'Ready'}</td>
@@ -645,5 +679,34 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
         <ErrorNote>{localError || error}</ErrorNote>
       </div>
     </Dialog>
+  )
+}
+
+const IMPORT_STEPS = ['Upload', 'Check', 'Done']
+
+function ImportSteps({ current }: { current: number }) {
+  return (
+    <ol className="flex items-center gap-2 text-sm" aria-label="Import steps">
+      {IMPORT_STEPS.map((label, i) => (
+        <li key={label} className="flex items-center gap-2" aria-current={i === current ? 'step' : undefined}>
+          <span
+            className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${i < current ? 'bg-good/20 text-good' : i === current ? 'bg-accent text-surface' : 'bg-track text-slate-400'}`}
+          >
+            {i < current ? <Check className="h-3.5 w-3.5" /> : i + 1}
+          </span>
+          <span className={i === current ? 'font-semibold text-ink' : 'text-slate-400'}>{label}</span>
+          {i < IMPORT_STEPS.length - 1 && <span aria-hidden className="mx-1 h-px w-6 bg-line-strong sm:w-10" />}
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function SummaryTile({ label, value, tone }: { label: string; value: string; tone?: 'spend' | 'warn' }) {
+  return (
+    <div className="rounded-xl border border-line p-3">
+      <div className="eyebrow">{label}</div>
+      <div className={`mt-1 text-lg font-semibold tabular-nums ${tone === 'spend' ? 'text-spend' : tone === 'warn' ? 'text-warn-text' : 'text-ink'}`}>{value}</div>
+    </div>
   )
 }

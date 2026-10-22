@@ -55,6 +55,8 @@ if (process.env.SHOT_GOALS) {
     ['goal_2', 'Family trip', 2500, 'EUR', '2027-03-01', 600, 150, '', 'medium', '', ''],
   ]
 }
+// SHOT_NOPROFILE=1 starts without a profile, so the first-time setup opens
+if (process.env.SHOT_NOPROFILE) tabs.Profile = [['key', 'value', 'updated_at']]
 const SHEETS = ['Transactions', 'Documents', 'Accounts', 'Balances', 'Goals', 'Budgets', 'Analysis', 'Profile', 'Trash', 'Meta']
 
 async function mock(ctx) {
@@ -87,9 +89,17 @@ for (const size of sizeNames) {
     const page = await ctx.newPage()
     for (const p of paths) {
       await page.goto(base + p, { waitUntil: 'networkidle' })
-      await page.waitForTimeout(900)
+      await page.waitForTimeout(Number(process.env.SHOT_WAIT || 900))
       const name = p.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') || 'root'
-      await page.screenshot({ path: `${outDir}/${name}-${size}-${theme}.png`, fullPage: true })
+      await page.screenshot({ path: `${outDir}/${name}-${size}-${theme}.png`, fullPage: true, animations: 'disabled' })
+      // SHOT_FILE=<csv> loads a file into the first file input; SHOT_CLICKS=a,b clicks buttons by name; a shot after each
+      const steps = [...(process.env.SHOT_FILE ? ['@file'] : []), ...(process.env.SHOT_CLICKS ? process.env.SHOT_CLICKS.split(',') : [])]
+      for (const [i, step] of steps.entries()) {
+        if (step === '@file') await page.locator('input[type=file]').first().setInputFiles(process.env.SHOT_FILE)
+        else await page.getByRole('button', { name: step, exact: true }).first().click()
+        await page.waitForTimeout(Number(process.env.SHOT_WAIT || 900))
+        await page.screenshot({ path: `${outDir}/${name}-${i + 1}-${size}-${theme}.png`, fullPage: true, animations: 'disabled' })
+      }
     }
     await ctx.close()
   }
