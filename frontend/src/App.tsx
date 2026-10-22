@@ -11,6 +11,8 @@ import { TransactionsPage } from './pages/TransactionsPage'
 import { TrashPage } from './pages/TrashPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { StoragePage } from './pages/StoragePage'
+import { BudgetsPage } from './pages/BudgetsPage'
+import { SettingsPage } from './pages/SettingsPage'
 import { LedgerProvider } from './context/LedgerContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
@@ -50,6 +52,8 @@ function App() {
         <Route path="/tax" element={<TaxPage />} />
         <Route path="/report" element={<ReportPage />} />
         <Route path="/analysis" element={<AnalysisPage />} />
+        <Route path="/budgets" element={<BudgetsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/storage" element={<StoragePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Header, TabBar } from './Header'
+import { Header, Sidebar, TabBar } from './Header'
 import { SlashCommandPalette } from './SlashCommandPalette'
 import { InstallBanner } from './InstallBanner'
 
@@ -20,6 +20,8 @@ export function Layout({ children }: LayoutProps) {
         }}
       />
 
+      <Sidebar />
+      <div className="flex flex-1 flex-col md:pl-60">
       <Header />
       <InstallBanner />
 
@@ -37,6 +39,7 @@ export function Layout({ children }: LayoutProps) {
           </span>
         </div>
       </footer>
+      </div>
 
       <TabBar />
       <SlashCommandPalette />
