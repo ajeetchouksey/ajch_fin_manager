@@ -4,6 +4,7 @@ import { ArrowDownLeft, ArrowRight, ArrowUpRight, Paperclip } from 'lucide-react
 import { formatMoney, type Transaction } from '../../lib/ledger/types'
 import { change, monthName, type AccountFlow, type CategoryShare, type MonthTotals, type TrendPoint } from '../../lib/ledger/summary'
 import { moneyLocale } from '../../lib/ledger/money'
+import { categoryColor } from '../../lib/ledger/categoryColors'
 
 const IN = 'var(--color-viz-in)'
 const OUT = 'var(--color-viz-out)'
@@ -90,7 +91,10 @@ export function CategoryBars({ rows, currency, onPick, before, noun = 'this mont
             title={`${r.category}: ${formatMoney(r.amount, currency)} · ${(r.share * 100).toFixed(0)}% · ${r.count} transactions`}
           >
             <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
-              <span className="truncate text-slate-200 group-enabled:group-hover:text-white">{r.category}</span>
+              <span className="flex min-w-0 items-center gap-2 text-slate-200 group-enabled:group-hover:text-white">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: categoryColor(r.category) }} aria-hidden />
+                <span className="truncate">{r.category}</span>
+              </span>
               <span className="shrink-0 tabular-nums text-slate-300">
                 {formatMoney(r.amount, currency)} <span className="text-slate-500">· {(r.share * 100).toFixed(0)}%</span>
                 {before && (
@@ -101,7 +105,7 @@ export function CategoryBars({ rows, currency, onPick, before, noun = 'this mont
               </span>
             </div>
             <div className="h-2 rounded-full bg-white/5">
-              <div className="h-2 rounded-full transition-[width]" style={{ width: `${Math.max(2, (r.amount / max) * 100)}%`, background: OUT }} />
+              <div className="h-2 rounded-full transition-[width]" style={{ width: `${Math.max(2, (r.amount / max) * 100)}%`, background: categoryColor(r.category) }} />
             </div>
           </button>
         </li>

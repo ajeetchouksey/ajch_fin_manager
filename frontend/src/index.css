@@ -21,9 +21,9 @@
   --color-brand-paper: #f2f2f3;
   --color-brand-bg: #0e1a2d;
   --color-brand-success: #2fbf71;
-  /* Chart series (validated for CVD + contrast on the dark card surface) */
-  --color-viz-in: #22a6b3;
-  --color-viz-out: #7c6cf0;
+  /* Chart series (design decision D3): money in is always green, money out always orange; red is only "over budget" */
+  --color-viz-in: #34d399;
+  --color-viz-out: #fb923c;
 
   /* Semantic aliases used across components */
   --color-brand: var(--color-brand-indigo);           /* primary actions */
@@ -38,6 +38,32 @@
   --animate-fade-in: fade-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-sheet-in: sheet-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-dialog-in: dialog-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Category colours live outside @theme so Tailwind keeps them: components pick them by name at run time. */
+:root {
+  --color-cat-housing: #7c6cf0;
+  --color-cat-health: #f472b6;
+  --color-cat-transport: #60a5fa;
+  --color-cat-groceries: #2dd4bf;
+  --color-cat-travel: #fbbf24;
+  --color-cat-shopping: #a3c45a;
+  --color-cat-bills: #c4b5fd;
+  --color-cat-utilities: #c49a6c;
+  --color-cat-subscriptions: #67e8f9;
+  --color-cat-dining: #fdba74;
+  --color-cat-education: #a8a3c2;
+  --color-cat-fees: #a5a0bd;
+  --color-cat-fitness: #22b8cf;
+  --color-cat-savings: #84cc16;
+  --color-cat-entertainment: #e879f9;
+  --color-cat-insurance: #a3b1c6;
+  --color-cat-personal: #f9a8d4;
+  --color-cat-taxes: #d9774a;
+  --color-cat-other: #64748b;
+  --color-cat-income: #34d399;
+  --color-cat-spending: #fb923c;
+  --color-cat-transfer: #94a3b8;
 }
 
 @keyframes fade-in {
