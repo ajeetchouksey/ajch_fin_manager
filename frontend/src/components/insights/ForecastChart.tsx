@@ -3,13 +3,14 @@ import { formatMoney } from '../../lib/ledger/types'
 import { monthName } from '../../lib/ledger/summary'
 import type { ForecastPoint } from '../../lib/analysis/engine'
 import { moneyLocale } from '../../lib/ledger/money'
+import { privately } from '../../lib/ledger/privacy'
 
 const CASH = 'var(--color-viz-in)'
 const WORTH = 'var(--color-brand-soft)'
 
 function compact(n: number, currency: string) {
   try {
-    return new Intl.NumberFormat(moneyLocale(currency), { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(n)
+    return privately(new Intl.NumberFormat(moneyLocale(currency), { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(n))
   } catch {
     return `${Math.round(n)} ${currency}`
   }

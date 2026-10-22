@@ -11,6 +11,7 @@ import { groupPayees } from '../lib/ledger/payees'
 import { currenciesByUse, monthName } from '../lib/ledger/summary'
 import { formatMoney, todayIso, type Transaction } from '../lib/ledger/types'
 import { payeeName } from '../components/overview/RecentTable'
+import { privately } from '../lib/ledger/privacy'
 
 type Range = 'year' | '6m' | '12m' | 'lastyear'
 const RANGES: Array<{ value: Range; label: string }> = [
@@ -135,7 +136,7 @@ export function ReportsPage() {
   const y = (v: number) => B - (v / max) * (B - T)
   const pts = (k: 'income' | 'spending') => series.map((s, i) => `${x(i).toFixed(1)},${y(s[k]).toFixed(1)}`).join(' ')
   const bi = series.indexOf(biggest)
-  const compact = (v: number) => new Intl.NumberFormat(undefined, { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(v)
+  const compact = (v: number) => privately(new Intl.NumberFormat(undefined, { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(v))
   const mixMonths = series.slice(-6)
   const mixMax = Math.max(1, ...mixMonths.map((s) => s.spending))
 

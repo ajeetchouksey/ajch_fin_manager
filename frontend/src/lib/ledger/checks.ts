@@ -1,5 +1,6 @@
 import { TRANSFER_CATEGORY, suggestCategory } from './categorize'
 import { groupPayees, type PayeeGroup } from './payees'
+import { privately } from './privacy'
 import type { Transaction } from './types'
 
 /**
@@ -47,7 +48,7 @@ const median = (xs: number[]) => {
 const near = (a: number, b: number, tol: number) => Math.abs(a - b) <= tol * Math.max(a, b)
 const money = (n: number, currency = 'EUR') => {
   try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(n)
+    return privately(new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(n))
   } catch {
     return `${n.toFixed(2)} ${currency}`
   }

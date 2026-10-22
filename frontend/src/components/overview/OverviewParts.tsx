@@ -5,13 +5,14 @@ import { formatMoney, type Transaction } from '../../lib/ledger/types'
 import { change, monthName, type AccountFlow, type CategoryShare, type MonthTotals, type TrendPoint } from '../../lib/ledger/summary'
 import { moneyLocale } from '../../lib/ledger/money'
 import { categoryColor } from '../../lib/ledger/categoryColors'
+import { privately } from '../../lib/ledger/privacy'
 
 const IN = 'var(--color-viz-in)'
 const OUT = 'var(--color-viz-out)'
 
 function compact(n: number, currency: string) {
   try {
-    return new Intl.NumberFormat(moneyLocale(currency), { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(n)
+    return privately(new Intl.NumberFormat(moneyLocale(currency), { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(n))
   } catch {
     return `${Math.round(n)} ${currency}`
   }

@@ -9,6 +9,7 @@ import { recurring } from '../lib/analysis/engine'
 import { categoryColor } from '../lib/ledger/categoryColors'
 import { currenciesByUse, monthName, spendingByCategory } from '../lib/ledger/summary'
 import { formatMoney, todayIso, INCOME_CATEGORIES } from '../lib/ledger/types'
+import { privately } from '../lib/ledger/privacy'
 
 type Q = 'expensive' | 'regular' | 'year' | 'other' | 'budgets'
 type Msg = { id: number; q: Q } | { id: number; free: string }
@@ -32,7 +33,7 @@ const AI_APPS = [
 ]
 
 const compact = (v: number, currency: string) =>
-  new Intl.NumberFormat(undefined, { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(v)
+  privately(new Intl.NumberFormat(undefined, { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(v))
 
 let nextId = 1
 

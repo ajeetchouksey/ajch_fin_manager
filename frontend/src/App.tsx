@@ -21,14 +21,17 @@ import { Layout } from './components/Layout'
 import { SetupProvider } from './context/SetupContext'
 import { AssistantPage } from './pages/AssistantPage'
 import { useTheme } from './hooks/useTheme'
+import { useHideAmounts } from './hooks/useHideAmounts'
 
 function AppShell() {
+  // Amounts are masked where they are formatted, so the screens are redrawn when the switch changes
+  const [hidden] = useHideAmounts()
   return (
     <ProtectedRoute>
       {/* The profile lives in the Ledger, so setup sits inside the Ledger provider */}
       <LedgerProvider>
         <SetupProvider>
-          <Layout>
+          <Layout key={hidden ? 'hidden' : 'shown'}>
             <Outlet />
           </Layout>
         </SetupProvider>

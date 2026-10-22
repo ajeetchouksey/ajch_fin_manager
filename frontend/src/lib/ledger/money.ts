@@ -1,3 +1,4 @@
+import { privately } from './privacy'
 /**
  * One standard for money numbers in FinBuddy.
  *
@@ -56,5 +57,5 @@ export function parseNumber(raw: string | number | null | undefined): number | n
 
 /** A plain number in the currency's convention, with no symbol, e.g. "1.234,56" or "1,234.56". */
 export function formatNumber(n: number, currency: string, fractionDigits = 2): string {
-  return new Intl.NumberFormat(moneyLocale(currency), { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits }).format(n)
+  return privately(new Intl.NumberFormat(moneyLocale(currency), { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits }).format(n))
 }

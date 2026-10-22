@@ -1,4 +1,5 @@
 import { moneyLocale } from './money'
+import { privately } from './privacy'
 /**
  * Ledger data contract v1 (ADR-001). The Ledger is a Google Sheet in the user's own Drive.
  * Column order is part of the contract — append new columns at the end only, and bump
@@ -243,7 +244,7 @@ export function formatMoney(amount: number, currency: string, direction?: Direct
   } catch {
     s = `${amount.toFixed(2)} ${currency}`
   }
-  if (direction === 'out') return `−${s}`
-  if (direction === 'in') return `+${s}`
-  return s
+  if (direction === 'out') return privately(`−${s}`)
+  if (direction === 'in') return privately(`+${s}`)
+  return privately(s)
 }
