@@ -18,6 +18,7 @@ import { baseCurrency, forecast, review, type ReviewInput } from '@finbuddy/core
 import { change, inSpan, spendingByCategory, totalsFor, ym } from '@finbuddy/core/ledger/summary'
 import { buildPeriods, periodContaining, type Period } from '@finbuddy/core/ledger/periods'
 import { budgetProgress } from '@finbuddy/core/ledger/budgets'
+import { worthChecking } from '@finbuddy/core/ledger/checks'
 import { buildReport, choosePeriod } from '@finbuddy/core/ledger/report'
 import { planLabelMigration } from '@finbuddy/core/ledger/accounts'
 import { explain, LedgerSession } from './ledger'
@@ -38,6 +39,7 @@ const INSTRUCTIONS = `FinBuddy is the user's personal finance Ledger: a Google S
 - Documents the user saved to FinBuddy (statements, payslips, tax documents, receipts) are listed by find_documents. Look there first when the user asks for a file; say so plainly if nothing matches, and give the link when one is found.
 - Amounts are always positive; "direction" says money in or out. Transfers between the user's own accounts use the category "${TRANSFER_CATEGORY}".
 - To check spending against limits, use list_budgets; to set or change one, use set_budget (ask first).
+- For "what looks wrong", clean-up, or after an import, use worth_checking. Show what it found; change categories with update_transactions only after the user agrees.
 - To read what is in a saved statement, payslip or tax document, use read_document. Only do this when the user asks for the content.
 - If an import went wrong, use list_imports to find it, then undo_import after the user confirms.
 - To keep an analysis, recommendation or projection, call save_analysis with apply: false, show the user the preview and whether its figures match the ledger, then call again with apply: true only after they agree. Take every figure from a FinBuddy tool result. Use list_analysis to see what is already saved.
@@ -567,6 +569,36 @@ export function buildServer(): McpServer {
           period: { start: c.chosen.start, end: c.chosen.end, kind: c.chosen.kind },
           currency,
           budgets: rows.map((r) => ({ category: r.category, limit: r.limit, spent: r.spent, used_percent: Math.round(r.used * 100), remaining: r.remaining, state: r.state })),
+        })
+      }),
+  )
+
+  server.registerTool(
+    'worth_checking',
+    {
+      title: 'Worth checking',
+      description:
+        'Things in the Ledger that look wrong and are quick to fix, the same list the FinBuddy app shows: payments in the user\'s own name not marked as Transfer, regular income not marked as Salary, a payee filed under an unusual category, payee spelling variants, a monthly payment paid twice or missing, and a large share of spending in Other. Nothing is changed. To fix one, show it to the user and, if they agree, call update_transactions with the transaction ids and the suggested category.',
+      inputSchema: z.object({
+        month: z.string().regex(/^\d{4}-\d{2}$/).optional().describe('Month for the Other-share check (YYYY-MM); default the latest month'),
+        other_share_limit: z.number().min(0).max(1).default(0.1).describe('Flag a month whose Other spending is above this share'),
+      }),
+      annotations: RO,
+    },
+    (a) =>
+      run(false, async (l) => {
+        const d = await l.load()
+        const checks = worthChecking(d.transactions, { ownNames: await l.ownNames(), month: a.month, otherShareLimit: a.other_share_limit })
+        if (!checks.length) return ok('Nothing worth checking: categories, salary and transfers look consistent.', { checks: [] })
+        return ok(`${checks.length} thing${checks.length === 1 ? '' : 's'} worth checking.`, {
+          checks: checks.map((c) => ({
+            kind: c.kind,
+            title: mask(c.title),
+            detail: mask(c.detail),
+            suggested_category: c.suggestedCategory ?? null,
+            count: c.transactionIds.length,
+            transaction_ids: c.transactionIds.slice(0, 100),
+          })),
         })
       }),
   )
