@@ -9,6 +9,8 @@ import { newAccountId, newGoalId, type Account, type BalanceEntry, type Goal } f
 import type { TransactionDraft } from '@finbuddy/core/ledger/statement'
 import type { Budget } from '@finbuddy/core/ledger/budgets'
 import type { Analysis, AnalysisStatus } from '@finbuddy/core/ledger/analysis'
+import { rowsToProfile, type UserSchemaDefinition } from '@finbuddy/core/ledger/profile'
+import { ownNamesFrom } from '@finbuddy/core/ledger/categorize'
 
 export class NoLedgerError extends Error {
   constructor() {
@@ -72,6 +74,25 @@ export class LedgerSession {
 
   private invalidate() {
     this.data = null
+  }
+
+  private names: string[] | undefined
+
+  /**
+   * Names that count as the user for transfers: the ones saved in the profile (as banks print them)
+   * plus household members. The connector only knows the email, so the profile is the source.
+   */
+  async ownNames(): Promise<string[]> {
+    if (this.names) return this.names
+    const { spreadsheetId } = await this.requireLocation()
+    let profile: UserSchemaDefinition | null = null
+    try {
+      profile = rowsToProfile(await this.client.listProfile(spreadsheetId))
+    } catch {
+      profile = null // no Profile tab yet: no names, rules and history still work
+    }
+    this.names = ownNamesFrom(undefined, profile?.householdMembers, profile?.ownNames)
+    return this.names
   }
 
   async appendTransactions(drafts: TransactionDraft[], source: Transaction['source']): Promise<Transaction[]> {

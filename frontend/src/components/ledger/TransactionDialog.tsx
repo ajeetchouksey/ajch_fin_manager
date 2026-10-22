@@ -59,7 +59,8 @@ export function TransactionDialog({
   useEffect(() => {
     if (categoryTouched || kind === 'transfer') return
     const t = window.setTimeout(() => {
-      const hit = suggestCategory(description, direction, opts.learned) ?? (kindTouched ? null : suggestCategory(description, undefined, opts.learned))
+      const own = { ownNames: opts.ownNames }
+      const hit = suggestCategory(description, direction, opts.learned, own) ?? (kindTouched ? null : suggestCategory(description, undefined, opts.learned, own))
       if (!hit || hit.category === TRANSFER_CATEGORY) {
         setSuggestedFrom(null)
         return
@@ -71,7 +72,7 @@ export function TransactionDialog({
       setSuggestedFrom(hit.source === 'history' ? 'your earlier entries' : 'the description')
     }, 250)
     return () => window.clearTimeout(t)
-  }, [description, direction, kind, categoryTouched, kindTouched, opts.learned])
+  }, [description, direction, kind, categoryTouched, kindTouched, opts.learned, opts.ownNames])
 
   // A CSV attached here is usually a bank statement: offer to import its rows instead
   useEffect(() => {

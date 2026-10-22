@@ -20,6 +20,7 @@ const full: UserSchemaDefinition = {
   householdMembers: [{ name: 'Partner', relationship: 'spouse' }],
   investmentPreferences: { hasInvestments: true, types: ['etf'] },
   taxSettings: { country: 'DE', fillingStatus: 'joint' },
+  ownNames: ['ASHA K VERMA'],
 }
 
 test('a profile round-trips through the Profile tab rows', () => {
