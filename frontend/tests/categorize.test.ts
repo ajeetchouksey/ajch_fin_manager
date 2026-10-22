@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   editDistance,
   learnFromLedger,
+  matchUserRules,
   mentionsOwnName,
   merchantText,
   ownNamesFrom,
@@ -99,4 +100,14 @@ test('payments to or from the user are transfers, unless a clear rule says other
   assert.equal(suggestCategory('Miete Oktober Asha Verma', 'out', undefined, own)?.category, 'Housing')
   // Without names nothing changes
   assert.equal(suggestCategory('Wise Payments Ltd Asha Verma', 'out'), null)
+})
+
+test('the user\'s own rules match case-insensitively and beat learned history and keyword rules', () => {
+  const userRules = [{ match: 'lidl', category: 'Eating out' }]
+  assert.equal(matchUserRules('LIDL SAGT DANKE 4711', userRules)?.category, 'Eating out')
+  assert.equal(matchUserRules('Aldi', userRules), null)
+  assert.equal(suggestCategory('Lidl Berlin', 'out', undefined, { userRules })?.category, 'Eating out')
+  assert.equal(suggestCategory('Lidl Berlin', 'out')?.category, 'Groceries')
+  const learned = learnFromLedger([tx('a', '2026-01-01', 'Lidl Berlin', 'Shopping'), tx('b', '2026-01-02', 'Lidl Berlin', 'Shopping')])
+  assert.equal(suggestCategory('Lidl Berlin', 'out', learned, { userRules })?.category, 'Eating out')
 })

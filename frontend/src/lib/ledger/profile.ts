@@ -11,6 +11,8 @@ export interface UserSchemaDefinition {
   householdMembers?: Array<{ name: string; relationship: string }>
   /** The user's name as banks print it ("ASHA K VERMA"); payments to or from it are transfers */
   ownNames?: string[]
+  /** The user's own "text contains → category" rules; they win over learned history */
+  categoryRules?: Array<{ match: string; category: string }>
   investmentPreferences?: {
     hasInvestments: boolean
     types?: string[]
@@ -33,6 +35,7 @@ export const PROFILE_KEYS = [
   'investmentPreferences',
   'taxSettings',
   'ownNames',
+  'categoryRules',
 ] as const
 export type ProfileKey = (typeof PROFILE_KEYS)[number]
 
@@ -79,6 +82,13 @@ export function rowsToProfile(rows: ProfileRow[]): UserSchemaDefinition | null {
   }
   const own = get('ownNames')
   if (Array.isArray(own)) profile.ownNames = own.map(String).map((n) => n.trim()).filter(Boolean)
+  const rules = get('categoryRules')
+  if (Array.isArray(rules)) {
+    profile.categoryRules = rules
+      .filter((r): r is { match: unknown; category: unknown } => !!r && typeof r === 'object')
+      .map((r) => ({ match: String(r.match ?? '').trim(), category: String(r.category ?? '').trim() }))
+      .filter((r) => r.match && r.category)
+  }
   const inv = get('investmentPreferences')
   if (inv && typeof inv === 'object') profile.investmentPreferences = inv as UserSchemaDefinition['investmentPreferences']
   const tax = get('taxSettings')

@@ -52,11 +52,11 @@ export function QuickAdd({ onClose, onMore }: { onClose: () => void; onMore: (dr
   useEffect(() => {
     if (picked || !payee.trim()) return
     const t = window.setTimeout(() => {
-      const hit = suggestCategory(payee, direction, opts.learned, { ownNames: opts.ownNames })
+      const hit = suggestCategory(payee, direction, opts.learned, { ownNames: opts.ownNames, userRules: opts.userRules })
       if (hit && hit.category !== TRANSFER_CATEGORY) setCategory(hit.category)
     }, 250)
     return () => window.clearTimeout(t)
-  }, [payee, direction, picked, opts.learned, opts.ownNames])
+  }, [payee, direction, picked, opts.learned, opts.ownNames, opts.userRules])
 
   useEffect(() => {
     const prev = document.body.style.overflow
