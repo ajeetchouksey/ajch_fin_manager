@@ -136,8 +136,8 @@ export function GoalsPage() {
           </div>
           {leftOver && (
             <p className="max-w-[420px] leading-normal text-[#c9c3ec]">
-              Left over each month this year ranged from <b className="text-white">{formatMoney(leftOver.lo.v, currency)}</b> ({monthName(leftOver.lo.m, 'short')}) to{' '}
-              <b className="text-white">{formatMoney(leftOver.hi.v, currency)}</b> ({monthName(leftOver.hi.m, 'short')}). A goal turns that into a plan.
+              Left over each month this year ranged from <b style={{ color: '#fff' }}>{formatMoney(leftOver.lo.v, currency)}</b> ({monthName(leftOver.lo.m, 'short')}) to{' '}
+              <b style={{ color: '#fff' }}>{formatMoney(leftOver.hi.v, currency)}</b> ({monthName(leftOver.hi.m, 'short')}). A goal turns that into a plan.
             </p>
           )}
         </section>

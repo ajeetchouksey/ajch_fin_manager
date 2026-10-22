@@ -12,7 +12,7 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="relative flex min-h-dvh flex-col bg-canvas">
       <Sidebar />
-      <div className="flex flex-1 flex-col md:pl-[232px]">
+      <div className="flex flex-1 flex-col md:pl-[232px] print:pl-0">
         <Header />
         <InstallBanner />
 
