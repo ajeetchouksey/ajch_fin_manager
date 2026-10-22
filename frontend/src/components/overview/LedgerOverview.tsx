@@ -1,59 +1,51 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeftRight, ChevronLeft, ChevronRight, FileUp, Plus } from 'lucide-react'
+import { ArrowLeftRight, Check, ChevronLeft, ChevronRight, FileUp, Plus } from 'lucide-react'
 import { useLedger } from '../../context/LedgerContext'
 import { usePeriodMode } from '../../hooks/usePeriodMode'
 import { ConnectDrive } from '../ledger/ConnectDrive'
 import { EmptyState } from '../EmptyState'
-import { AccountList, CategoryBars, KpiTiles, RecentList, SectionHeader, TrendChart } from './OverviewParts'
-import { BudgetCard } from './BudgetCard'
-import { BudgetDialog } from './BudgetDialog'
-import { AskAI } from './AskAI'
-import { AccountBalances } from './AccountBalances'
-import { TotalHero } from './TotalHero'
-import { HeadlineCard } from './HeadlineCard'
+import { PageHeader } from '../PageHeader'
+import { ADD_TRANSACTION_PATH, IMPORT_PATH } from '../navigation'
+import { KpiRow, type Kpi } from './KpiRow'
+import { CashFlowCard, type FlowPoint } from './CashFlowCard'
+import { WhereItWent } from './WhereItWent'
+import { RecentTable, payeeName } from './RecentTable'
+import { RegularPayments } from './RegularPayments'
 import { WorthChecking } from './WorthChecking'
-import { budgetProgress } from '../../lib/ledger/budgets'
-import { byAccount, currenciesByUse, inSpan, monthName, spendingByCategory, totalsFor, type Span, type TrendPoint } from '../../lib/ledger/summary'
+import { recurring } from '../../lib/analysis/engine'
+import { accountBalances } from '../../lib/ledger/balances'
+import { isTransfer } from '../../lib/ledger/categorize'
+import { change, currenciesByUse, inSpan, monthName, spendingByCategory, totalsFor, type Span } from '../../lib/ledger/summary'
 import { buildPeriods, type Period, type PeriodMode } from '../../lib/ledger/periods'
-import { todayIso, type Transaction } from '../../lib/ledger/types'
+import { formatMoney, todayIso, INCOME_CATEGORIES } from '../../lib/ledger/types'
 
 const spanOf = (p: Period): Span => ({ start: p.start, end: p.end })
-
 const shortDay = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 
-/** "27 Sep – 26 Oct": an open cycle runs to its expected end; the first partial one has no start salary. */
-function cycleRange(p: Period): string {
-  const end = p.open && p.expectedEnd ? p.expectedEnd : p.end
-  return `${shortDay(p.start)} – ${shortDay(end)}`
-}
-
-const cycleShort = (p: Period) => shortDay(p.start)
-
-/** The Overview's money section, computed in the browser from the Ledger in the user's Drive. */
-export function LedgerOverview() {
-  const { status, transactions, budgets, accounts, balances } = useLedger()
+/**
+ * Overview (design: Main): header with period switch and Add, key figures, salary-cycle note,
+ * cash flow, where it went, recent transactions, worth checking, regular payments, goals prompt.
+ * Everything is computed in the browser from the Ledger in the user's Drive.
+ */
+export function LedgerOverview({ intro }: { intro?: ReactNode }) {
+  const { status, transactions, accounts, balances, goals } = useLedger()
   const navigate = useNavigate()
   const [mode, setMode] = usePeriodMode()
   const [picked, setPicked] = useState<{ mode: PeriodMode; key: string } | null>(null)
   const [pickedCurrency, setPickedCurrency] = useState<string | null>(null)
-  const [editingBudgets, setEditingBudgets] = useState(false)
 
   const currencies = useMemo(() => currenciesByUse(transactions), [transactions])
   const currency = pickedCurrency && currencies.includes(pickedCurrency) ? pickedCurrency : currencies[0] ?? 'EUR'
-
   const today = todayIso()
-  // Salary mode needs salary credits; without any, the Overview falls back to calendar months and says so
+
+  // Salary mode needs salary credits; without any, calendar months are shown and the page says so
   const salaryPeriods = useMemo(() => (mode === 'salary' ? buildPeriods('salary', transactions, today) : []), [mode, transactions, today])
   const useSalary = mode === 'salary' && salaryPeriods.length > 0
   const fellBack = mode === 'salary' && !useSalary
-  const periods = useMemo(
-    () => (useSalary ? salaryPeriods : buildPeriods('calendar', transactions, today)),
-    [useSalary, salaryPeriods, transactions, today],
-  )
+  const periods = useMemo(() => (useSalary ? salaryPeriods : buildPeriods('calendar', transactions, today)), [useSalary, salaryPeriods, transactions, today])
   const activeMode: PeriodMode = useSalary ? 'salary' : 'calendar'
 
-  // Default: the latest period that has transactions (the current one, when it has any)
   const defaultKey = useMemo(() => {
     const withData = periods.filter((p) => transactions.some((t) => inSpan(t.date, spanOf(p))))
     return (withData.at(-1) ?? periods.at(-1))?.start ?? ''
@@ -63,182 +55,209 @@ export function LedgerOverview() {
   const cur = periods[index]
   const prev = index > 0 ? periods[index - 1] : undefined
   const next = periods[index + 1]
+  const pick = (p: Period | undefined) => p && setPicked({ mode: activeMode, key: p.start })
+  const labelOf = (p: Period, style: 'long' | 'short' = 'short') => (useSalary ? `from ${shortDay(p.start)}` : monthName(p.start.slice(0, 7), style))
 
   const data = useMemo(() => {
     if (!cur) return null
     const span = spanOf(cur)
-    const prevSpan = prev ? spanOf(prev) : null
-    const emptyTotals = { income: 0, spending: 0, net: 0, count: 0 }
+    const now = totalsFor(transactions, span, currency)
+    const before = prev ? totalsFor(transactions, spanOf(prev), currency) : null
+    const window = periods.slice(Math.max(0, index - 5), index + 1)
+    const points: FlowPoint[] = window.map((p) => ({ key: p.start, label: labelOf(p), ...totalsFor(transactions, spanOf(p), currency) }))
+    // The note under the chart: the biggest-spending period and its largest single payment
+    const big = [...points].sort((a, b) => b.spending - a.spending)[0]
+    const bigPeriod = window.find((p) => p.start === big?.key)
+    const largest = bigPeriod
+      ? transactions
+          .filter((t) => t.direction === 'out' && !isTransfer(t) && t.currency === currency && inSpan(t.date, spanOf(bigPeriod)))
+          .sort((a, b) => b.amount - a.amount)[0]
+      : undefined
+    const inSpanTx = transactions.filter((t) => inSpan(t.date, span) && t.currency === currency)
+    const incomeCats = Array.from(
+      inSpanTx
+        .filter((t) => t.direction === 'in' && !isTransfer(t))
+        .reduce((m, t) => m.set(t.category, (m.get(t.category) ?? 0) + t.amount), new Map<string, number>()),
+    )
+      .sort((a, b) => b[1] - a[1])
+      .map(([c]) => c)
     return {
-      now: totalsFor(transactions, span, currency),
-      before: prevSpan ? totalsFor(transactions, prevSpan, currency) : emptyTotals,
-      categories: spendingByCategory(transactions, span, currency),
-      // All categories of the previous period, so each row can be compared with it
-      beforeCategories: prevSpan ? spendingByCategory(transactions, prevSpan, currency, 1000) : undefined,
-      points: periods.slice(Math.max(0, index - 5), index + 1).map<TrendPoint>((p) => ({ month: p.start, ...totalsFor(transactions, spanOf(p), currency) })),
-      budgetRows: budgetProgress(budgets, transactions, span, currency),
-      accounts: byAccount(transactions, span, currency),
-      recent: transactions
-        .filter((t: Transaction) => inSpan(t.date, span))
-        .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))
-        .slice(0, 6),
+      now,
+      before,
+      points,
+      flowNote:
+        big && big.spending > 0 && points.length > 1 && largest
+          ? `${big.label} was the biggest ${useSalary ? 'cycle' : 'month'}: ${formatMoney(big.spending, currency)}, including one ${payeeName(largest)} payment of ${formatMoney(largest.amount, currency)}.`
+          : undefined,
+      categories: spendingByCategory(transactions, span, currency, 10),
+      incomeCats,
+      recent: [...inSpanTx].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)).slice(0, 6),
     }
-  }, [transactions, budgets, cur, prev, periods, index, currency])
+    // labelOf only depends on useSalary, which is in the list through periods
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, cur, prev, periods, index, currency])
+
+  const bills = useMemo(
+    () =>
+      recurring(transactions, currency, today)
+        .filter((r) => r.direction === 'out' && !r.lapsed && !INCOME_CATEGORIES.includes(r.category) && r.category !== 'Transfer')
+        .sort((a, b) => b.monthly - a.monthly)
+        .slice(0, 5),
+    [transactions, currency, today],
+  )
+  const bal = useMemo(() => accountBalances(accounts, currency, balances, transactions, today), [accounts, currency, balances, transactions, today])
+  const lastEntry = useMemo(() => transactions.reduce((m, t) => (t.date > m ? t.date : m), ''), [transactions])
 
   if (status !== 'ready') {
     return (
-      <section className="card" aria-label="Connect Google Drive">
-        <ConnectDrive context="transactions" />
-      </section>
+      <>
+        <PageHeader title="Overview" />
+        {intro}
+        <section className="card" aria-label="Connect Google Drive">
+          <ConnectDrive context="transactions" />
+        </section>
+      </>
     )
   }
 
-  if (!transactions.length) {
+  if (!transactions.length || !cur || !data) {
     return (
-      <section className="card">
-        <EmptyState
-          icon={ArrowLeftRight}
-          title="Your overview starts with your first transaction"
-          description="Add one by hand or import your bank's CSV. Totals, spending by category and monthly trends then appear here."
-          action={
-            <div className="flex flex-wrap justify-center gap-2">
-              <Link to="/transactions" className="btn btn-primary"><Plus className="h-4 w-4" /> Add transaction</Link>
-              <Link to="/transactions" className="btn btn-secondary"><FileUp className="h-4 w-4" /> Import CSV</Link>
-            </div>
-          }
-        />
-      </section>
+      <>
+        <PageHeader title="Overview" />
+        {intro}
+        <section className="card">
+          <EmptyState
+            icon={ArrowLeftRight}
+            title="Your overview starts with your first transaction"
+            description="Add one by hand or import your bank's CSV. Totals, spending by category and monthly trends then appear here."
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Link to={ADD_TRANSACTION_PATH} className="btn btn-primary"><Plus className="h-4 w-4" /> Add transaction</Link>
+                <Link to={IMPORT_PATH} className="btn btn-secondary"><FileUp className="h-4 w-4" /> Import CSV</Link>
+              </div>
+            }
+          />
+        </section>
+      </>
     )
   }
 
-  if (!cur || !data) return null
-
-  const pick = (p: Period | undefined) => {
-    if (p) setPicked({ mode: activeMode, key: p.start })
-  }
-  const title = useSalary ? cycleRange(cur) : monthName(cur.start.slice(0, 7))
-  const subtitle = useSalary
-    ? cur.partial
-      ? 'Before your first salary credit'
-      : cur.open
-        ? 'Salary cycle · so far'
-        : 'Salary cycle'
-    : null
-  const noun = useSalary ? 'this cycle' : 'this month'
-  const labelOf = (p: TrendPoint, style?: 'long' | 'short') => (useSalary ? cycleShort(periods.find((x) => x.start === p.month)!) : monthName(p.month.slice(0, 7), style))
+  const noun = useSalary ? 'cycle' : 'month'
+  const title = useSalary ? 'Salary cycle overview' : `${monthName(cur.start.slice(0, 7)).split(' ')[0]} overview`
+  const spendChange = data.before ? change(data.now.spending, data.before.spending) : null
+  const left = data.now.income - data.now.spending
+  const kept = data.now.income > 0 ? left / data.now.income : null
+  const kpis: Kpi[] = [
+    {
+      label: useSalary ? 'Income this cycle' : 'Income',
+      value: formatMoney(data.now.income, currency),
+      tone: 'good',
+      note: data.incomeCats.slice(0, 3).join(', ') || 'No income yet',
+    },
+    {
+      label: useSalary ? 'Spending this cycle' : 'Spending',
+      value: formatMoney(data.now.spending, currency),
+      note: spendChange === null ? 'No earlier period to compare' : `${spendChange > 0 ? '▲' : '▼'} ${Math.abs(Math.round(spendChange * 100))}% vs ${prev ? (useSalary ? 'previous cycle' : monthName(prev.start.slice(0, 7)).split(' ')[0]) : ''}`,
+      noteTone: spendChange === null ? 'muted' : spendChange > 0 ? 'bad' : 'good',
+    },
+    {
+      label: useSalary && cur.open ? 'Left over so far' : 'Left over',
+      value: formatMoney(left, currency),
+      note: kept === null ? '' : kept >= 0 ? `${Math.round(kept * 100)}% of income kept` : 'More went out than came in',
+      noteTone: kept !== null && kept < 0 ? 'bad' : 'muted',
+    },
+  ]
+  const counted = bal.rows.filter((r) => r.counted)
+  const asOf = counted.reduce((m, r) => (r.asOf > m ? r.asOf : m), '')
+  const hero = counted.length
+    ? { label: counted.length === 1 ? `${counted[0].name} balance` : 'Total balance', value: formatMoney(bal.net, currency), note: asOf ? `as of ${shortDay(asOf)}` : undefined }
+    : { label: 'Your accounts', value: '—', note: <Link to="/accounts" className="underline">Add an account</Link> }
 
   return (
-    <div className="space-y-6">
-      <TotalHero accounts={accounts} history={balances} transactions={transactions} currency={currency} today={today} />
-
-      <HeadlineCard
-        transactions={transactions}
-        currency={currency}
-        today={today}
-        period={spanOf(cur)}
-        previous={prev ? spanOf(prev) : null}
-        periodNoun={`in ${title}`}
-        previousNoun={useSalary ? 'the cycle before' : prev ? monthName(prev.start.slice(0, 7)) : 'the month before'}
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        eyebrow={`From your ledger${lastEntry ? ` · last entry ${shortDay(lastEntry)}` : ''}`}
+        title={
+          <span className="flex items-center gap-2">
+            {title}
+            <span className="flex items-center gap-1 font-sans text-base font-normal">
+              <button type="button" className="icon-btn" aria-label={`Previous ${noun}`} disabled={!prev} onClick={() => pick(prev)}>
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button type="button" className="icon-btn" aria-label={`Next ${noun}`} disabled={!next} onClick={() => pick(next)}>
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </span>
+          </span>
+        }
+        actions={
+          <>
+            {currencies.length > 1 && (
+              <div className="seg" role="radiogroup" aria-label="Currency">
+                {currencies.map((c) => (
+                  <button key={c} type="button" role="radio" aria-checked={c === currency} onClick={() => setPickedCurrency(c)}>{c}</button>
+                ))}
+              </div>
+            )}
+            <div className="seg" role="group" aria-label="Period">
+              {(['calendar', 'salary'] as const).map((m) => (
+                <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}>
+                  {m === 'calendar' ? 'Calendar month' : 'Salary cycle'}
+                </button>
+              ))}
+            </div>
+            <Link to={ADD_TRANSACTION_PATH} className="btn btn-primary"><Plus className="h-4 w-4" strokeWidth={2.4} /> Add transaction</Link>
+          </>
+        }
       />
 
-      {/* Filters in one row above the charts */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1" role="group" aria-label="Period">
-            <button type="button" className="icon-btn border border-line-strong" aria-label="Previous period" disabled={!prev} onClick={() => pick(prev)}>
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <div className="min-w-44 text-center" aria-live="polite">
-              <h2 className="text-lg font-semibold text-ink">{title}</h2>
-              {subtitle && <p className="text-xs text-slate-400">{subtitle}</p>}
-            </div>
-            <button type="button" className="icon-btn border border-line-strong" aria-label="Next period" disabled={!next} onClick={() => pick(next)}>
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-          <div role="radiogroup" aria-label="Period type" className="flex gap-1 rounded-xl border border-line-strong p-1">
-            {(['calendar', 'salary'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                role="radio"
-                aria-checked={mode === m}
-                onClick={() => {
-                  setMode(m)
-                  setPicked(null)
-                }}
-                className={`min-h-9 rounded-lg px-3 text-sm font-medium ${mode === m ? 'bg-brand text-white' : 'text-slate-400 hover:text-ink'}`}
-              >
-                {m === 'calendar' ? 'Calendar month' : 'Salary cycle'}
-              </button>
-            ))}
-          </div>
-        </div>
-        {currencies.length > 1 && (
-          <div role="radiogroup" aria-label="Currency" className="flex gap-1 rounded-xl border border-line-strong p-1">
-            {currencies.map((c) => (
-              <button key={c} type="button" role="radio" aria-checked={c === currency} onClick={() => setPickedCurrency(c)} className={`min-h-9 rounded-lg px-3 text-sm font-medium ${c === currency ? 'bg-brand text-white' : 'text-slate-400 hover:text-ink'}`}>
-                {c}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      {intro}
+
+      <KpiRow hero={hero} items={kpis} />
+
+      {useSalary && (
+        <section aria-label="Salary cycle" className="card-tint flex flex-wrap items-center gap-3 rounded-[14px] px-5 py-3.5">
+          <Check className="h-5 w-5 text-accent" strokeWidth={2.2} aria-hidden />
+          <span className="leading-normal text-slate-300">
+            <b className="text-ink">Salary found.</b> Cycles run from one salary to the day before the next
+            {cur.open ? ` — the current one started ${shortDay(cur.start)}${cur.expectedEnd ? ` and should end around ${shortDay(cur.expectedEnd)}` : ''}.` : '.'}
+          </span>
+        </section>
+      )}
       {fellBack && (
-        <p className="text-sm text-amber-200/90">
-          No salary credits found yet, so calendar months are shown. A salary is recognised from money in categorised as Salary.
+        <p className="rounded-xl border border-warn-line bg-warn-bg px-4 py-3 text-warn-text">
+          No salary found yet, so calendar months are shown. A salary is money in with the category Salary.
         </p>
       )}
 
-      <KpiTiles now={data.now} before={data.before} currency={currency} />
-
-      <AccountBalances accounts={accounts} currency={currency} history={balances} transactions={transactions} />
-
-      <AskAI period={title} />
-
-      <WorthChecking />
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section aria-labelledby="cat-heading" className="card">
-          <SectionHeader id="cat-heading" title="Spending by category" to="/transactions" />
-          <CategoryBars
-            rows={data.categories}
-            currency={currency}
-            onPick={(c) => navigate(`/transactions?q=${encodeURIComponent(c)}`)}
-            before={prev ? data.beforeCategories : undefined}
-            noun={noun}
-          />
-          {prev && <p className="px-5 pb-4 text-xs text-slate-500 sm:px-6">Change vs {useSalary ? 'the previous cycle' : 'the previous month'}. Amber is more spending.</p>}
-        </section>
-        <section aria-labelledby="trend-heading" className="card">
-          <SectionHeader id="trend-heading" title={useSalary ? 'Last 6 cycles' : 'Last 6 months'} />
-          <TrendChart points={data.points} currency={currency} selected={cur.start} onSelect={(key) => pick(periods.find((p) => p.start === key))} labelOf={labelOf} />
-        </section>
-      </div>
-
-      <section aria-labelledby="budget-heading" className="card">
-        <SectionHeader id="budget-heading" title={useSalary ? 'Budgets this cycle' : 'Budgets this month'} />
-        <BudgetCard
-          rows={data.budgetRows}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <CashFlowCard
+          title={useSalary ? 'Cash flow by salary cycle' : 'Cash flow, last 6 months'}
+          points={data.points}
           currency={currency}
-          noun={noun}
-          hasBudgets={budgets.some((b) => b.currency === currency)}
-          onEdit={() => setEditingBudgets(true)}
+          selected={cur.start}
+          onSelect={(key) => pick(periods.find((p) => p.start === key))}
+          note={data.flowNote}
         />
-      </section>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section aria-labelledby="recent-heading" className="card">
-          <SectionHeader id="recent-heading" title="Recent activity" to="/transactions" />
-          <RecentList items={data.recent} />
-        </section>
-        <section aria-labelledby="acc-heading" className="card">
-          <SectionHeader id="acc-heading" title="By account" />
-          <AccountList rows={data.accounts} currency={currency} />
-        </section>
+        <WhereItWent rows={data.categories} currency={currency} onPick={(c) => navigate(`/transactions?q=${encodeURIComponent(c)}`)} />
+        <RecentTable items={data.recent} />
+        <div className="flex min-w-0 flex-col gap-4">
+          <WorthChecking />
+          <RegularPayments items={bills} currency={currency} />
+        </div>
       </div>
-      {editingBudgets && <BudgetDialog onClose={() => setEditingBudgets(false)} currency={currency} budgets={budgets} />}
-      {currencies.length > 1 && <p className="text-center text-xs text-slate-500">Totals are shown per currency and never converted.</p>}
+
+      {goals.length === 0 && (
+        <section aria-labelledby="gl-heading" className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-dashed border-line-strong bg-surface p-6">
+          <div className="flex flex-col gap-1">
+            <h2 id="gl-heading" className="card-title">No savings goals yet</h2>
+            <span className="text-slate-400">
+              {counted.length ? `Give your ${formatMoney(bal.net, currency)} a purpose: an emergency fund, a trip, education.` : 'An emergency fund, a trip, education: set one up and see when you get there.'}
+            </span>
+          </div>
+          <Link to="/goals" className="btn btn-primary">Create a goal</Link>
+        </section>
+      )}
     </div>
   )
 }

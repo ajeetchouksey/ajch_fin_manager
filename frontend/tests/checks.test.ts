@@ -82,10 +82,10 @@ test('double and missing monthly payments', () => {
   ]
   const cs = worthChecking(rows)
   const dbl = cs.find((x) => x.kind === 'double-payment')
-  assert.ok(dbl && dbl.title.includes('2026-06'))
+  assert.ok(dbl && dbl.title.includes('June 2026'))
   assert.equal(dbl.transactionIds.length, 2)
   const miss = cs.find((x) => x.kind === 'missing-payment')
-  assert.ok(miss && miss.title.includes('2026-07'))
+  assert.ok(miss && miss.title.includes('July 2026'))
 })
 
 test('groceries bought several times a month are not "double payments"', () => {

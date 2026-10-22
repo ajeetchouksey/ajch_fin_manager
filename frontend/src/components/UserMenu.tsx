@@ -7,7 +7,8 @@ import { PHONE_MENU_ITEMS } from './navigation'
 import { useAuth } from '../hooks/useAuth'
 import { useSetup } from '../context/SetupContext'
 
-export function UserMenu() {
+/** Account menu. 'avatar': round button, menu opens below (phone top bar). 'sidebar': name row, menu opens above. */
+export function UserMenu({ variant = 'avatar' }: { variant?: 'avatar' | 'sidebar' }) {
   const { user, logout } = useAuth()
   const { hasProfile, openQuickSetup, openDetailedSetup } = useSetup()
   const navigate = useNavigate()
@@ -45,7 +46,11 @@ export function UserMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Account menu"
-        className="flex h-11 w-11 items-center justify-center rounded-full pointer-fine:h-9 pointer-fine:w-9"
+        className={
+          variant === 'sidebar'
+            ? 'flex min-h-12 w-full items-center gap-3 rounded-xl px-2 text-left hover:bg-tint'
+            : 'flex h-11 w-11 items-center justify-center rounded-full pointer-fine:h-9 pointer-fine:w-9'
+        }
       >
         {user.picture && !imgFailed ? (
           <img
@@ -60,12 +65,18 @@ export function UserMenu() {
             {initial}
           </span>
         )}
+        {variant === 'sidebar' && (
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold text-ink">{user.name}</span>
+            <span className="block truncate text-xs text-slate-400">{user.email}</span>
+          </span>
+        )}
       </button>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-50 mt-2 max-h-[calc(100dvh-5rem)] w-64 overflow-y-auto rounded-2xl border border-line-strong bg-surface p-1.5 shadow-2xl shadow-black/60 animate-dialog-in"
+          className={`absolute z-50 max-h-[calc(100dvh-5rem)] w-64 ${variant === 'sidebar' ? 'bottom-full left-0 mb-2' : 'right-0 top-full mt-2'} overflow-y-auto rounded-2xl border border-line-strong bg-surface p-1.5 shadow-2xl shadow-black/30 animate-dialog-in`}
         >
           <div className="px-3 py-2.5">
             <p className="truncate text-sm font-semibold text-ink">{user.name}</p>

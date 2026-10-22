@@ -1,5 +1,4 @@
 import { ArrowRight, Check, Tags, Target, UserRound, Users, type LucideIcon } from 'lucide-react'
-import { PageHeader } from '../components/PageHeader'
 import { LedgerOverview } from '../components/overview/LedgerOverview'
 import { useAuth } from '../hooks/useAuth'
 import { useSetup } from '../context/SetupContext'
@@ -16,7 +15,6 @@ export function DashboardPage() {
   const { user } = useAuth()
   const { aiEnabled, hasProfile, completedSections, openQuickSetup, openDetailedSetup } = useSetup()
   const firstName = user?.name?.split(' ')[0]
-  const today = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
 
   type Step = { icon: LucideIcon; title: string; description: string; done?: boolean; cta: string; onClick: () => void }
   const steps: Step[] = aiEnabled
@@ -75,16 +73,14 @@ export function DashboardPage() {
   const doneCount = steps.filter((s) => s.done).length
 
   return (
-    <>
-      <PageHeader eyebrow={today} title={firstName ? <>{greeting()}, <span className="heading-gradient">{firstName}</span></> : greeting()} description={doneCount === steps.length ? 'Here is where your money went.' : "Let's get your finances organised."} />
-
-      {/* Getting started */}
-      {doneCount < steps.length && (
-      <section aria-labelledby="getting-started" className="card card-accent-top overflow-hidden">
+    <LedgerOverview
+      intro={
+      doneCount < steps.length && (
+      <section aria-labelledby="getting-started" className="card overflow-hidden">
         <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
           <div>
-            <h2 id="getting-started" className="text-xl font-semibold text-ink">
-              Getting started
+            <h2 id="getting-started" className="card-title">
+              {firstName ? `${greeting()}, ${firstName}. ` : ''}Getting started
             </h2>
             <p className="mt-0.5 text-sm text-slate-400">
               {doneCount} of {steps.length} complete
@@ -127,11 +123,8 @@ export function DashboardPage() {
           ))}
         </ol>
       </section>
-      )}
-
-      <div className={doneCount < steps.length ? 'mt-6' : ''}>
-        <LedgerOverview />
-      </div>
-    </>
+      )
+      }
+    />
   )
 }
