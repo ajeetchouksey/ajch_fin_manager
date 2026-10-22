@@ -21,6 +21,7 @@ import { isTransfer } from '../../lib/ledger/categorize'
 import { change, currenciesByUse, inSpan, monthName, spendingByCategory, totalsFor, type Span } from '../../lib/ledger/summary'
 import { buildPeriods, type Period, type PeriodMode } from '../../lib/ledger/periods'
 import { formatMoney, todayIso, INCOME_CATEGORIES } from '../../lib/ledger/types'
+import { combinedTotals, quoteToBase, toQuote, validRate } from '../../lib/ledger/fx'
 
 const spanOf = (p: Period): Span => ({ start: p.start, end: p.end })
 const shortDay = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
@@ -31,7 +32,7 @@ const shortDay = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString
  * Everything is computed in the browser from the Ledger in the user's Drive.
  */
 export function LedgerOverview({ intro }: { intro?: ReactNode }) {
-  const { status, transactions, accounts, balances, goals } = useLedger()
+  const { status, transactions, accounts, balances, goals, profile } = useLedger()
   const navigate = useNavigate()
   const { user } = useAuth()
   const [mode, setMode] = usePeriodMode()
@@ -39,7 +40,11 @@ export function LedgerOverview({ intro }: { intro?: ReactNode }) {
   const [pickedCurrency, setPickedCurrency] = useState<string | null>(null)
 
   const currencies = useMemo(() => currenciesByUse(transactions), [transactions])
-  const currency = pickedCurrency && currencies.includes(pickedCurrency) ? pickedCurrency : currencies[0] ?? 'EUR'
+  // "Both" needs a rate the user typed and transactions in both of its currencies
+  const rate = profile?.exchangeRate
+  const fx = validRate(rate) && currencies.includes(rate.base) && currencies.includes(rate.quote) ? rate : null
+  const both = !!fx && pickedCurrency === 'both'
+  const currency = both ? fx.base : pickedCurrency && currencies.includes(pickedCurrency) ? pickedCurrency : currencies[0] ?? 'EUR'
   const today = todayIso()
 
   // Salary mode needs salary credits; without any, calendar months are shown and the page says so
@@ -64,8 +69,8 @@ export function LedgerOverview({ intro }: { intro?: ReactNode }) {
   const data = useMemo(() => {
     if (!cur) return null
     const span = spanOf(cur)
-    const now = totalsFor(transactions, span, currency)
-    const before = prev ? totalsFor(transactions, spanOf(prev), currency) : null
+    const now = both && fx ? combinedTotals(transactions, span, fx) : totalsFor(transactions, span, currency)
+    const before = prev ? (both && fx ? combinedTotals(transactions, spanOf(prev), fx) : totalsFor(transactions, spanOf(prev), currency)) : null
     const window = periods.slice(Math.max(0, index - 5), index + 1)
     const points: FlowPoint[] = window.map((p) => ({ key: p.start, label: labelOf(p), ...totalsFor(transactions, spanOf(p), currency) }))
     // The note under the chart: the biggest-spending period and its largest single payment
@@ -98,7 +103,7 @@ export function LedgerOverview({ intro }: { intro?: ReactNode }) {
     }
     // labelOf only depends on useSalary, which is in the list through periods
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transactions, cur, prev, periods, index, currency])
+  }, [transactions, cur, prev, periods, index, currency, both, fx])
 
   const bills = useMemo(
     () =>
@@ -109,6 +114,7 @@ export function LedgerOverview({ intro }: { intro?: ReactNode }) {
     [transactions, currency, today],
   )
   const bal = useMemo(() => accountBalances(accounts, currency, balances, transactions, today), [accounts, currency, balances, transactions, today])
+  const balQuote = useMemo(() => (fx ? accountBalances(accounts, fx.quote, balances, transactions, today) : null), [accounts, fx, balances, transactions, today])
   const lastEntry = useMemo(() => transactions.reduce((m, t) => (t.date > m ? t.date : m), ''), [transactions])
 
   if (status !== 'ready') {
@@ -154,26 +160,30 @@ export function LedgerOverview({ intro }: { intro?: ReactNode }) {
     {
       label: useSalary ? 'Income this cycle' : 'Income',
       value: formatMoney(data.now.income, currency),
+      sub: both && fx ? formatMoney(toQuote(data.now.income, fx), fx.quote) : undefined,
       tone: 'good',
       note: data.incomeCats.slice(0, 3).join(', ') || 'No income yet',
     },
     {
       label: useSalary ? 'Spending this cycle' : 'Spending',
       value: formatMoney(data.now.spending, currency),
+      sub: both && fx ? formatMoney(toQuote(data.now.spending, fx), fx.quote) : undefined,
       note: spendChange === null ? 'No earlier period to compare' : `${spendChange > 0 ? '▲' : '▼'} ${Math.abs(Math.round(spendChange * 100))}% vs ${prev ? (useSalary ? 'previous cycle' : monthName(prev.start.slice(0, 7)).split(' ')[0]) : ''}`,
       noteTone: spendChange === null ? 'muted' : spendChange > 0 ? 'bad' : 'good',
     },
     {
       label: useSalary && cur.open ? 'Left over so far' : 'Left over',
       value: formatMoney(left, currency),
+      sub: both && fx ? formatMoney(toQuote(left, fx), fx.quote) : undefined,
       note: kept === null ? '' : kept >= 0 ? `${Math.round(kept * 100)}% of income kept` : 'More went out than came in',
       noteTone: kept !== null && kept < 0 ? 'bad' : 'muted',
     },
   ]
   const counted = bal.rows.filter((r) => r.counted)
   const asOf = counted.reduce((m, r) => (r.asOf > m ? r.asOf : m), '')
-  const hero = counted.length
-    ? { label: counted.length === 1 ? `${counted[0].name} balance` : 'Total balance', value: formatMoney(bal.net, currency), note: asOf ? `as of ${shortDay(asOf)}` : undefined }
+  const netBoth = both && fx ? bal.net + quoteToBase(balQuote?.net ?? 0, fx) : bal.net
+  const hero = counted.length || (both && balQuote?.rows.some((r) => r.counted))
+    ? { label: counted.length === 1 && !both ? `${counted[0].name} balance` : 'Total balance', value: formatMoney(netBoth, currency), sub: both && fx ? formatMoney(toQuote(netBoth, fx), fx.quote) : undefined, note: asOf ? `as of ${shortDay(asOf)}` : undefined }
     : { label: 'Your accounts', value: '—', note: <Link to="/accounts" className="underline">Add an account</Link> }
 
   const firstName = user?.name?.split(' ')[0]
@@ -225,8 +235,9 @@ export function LedgerOverview({ intro }: { intro?: ReactNode }) {
             {currencies.length > 1 && (
               <div className="seg" role="radiogroup" aria-label="Currency">
                 {currencies.map((c) => (
-                  <button key={c} type="button" role="radio" aria-checked={c === currency} onClick={() => setPickedCurrency(c)}>{c}</button>
+                  <button key={c} type="button" role="radio" aria-checked={!both && c === currency} onClick={() => setPickedCurrency(c)}>{c}</button>
                 ))}
+                {fx && <button type="button" role="radio" aria-checked={both} onClick={() => setPickedCurrency('both')}>Both</button>}
               </div>
             )}
             <div className="seg" role="group" aria-label="Period">
@@ -244,6 +255,12 @@ export function LedgerOverview({ intro }: { intro?: ReactNode }) {
       {intro}
 
       <KpiRow hero={hero} items={kpis} />
+
+      {both && fx && (
+        <p className="text-sm text-slate-400">
+          Totals add {fx.base} and {fx.quote} at your rate of 1 {fx.base} = {fx.rate} {fx.quote}. Each transaction keeps its own currency; the charts and lists below show {fx.base}.
+        </p>
+      )}
 
       {useSalary && (
         <section aria-label="Salary cycle" className="card-tint flex flex-wrap items-center gap-3 rounded-[14px] px-5 py-3.5">

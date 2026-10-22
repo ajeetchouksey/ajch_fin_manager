@@ -13,6 +13,8 @@ export interface UserSchemaDefinition {
   ownNames?: string[]
   /** The user's own "text contains → category" rules; they win over learned history */
   categoryRules?: Array<{ match: string; category: string }>
+  /** One rate the user typed: 1 base = rate quote. Only used to combine totals in the "Both" view. */
+  exchangeRate?: { base: string; quote: string; rate: number }
   investmentPreferences?: {
     hasInvestments: boolean
     types?: string[]
@@ -36,6 +38,7 @@ export const PROFILE_KEYS = [
   'taxSettings',
   'ownNames',
   'categoryRules',
+  'exchangeRate',
 ] as const
 export type ProfileKey = (typeof PROFILE_KEYS)[number]
 
@@ -88,6 +91,10 @@ export function rowsToProfile(rows: ProfileRow[]): UserSchemaDefinition | null {
       .filter((r): r is { match: unknown; category: unknown } => !!r && typeof r === 'object')
       .map((r) => ({ match: String(r.match ?? '').trim(), category: String(r.category ?? '').trim() }))
       .filter((r) => r.match && r.category)
+  }
+  const fx = get('exchangeRate') as { base?: unknown; quote?: unknown; rate?: unknown } | null
+  if (fx && typeof fx === 'object' && Number(fx.rate) > 0 && Number.isFinite(Number(fx.rate)) && fx.base && fx.quote) {
+    profile.exchangeRate = { base: String(fx.base).toUpperCase(), quote: String(fx.quote).toUpperCase(), rate: Number(fx.rate) }
   }
   const inv = get('investmentPreferences')
   if (inv && typeof inv === 'object') profile.investmentPreferences = inv as UserSchemaDefinition['investmentPreferences']

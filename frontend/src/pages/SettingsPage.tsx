@@ -26,7 +26,7 @@ const csvCell = (v: string | number) => (/[",\n;]/.test(String(v)) ? `"${String(
 export function SettingsPage() {
   const { openDetailedSetup } = useSetup()
   const { user } = useAuth()
-  const { transactions, trash } = useLedger()
+  const { transactions, trash, profile } = useLedger()
   const [mode, setMode] = usePeriodMode()
   const { save, saving, error: saveError } = useProfile()
   const [hideAmounts, setHideAmounts] = useHideAmounts()
@@ -44,6 +44,17 @@ export function SettingsPage() {
   }
   const removeRule = (match: string) => void save({ categoryRules: myRules.filter((r) => r.match !== match) })
   const currencies = useMemo(() => currenciesByUse(transactions), [transactions])
+  // Exchange rate: 1 main currency = N of the second one, typed by the user (used for the Overview "Both" view)
+  const fxBase = currencies[0] ?? 'EUR'
+  const fxQuote = currencies[1] ?? ''
+  const savedRate = profile?.exchangeRate && profile?.exchangeRate.base === fxBase && profile?.exchangeRate.quote === fxQuote ? profile?.exchangeRate.rate : null
+  const [rateText, setRateText] = useState<string | null>(null)
+  const rateShown = rateText ?? (savedRate ? String(savedRate) : '')
+  const rateValue = Number(rateShown.replace(',', '.'))
+  const rateOk = Number.isFinite(rateValue) && rateValue > 0
+  const saveRate = async () => {
+    if (rateOk && (await save({ exchangeRate: { base: fxBase, quote: fxQuote, rate: rateValue } }))) setRateText(null)
+  }
 
   // Rules: what the app has learned from the categories you chose (payee → category), most used first
   const rules = useMemo(() => {
@@ -97,7 +108,31 @@ export function SettingsPage() {
               </select>
             </label>
           </div>
-          {currencies.length > 1 && <p className="text-sm text-slate-400">You also have transactions in {currencies.slice(1).join(', ')}. Totals are shown per currency and never converted.</p>}
+          {currencies.length > 1 && (
+            <div className="flex flex-col gap-2 rounded-xl border border-line p-4">
+              <span className="font-medium text-ink">Exchange rate</span>
+              <form
+                className="flex flex-wrap items-center gap-2 text-sm text-slate-300"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void saveRate()
+                }}
+              >
+                <span>1 {fxBase} =</span>
+                <input
+                  className="field w-28 font-mono"
+                  inputMode="decimal"
+                  aria-label={`Rate: how many ${fxQuote} for 1 ${fxBase}`}
+                  value={rateShown}
+                  onChange={(e) => setRateText(e.target.value)}
+                  placeholder="e.g. 90"
+                />
+                <span>{fxQuote}</span>
+                <button type="submit" className="btn btn-secondary" disabled={saving || !rateOk || rateShown === (savedRate ? String(savedRate) : '')}>Save rate</button>
+              </form>
+              <p className="text-sm text-slate-400">Each transaction keeps its own currency. Totals are shown per currency; with a rate saved, the Overview also has a Both view that adds {fxBase} and {fxQuote} at this rate.</p>
+            </div>
+          )}
         </section>
 
         <section aria-labelledby="da-heading" className="card flex flex-col gap-3 p-6">
@@ -118,7 +153,7 @@ export function SettingsPage() {
               onClick={() => setHideAmounts(!hideAmounts)}
               className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors ${hideAmounts ? 'border-brand bg-brand' : 'border-line bg-seg'}`}
             >
-              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-panel shadow transition-all ${hideAmounts ? 'left-[22px]' : 'left-0.5'}`} />
+              <span className={`absolute top-0.5 h-5 w-5 rounded-full shadow transition-all ${hideAmounts ? 'left-[22px] bg-white' : 'left-0.5 bg-slate-400'}`} />
             </button>
           </div>
           <div className="flex flex-wrap gap-2 pt-1">
