@@ -34,6 +34,10 @@ const header = ['id', 'date', 'direction', 'amount', 'currency', 'account', 'cat
 const tabs = {
   Transactions: [header, ...rows],
   Budgets: [['category', 'monthly', 'currency', 'created_at'], ['Groceries', 200, 'EUR', ''], ['Dining out', 60, 'EUR', ''], ['Transport', 60, 'EUR', '']],
+  Accounts: [
+    ['id', 'name', 'type', 'institution', 'currency', 'balance', 'as_of', 'rate', 'monthly', 'notes', 'created_at'],
+    ['acc_1', 'Current account', 'current', 'Example Bank', 'EUR', 8420.55, '2026-10-21', '', '', '', ''],
+  ],
   Profile: [['key', 'value', 'updated_at'], ['residenceCountries', '["DE"]', ''], ['accountTypes', '["current"]', ''], ['expenseCategories', '["Housing","Groceries"]', '']],
 }
 const SHEETS = ['Transactions', 'Documents', 'Accounts', 'Balances', 'Goals', 'Budgets', 'Analysis', 'Profile', 'Trash', 'Meta']

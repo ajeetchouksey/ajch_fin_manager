@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check as CheckIcon, Lightbulb, X } from 'lucide-react'
+import { Check as CheckIcon, Sparkles } from 'lucide-react'
 import { useLedger } from '../../context/LedgerContext'
 import { useLedgerOptions } from '../../hooks/useLedgerOptions'
 import { worthChecking, type Check } from '../../lib/ledger/checks'
 import { merchantText } from '../../lib/ledger/categorize'
 
 const DISMISSED_KEY = 'aarya.dismissedChecks'
-const SHOW = 4
+const SHOW = 3
 
 function readDismissed(): string[] {
   try {
@@ -69,46 +69,40 @@ export function WorthChecking() {
   }
 
   return (
-    <section aria-labelledby="checks-heading" className="card">
-      <div className="flex items-center gap-2 px-5 pt-5 sm:px-6">
-        <Lightbulb className="h-5 w-5 text-amber-200" aria-hidden />
-        <h2 id="checks-heading" className="text-lg font-semibold text-ink">Worth checking</h2>
-        <span className="ml-auto text-sm text-slate-400">{checks.length}</span>
-      </div>
-      {done && <p className="mx-5 mt-3 rounded-lg bg-brand-success/10 px-3 py-2 text-sm text-emerald-200 sm:mx-6" role="status">{done}</p>}
-      {error && <p className="mx-5 mt-3 rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-200 sm:mx-6" role="alert">{error}</p>}
-      <ul className="divide-y divide-white/5 px-5 py-2 sm:px-6">
-        {visible.map((c) => {
-          const q = searchFor(c)
-          return (
-            <li key={c.id} className="flex flex-wrap items-start gap-3 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-100">{c.title}</p>
-                <p className="mt-0.5 text-sm text-slate-400">{c.detail}</p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {c.suggestedCategory && (
-                  <button type="button" className="btn btn-secondary min-h-9 px-3 text-sm" disabled={busy} onClick={() => void apply(c)}>
-                    <CheckIcon className="h-4 w-4" aria-hidden /> Make {c.suggestedCategory}
-                  </button>
-                )}
-                {!c.suggestedCategory && q && (
-                  <Link to={`/transactions?q=${encodeURIComponent(q)}`} className="btn btn-secondary min-h-9 px-3 text-sm">Show</Link>
-                )}
-                <button type="button" className="icon-btn" aria-label={`Hide: ${c.title}`} onClick={() => dismiss(c)}>
-                  <X className="h-4 w-4" />
+    <section aria-labelledby="checks-heading" className="card-tint flex flex-col gap-3 p-6">
+      <h2 id="checks-heading" className="card-title flex items-center gap-2">
+        <Sparkles className="h-[18px] w-[18px] text-brand" aria-hidden />
+        Worth checking
+        <span className="ml-auto font-sans text-sm font-medium text-slate-400">{checks.length}</span>
+      </h2>
+      {done && <p className="rounded-xl bg-surface px-3.5 py-3 text-good" role="status">{done}</p>}
+      {error && <p className="rounded-xl bg-warn-bg px-3.5 py-3 text-warn-text" role="alert">{error}</p>}
+      {visible.map((c) => {
+        const q = searchFor(c)
+        return (
+          <div key={c.id} className="flex flex-col gap-2 rounded-xl bg-surface px-3.5 py-3 leading-[1.45]">
+            <p className="font-medium text-ink">{c.title}</p>
+            <p className="text-slate-300">{c.detail}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              {c.suggestedCategory && (
+                <button type="button" className="btn btn-secondary min-h-9 px-3" disabled={busy} onClick={() => void apply(c)}>
+                  <CheckIcon className="h-4 w-4" aria-hidden /> Make {c.suggestedCategory}
                 </button>
-              </div>
-            </li>
-          )
-        })}
-      </ul>
+              )}
+              {!c.suggestedCategory && q && (
+                <Link to={`/transactions?q=${encodeURIComponent(q)}`} className="btn btn-secondary min-h-9 px-3">Show</Link>
+              )}
+              <button type="button" className="ml-auto text-sm font-medium text-slate-400 hover:text-ink" onClick={() => dismiss(c)}>
+                Hide
+              </button>
+            </div>
+          </div>
+        )
+      })}
       {checks.length > SHOW && (
-        <div className="px-5 pb-4 sm:px-6">
-          <button type="button" className="text-sm font-medium text-brand-soft hover:underline" onClick={() => setShowAll((v) => !v)}>
-            {showAll ? 'Show fewer' : `Show all ${checks.length}`}
-          </button>
-        </div>
+        <button type="button" className="self-start font-semibold text-accent" onClick={() => setShowAll((v) => !v)}>
+          {showAll ? 'Show fewer' : `Show all ${checks.length}`}
+        </button>
       )}
     </section>
   )

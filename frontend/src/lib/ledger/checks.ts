@@ -53,6 +53,9 @@ const money = (n: number, currency = 'EUR') => {
   }
 }
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+/** '2026-08' → 'August 2026' */
+export const monthLabel = (ym: string) => `${MONTHS[Number(ym.slice(5, 7)) - 1] ?? ym} ${ym.slice(0, 4)}`
 
 function monthsBetween(a: string, b: string): string[] {
   const out: string[] = []
@@ -168,7 +171,7 @@ function monthlyPayments(groups: PayeeGroup[]): Check[] {
         out.push({
           id: `double-payment:${g.key}:${mo}`,
           kind: 'double-payment',
-          title: `${g.label} paid ${same.length} times in ${mo}`,
+          title: `${g.label} paid ${same.length} times in ${monthLabel(mo)}`,
           detail: `Usually once a month (about ${money(m, rows[0].currency)}). Check whether one is a duplicate or a refund is missing.`,
           transactionIds: same.map((t) => t.id),
         })
@@ -179,7 +182,7 @@ function monthlyPayments(groups: PayeeGroup[]): Check[] {
       out.push({
         id: `missing-payment:${g.key}`,
         kind: 'missing-payment',
-        title: `${g.label} missing in ${missing.join(', ')}`,
+        title: `${g.label} missing in ${missing.map(monthLabel).join(', ')}`,
         detail: `Paid most months (about ${money(m, rows[0].currency)}). The payment may be under another name, or not imported yet.`,
         transactionIds: [],
       })
@@ -201,7 +204,7 @@ function otherShare(tx: Transaction[], limit: number, wanted?: string): Check[] 
     {
       id: `other-share:${mo}`,
       kind: 'other-share',
-      title: `${Math.round((sum / total) * 100)}% of ${mo} spending is in Other`,
+      title: `${Math.round((sum / total) * 100)}% of ${monthLabel(mo)} spending is in Other`,
       detail: `${money(sum, other[0].currency)} across ${plural(other.length, 'payment')}. Giving them a category makes budgets and reports more useful.`,
       transactionIds: other.map((t) => t.id),
     },
