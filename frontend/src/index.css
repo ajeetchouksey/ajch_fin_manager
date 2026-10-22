@@ -11,6 +11,8 @@
      Fallbacks: each platform's native UI font (SF / Segoe UI / Roboto). */
   --font-sans: "Barlow", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, ui-sans-serif, system-ui, sans-serif;
   --font-display: "Barlow Condensed", "Barlow", "Arial Narrow", ui-sans-serif, system-ui, sans-serif;
+  /* Amounts (D4): IBM Plex Mono, tabular, as in the design system */
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
 
   /* AaryaAI brand tokens — same hexes as ajch_platform src/index.css */
   --color-brand-ink: #14122b;
@@ -368,6 +370,12 @@
     background: var(--color-slate-400);
     animation: typing 1.2s infinite ease-in-out;
   }
+}
+
+/* Amounts: every tabular figure in body text uses Plex Mono (D4). Big display figures keep Barlow Condensed. */
+.tabular-nums:not(.font-display) {
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
 }
 
 /* ─── Utilities ──────────────────────────────────────────────────── */
