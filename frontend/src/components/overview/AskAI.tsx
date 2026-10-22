@@ -33,7 +33,7 @@ export function AskAI({ period }: { period: string }) {
     <section aria-labelledby="ask-heading" className="card px-5 py-4 sm:px-6">
       <div className="mb-3 flex items-center gap-2">
         <MessageSquare className="h-4 w-4 text-brand-soft" aria-hidden />
-        <h3 id="ask-heading" className="text-sm font-semibold text-white">Ask an AI about this period</h3>
+        <h3 id="ask-heading" className="text-sm font-semibold text-ink">Ask an AI about this period</h3>
       </div>
       <p className="mb-3 text-xs text-slate-400">
         The question is copied when you pick an app. Paste it into the chat, and keep FinBuddy open beside it.

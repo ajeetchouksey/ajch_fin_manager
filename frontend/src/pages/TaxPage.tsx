@@ -51,19 +51,19 @@ export function TaxPage() {
           <div className="flex flex-wrap gap-3">
             <div role="radiogroup" aria-label="Country" className="flex gap-1 rounded-xl border border-line-strong p-1">
               {(['DE', 'IN'] as const).map((c) => (
-                <button key={c} type="button" role="radio" aria-checked={country === c} onClick={() => changeCountry(c)} className={`min-h-9 rounded-lg px-3 text-sm font-medium ${country === c ? 'bg-brand text-white' : 'text-slate-400 hover:text-white'}`}>
+                <button key={c} type="button" role="radio" aria-checked={country === c} onClick={() => changeCountry(c)} className={`min-h-9 rounded-lg px-3 text-sm font-medium ${country === c ? 'bg-brand text-white' : 'text-slate-400 hover:text-ink'}`}>
                   {c === 'DE' ? 'Germany' : 'India'}
                 </button>
               ))}
             </div>
-            <select className="min-h-9 rounded-xl border border-line-strong bg-transparent px-3 text-sm text-white" value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label="Tax year">
+            <select className="min-h-9 rounded-xl border border-line-strong bg-transparent px-3 text-sm text-ink" value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label="Tax year">
               {YEARS[country].map((y) => <option key={y} value={y}>{yearLabel(country, y)}</option>)}
             </select>
           </div>
 
           <section className="card space-y-3 px-5 py-5 sm:px-6" aria-label="Income for the year">
             <p className="text-sm text-slate-400">Taxable income in {yearLabel(country, year)}</p>
-            <p className="text-3xl font-semibold tabular-nums text-white">{formatMoney(summary.taxableIncome, currency)}</p>
+            <p className="text-3xl font-semibold tabular-nums text-ink">{formatMoney(summary.taxableIncome, currency)}</p>
             {summary.incomeByCategory.length > 0 && (
               <ul className="space-y-1 text-sm">
                 {summary.incomeByCategory.map((c) => (
@@ -80,14 +80,14 @@ export function TaxPage() {
           </section>
 
           <section className="card space-y-2 px-5 py-5 sm:px-6" aria-label="Deductions to review">
-            <p className="flex items-center gap-2 font-medium text-white"><FileCheck2 className="h-4 w-4" /> Deductions to review</p>
+            <p className="flex items-center gap-2 font-medium text-ink"><FileCheck2 className="h-4 w-4" /> Deductions to review</p>
             <p className="text-sm text-slate-300">
               {toReview === 0 ? 'Nothing waiting for review.' : `${toReview} ${toReview === 1 ? 'payment may' : 'payments may'} be deductible. Confirm each one in Transactions; nothing is claimed automatically.`}
             </p>
           </section>
 
           <section className="card space-y-3 px-5 py-5 sm:px-6" aria-label="Documents to gather">
-            <p className="font-medium text-white">
+            <p className="font-medium text-ink">
               Documents to gather {missing > 0 && <span className="text-sm font-normal text-amber-200">({missing} missing)</span>}
             </p>
             {documents.length === 0 && <p className="text-sm text-slate-400">No documents saved yet. Upload them in Documents.</p>}
@@ -102,14 +102,14 @@ export function TaxPage() {
           </section>
 
           <section className="card space-y-3 px-5 py-5 sm:px-6" aria-label="Filing dates">
-            <p className="flex items-center gap-2 font-medium text-white"><CalendarDays className="h-4 w-4" /> Filing dates</p>
+            <p className="flex items-center gap-2 font-medium text-ink"><CalendarDays className="h-4 w-4" /> Filing dates</p>
             {!dates.covered ? (
               <p className="text-sm text-slate-400">No checked filing dates for {yearLabel(country, year)} yet. Check your tax office or portal.</p>
             ) : (
               <ul className="space-y-3">
                 {dates.deadlines.map((d) => (
                   <li key={d.label} className="text-sm">
-                    <p className="text-white">{d.label}: <span className="tabular-nums">{longDate(d.date)}</span></p>
+                    <p className="text-ink">{d.label}: <span className="tabular-nums">{longDate(d.date)}</span></p>
                     <p className="text-slate-400">{d.note}{d.confirm ? ' Confirm on the official portal.' : ''}</p>
                   </li>
                 ))}

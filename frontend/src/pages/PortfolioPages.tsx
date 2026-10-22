@@ -19,7 +19,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'go
   return (
     <div className="card px-5 py-4">
       <p className="text-sm font-medium text-slate-400">{label}</p>
-      <p className={`mt-1 font-display text-[28px] leading-tight font-semibold tabular-nums ${tone === 'bad' ? 'text-amber-200' : 'text-white'}`}>{value}</p>
+      <p className={`mt-1 font-display text-[28px] leading-tight font-semibold tabular-nums ${tone === 'bad' ? 'text-amber-200' : 'text-ink'}`}>{value}</p>
     </div>
   )
 }
@@ -79,7 +79,7 @@ export function AccountsPage() {
             return (
               <section key={g} className="card overflow-hidden p-0" aria-labelledby={`grp-${g}`}>
                 <header className="flex items-baseline justify-between gap-2 border-b border-line px-4 py-3 sm:px-5">
-                  <h2 id={`grp-${g}`} className="font-semibold text-white">{GROUP_LABELS[g]}</h2>
+                  <h2 id={`grp-${g}`} className="font-semibold text-ink">{GROUP_LABELS[g]}</h2>
                   {g !== 'cover' && <span className="text-sm tabular-nums text-slate-400">{formatMoney(total, cur)}</span>}
                 </header>
                 <ul className="divide-y divide-line">
@@ -88,9 +88,9 @@ export function AccountsPage() {
                     const stale = a.asOf && Date.now() - Date.parse(a.asOf) > 60 * 86_400_000
                     return (
                       <li key={a.id}>
-                        <button type="button" onClick={() => setOpen({ existing: a })} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.03] sm:px-5">
+                        <button type="button" onClick={() => setOpen({ existing: a })} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-wash/[0.03] sm:px-5">
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[15px] font-medium text-white">{a.name}</span>
+                            <span className="block truncate text-[15px] font-medium text-ink">{a.name}</span>
                             <span className="block truncate text-xs text-slate-400">
                               {t.label}
                               {a.institution ? ` · ${a.institution}` : ''}
@@ -100,7 +100,7 @@ export function AccountsPage() {
                             </span>
                           </span>
                           {(g !== 'cover' || a.balance > 0) && (
-                            <span className={`shrink-0 text-[15px] font-semibold tabular-nums ${g === 'debt' ? 'text-amber-200' : 'text-white'}`}>
+                            <span className={`shrink-0 text-[15px] font-semibold tabular-nums ${g === 'debt' ? 'text-amber-200' : 'text-ink'}`}>
                               {g === 'debt' ? '−' : ''}{formatMoney(a.balance, a.currency)}
                             </span>
                           )}
@@ -123,8 +123,8 @@ const STATUS_TEXT: Record<GoalStatus['status'], { label: string; tone: string }>
   done: { label: 'Reached', tone: 'bg-brand-success/15 text-brand-success' },
   'on-track': { label: 'On track', tone: 'bg-brand-success/15 text-brand-success' },
   behind: { label: 'Behind', tone: 'bg-amber-300/15 text-amber-200' },
-  'no-plan': { label: 'No monthly plan', tone: 'bg-white/5 text-slate-300' },
-  'no-date': { label: 'No date', tone: 'bg-white/5 text-slate-300' },
+  'no-plan': { label: 'No monthly plan', tone: 'bg-wash/5 text-slate-300' },
+  'no-date': { label: 'No date', tone: 'bg-wash/5 text-slate-300' },
 }
 
 export function GoalsPage() {
@@ -170,14 +170,14 @@ export function GoalsPage() {
             return (
               <button key={goal.id} type="button" onClick={() => setOpen({ existing: goal })} className="card block p-5 text-left hover:border-brand-soft/40">
                 <div className="flex items-start justify-between gap-2">
-                  <h2 className="text-lg font-semibold text-white">{goal.name}</h2>
+                  <h2 className="text-lg font-semibold text-ink">{goal.name}</h2>
                   {st && <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${st.tone}`}>{st.label}</span>}
                 </div>
                 <p className="mt-1 text-sm tabular-nums text-slate-300">
                   {formatMoney(saved, goal.currency)} of {formatMoney(goal.target, goal.currency)}
                   {goal.targetDate && <span className="text-slate-400"> · by {monthName(goal.targetDate.slice(0, 7))}</span>}
                 </p>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/5" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)} aria-label={`${goal.name} progress`}>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-wash/5" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)} aria-label={`${goal.name} progress`}>
                   <div className="h-full rounded-full bg-brand-soft" style={{ width: `${Math.round(progress * 100)}%` }} />
                 </div>
                 <p className="mt-2 text-xs text-slate-400">

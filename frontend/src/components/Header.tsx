@@ -19,7 +19,7 @@ export function Header() {
               to={to}
               className={({ isActive }) =>
                 `rounded-lg px-3 py-2 text-[15px] font-medium transition-colors ${
-                  isActive ? 'bg-brand/15 text-brand-tint' : 'text-slate-400 hover:bg-slate-800/70 hover:text-white'
+                  isActive ? 'bg-brand/15 text-brand-tint' : 'text-slate-400 hover:bg-slate-800/70 hover:text-ink'
                 }`
               }
             >
@@ -50,7 +50,7 @@ export function TabBar() {
               to={to}
               className={({ isActive }) =>
                 `flex h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
-                  isActive ? 'text-white' : 'text-slate-500 active:text-slate-300'
+                  isActive ? 'text-ink' : 'text-slate-500 active:text-slate-300'
                 }`
               }
             >

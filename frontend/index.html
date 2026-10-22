@@ -19,7 +19,7 @@
     <!-- Installable app: Chrome/Edge on Windows, macOS, Android; Safari "Add to Dock"/"Add to Home Screen" -->
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#0e1a2d" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="dark light" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Finance" />
@@ -29,7 +29,18 @@
     <style>
       /* Paint the brand background before CSS/JS load — avoids a white flash on every platform */
       html, body { background: #0e1a2d; }
+      html[data-theme='light'], html[data-theme='light'] body { background: #f7f6fb; }
     </style>
+    <script>
+      // Apply the saved theme before anything paints (same rules as src/lib/theme.ts; default dark)
+      (function () {
+        var c = 'dark'
+        try { c = localStorage.getItem('aarya.theme') || 'dark' } catch (e) {}
+        var t = c === 'system' ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : c === 'light' ? 'light' : 'dark'
+        document.documentElement.dataset.theme = t
+        if (t === 'light') document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f7f6fb')
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

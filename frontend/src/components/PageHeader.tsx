@@ -12,7 +12,7 @@ export function PageHeader({ eyebrow, title, description, actions }: PageHeaderP
     <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         {eyebrow && <p className="eyebrow mb-2">{eyebrow}</p>}
-        <h1 className="text-[32px] leading-[1.1] font-semibold text-white sm:text-[40px]">{title}</h1>
+        <h1 className="text-[32px] leading-[1.1] font-semibold text-ink sm:text-[40px]">{title}</h1>
         {description && <p className="mt-1.5 text-sm text-slate-400 sm:text-base">{description}</p>}
       </div>
       {actions && <div className="flex shrink-0 gap-2">{actions}</div>}

@@ -6,7 +6,7 @@ import type { Option } from './options'
 export function StepIntro({ title, text }: { title: ReactNode; text?: ReactNode }) {
   return (
     <div className="mb-5">
-      <h3 className="text-2xl leading-tight font-semibold text-white sm:text-[28px]">{title}</h3>
+      <h3 className="text-2xl leading-tight font-semibold text-ink sm:text-[28px]">{title}</h3>
       {text && <p className="mt-1.5 text-base leading-relaxed text-slate-400">{text}</p>}
     </div>
   )
@@ -48,8 +48,8 @@ export function ChipGroup({
             onClick={() => toggle(value)}
             className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-[15px] font-medium transition-colors pointer-fine:min-h-9 ${
               on
-                ? 'border-brand-soft/70 bg-brand/25 text-white'
-                : 'border-line-strong bg-transparent text-slate-300 hover:border-brand-soft/40 hover:text-white'
+                ? 'border-brand-soft/70 bg-brand/25 text-ink'
+                : 'border-line-strong bg-transparent text-slate-300 hover:border-brand-soft/40 hover:text-ink'
             }`}
           >
             {on && <Check className="h-4 w-4 text-brand-soft" strokeWidth={2.5} />}
@@ -85,7 +85,7 @@ export function ChoiceList({
             aria-checked={on}
             onClick={() => onChange(o.value)}
             className={`flex min-h-12 items-center gap-3 rounded-xl border px-4 text-left text-[15px] transition-colors ${
-              on ? 'border-brand-soft/70 bg-brand/20 text-white' : 'border-line-strong text-slate-300 hover:border-brand-soft/40'
+              on ? 'border-brand-soft/70 bg-brand/20 text-ink' : 'border-line-strong text-slate-300 hover:border-brand-soft/40'
             }`}
           >
             <span
@@ -127,13 +127,13 @@ export function CustomEntries({
       {values.length > 0 && (
         <div className="mb-2.5 flex flex-wrap gap-2">
           {values.map((v) => (
-            <span key={v} className="inline-flex min-h-9 items-center gap-1 rounded-full border border-brand-soft/50 bg-brand/20 pl-4 pr-1.5 text-[15px] text-white">
+            <span key={v} className="inline-flex min-h-9 items-center gap-1 rounded-full border border-brand-soft/50 bg-brand/20 pl-4 pr-1.5 text-[15px] text-ink">
               {v}
               <button
                 type="button"
                 onClick={() => onChange(values.filter((x) => x !== v))}
                 aria-label={`Remove ${v}`}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-slate-300 hover:bg-white/10 hover:text-white"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-slate-300 hover:bg-wash/10 hover:text-ink"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -154,7 +154,7 @@ export function CustomEntries({
           maxLength={100}
           placeholder={placeholder}
           aria-label={placeholder}
-          className="min-h-11 min-w-0 flex-1 rounded-xl border border-line-strong bg-canvas/60 px-4 text-white placeholder:text-slate-500 focus:border-brand-soft/60 focus:outline-none"
+          className="min-h-11 min-w-0 flex-1 rounded-xl border border-line-strong bg-canvas/60 px-4 text-ink placeholder:text-slate-500 focus:border-brand-soft/60 focus:outline-none"
         />
         <button type="button" onClick={add} disabled={!draft.trim()} className="btn btn-secondary shrink-0">
           <Plus className="h-4 w-4" />
@@ -196,7 +196,7 @@ export function MemberList({
           {members.map((m, i) => (
             <li key={`${m.name}-${i}`} className="flex items-center gap-3 px-4 py-2.5">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-medium text-white">{m.name}</p>
+                <p className="truncate text-[15px] font-medium text-ink">{m.name}</p>
                 <p className="text-sm text-slate-400">{relLabel(m.relationship)}</p>
               </div>
               <button
@@ -228,13 +228,13 @@ export function MemberList({
           maxLength={60}
           placeholder="First name"
           aria-label="First name"
-          className="min-h-11 min-w-0 flex-1 rounded-xl border border-line-strong bg-canvas/60 px-4 text-white placeholder:text-slate-500 focus:border-brand-soft/60 focus:outline-none"
+          className="min-h-11 min-w-0 flex-1 rounded-xl border border-line-strong bg-canvas/60 px-4 text-ink placeholder:text-slate-500 focus:border-brand-soft/60 focus:outline-none"
         />
         <select
           value={rel}
           onChange={(e) => setRel(e.target.value)}
           aria-label="Relationship"
-          className="min-h-11 rounded-xl border border-line-strong bg-canvas px-3 text-white focus:border-brand-soft/60 focus:outline-none"
+          className="min-h-11 rounded-xl border border-line-strong bg-canvas px-3 text-ink focus:border-brand-soft/60 focus:outline-none"
         >
           {relationships.map((r) => (
             <option key={r.value} value={r.value}>

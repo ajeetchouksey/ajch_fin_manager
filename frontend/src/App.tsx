@@ -15,6 +15,7 @@ import { LedgerProvider } from './context/LedgerContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
 import { SetupProvider } from './context/SetupContext'
+import { useTheme } from './hooks/useTheme'
 
 function AppShell() {
   return (
@@ -32,6 +33,8 @@ function AppShell() {
 }
 
 function App() {
+  // Keeps <html data-theme> in step with the user's choice and, for "System", the device setting
+  useTheme()
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />

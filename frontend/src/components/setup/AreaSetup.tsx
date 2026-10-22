@@ -111,7 +111,7 @@ export function AreaSetup({ onClose, initialFocus, onNeedQuickSetup }: AreaSetup
         <p className="p-8 text-center text-slate-400">Loading your profile…</p>
       ) : !profile ? (
         <div className="flex flex-col items-center px-6 py-12 text-center">
-          <h3 className="text-2xl font-semibold text-white">Start with the quick setup</h3>
+          <h3 className="text-2xl font-semibold text-ink">Start with the quick setup</h3>
           <p className="mt-2 max-w-sm text-base text-slate-400">
             Three short questions create your profile. Then you can add household, goals and more here.
           </p>
@@ -137,7 +137,7 @@ export function AreaSetup({ onClose, initialFocus, onNeedQuickSetup }: AreaSetup
                   <Icon className="h-5 w-5" strokeWidth={1.75} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-base font-semibold text-white">{label}</span>
+                  <span className="block text-base font-semibold text-ink">{label}</span>
                   <span className="mt-0.5 block text-sm leading-snug text-slate-400">
                     {justSaved === id ? (
                       <span className="inline-flex items-center gap-1 text-brand-success">

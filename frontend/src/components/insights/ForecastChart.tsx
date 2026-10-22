@@ -55,7 +55,7 @@ export function ForecastChart({ points, currency, start }: { points: ForecastPoi
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-4 rounded-sm opacity-30" style={{ background: CASH }} />Cash range</span>
           <span className="rounded-full border border-line-strong px-2 py-0.5 text-xs font-medium text-slate-300">Estimate</span>
         </div>
-        <button type="button" className="text-xs font-medium text-brand-soft hover:text-white" onClick={() => setAsTable((v) => !v)}>
+        <button type="button" className="text-xs font-medium text-brand-soft hover:text-ink" onClick={() => setAsTable((v) => !v)}>
           {asTable ? 'Show chart' : 'Show as table'}
         </button>
       </div>
@@ -81,7 +81,7 @@ export function ForecastChart({ points, currency, start }: { points: ForecastPoi
             {ticks.map((v) => (
               <g key={v}>
                 <line x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} stroke="rgb(148 163 184 / 0.14)" strokeWidth={1} />
-                <text x={padL - 8} y={y(v) + 4} textAnchor="end" fontSize={12} fill="rgb(148 163 184)">{compact(v, currency)}</text>
+                <text x={padL - 8} y={y(v) + 4} textAnchor="end" fontSize={12} fill="var(--chart-label)">{compact(v, currency)}</text>
               </g>
             ))}
             {lo < 0 && <line x1={padL} x2={W - padR} y1={y(0)} y2={y(0)} stroke="rgb(252 211 77 / 0.5)" strokeDasharray="4 4" />}
@@ -90,7 +90,7 @@ export function ForecastChart({ points, currency, start }: { points: ForecastPoi
             <path d={line((p) => p.netWorth)} fill="none" stroke={WORTH} strokeWidth={2.5} strokeDasharray="6 4" />
             {series.map((p, i) =>
               i % Math.ceil(series.length / 6) === 0 || i === series.length - 1 ? (
-                <text key={p.month} x={x(i)} y={H - 6} textAnchor={i === 0 ? 'start' : i === series.length - 1 ? 'end' : 'middle'} fontSize={12} fill="rgb(148 163 184)">
+                <text key={p.month} x={x(i)} y={H - 6} textAnchor={i === 0 ? 'start' : i === series.length - 1 ? 'end' : 'middle'} fontSize={12} fill="var(--chart-label)">
                   {p.month === 'now' ? 'Now' : monthName(p.month, 'short')}
                 </text>
               ) : null,
@@ -102,7 +102,7 @@ export function ForecastChart({ points, currency, start }: { points: ForecastPoi
           </svg>
           {h && (
             <div className="pointer-events-none absolute top-2 rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs shadow-lg" style={{ left: Math.min(Math.max(0, x(hover!) - 80), W - 170) }}>
-              <p className="font-semibold text-white">{h.month === 'now' ? 'Now' : monthName(h.month)} <span className="font-normal text-slate-400">{h.month === 'now' ? '' : '· estimate'}</span></p>
+              <p className="font-semibold text-ink">{h.month === 'now' ? 'Now' : monthName(h.month)} <span className="font-normal text-slate-400">{h.month === 'now' ? '' : '· estimate'}</span></p>
               <p className="text-slate-300">Net worth {formatMoney(h.netWorth, currency)}</p>
               <p className="text-slate-300">Cash {formatMoney(h.liquid, currency)}</p>
               {h.month !== 'now' && <p className="text-slate-400">Range {compact(h.liquidLow, currency)} – {compact(h.liquidHigh, currency)}</p>}

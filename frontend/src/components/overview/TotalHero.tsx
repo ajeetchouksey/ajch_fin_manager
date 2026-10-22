@@ -37,10 +37,10 @@ export function TotalHero({
   return (
     <section className="card px-5 py-6 sm:px-6" aria-label="Your total">
       <p className="text-sm font-medium text-slate-400">You have in total</p>
-      <p className="mt-1 font-display text-[40px] leading-tight font-semibold tabular-nums text-white">{formatMoney(b.net, currency)}</p>
+      <p className="mt-1 font-display text-[40px] leading-tight font-semibold tabular-nums text-ink">{formatMoney(b.net, currency)}</p>
       <p className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-300">
         <span>
-          In accounts <span className="font-semibold tabular-nums text-white">{formatMoney(b.assets, currency)}</span>
+          In accounts <span className="font-semibold tabular-nums text-ink">{formatMoney(b.assets, currency)}</span>
         </span>
         {b.debts > 0 && (
           <span>

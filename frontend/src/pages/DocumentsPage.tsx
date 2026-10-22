@@ -73,7 +73,7 @@ export function DocumentsPage() {
                       {d.mimeType.startsWith('image/') ? <ImageIcon className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold text-white">{d.title}</p>
+                      <p className="truncate font-semibold text-ink">{d.title}</p>
                       <p className="text-xs text-slate-400">{d.type} · {d.date}</p>
                     </div>
                     <a href={d.link} target="_blank" rel="noreferrer" className="icon-btn h-9 w-9 shrink-0" aria-label={`Open ${d.title} in Google Drive`}>

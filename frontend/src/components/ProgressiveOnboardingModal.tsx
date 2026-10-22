@@ -53,7 +53,7 @@ export function ProgressiveOnboardingModal({ onClose, initialFocus }: Progressiv
                 onClick={() => setFocus(id)}
                 aria-current={id === focus ? 'page' : undefined}
                 className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${
-                  id === focus ? 'bg-brand/15 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                  id === focus ? 'bg-brand/15 text-ink' : 'text-slate-400 hover:bg-wash/5 hover:text-ink'
                 }`}
               >
                 <Icon className={`h-[18px] w-[18px] ${id === focus ? 'text-brand-soft' : ''}`} strokeWidth={1.75} />
@@ -83,7 +83,7 @@ function AreaGrid({ onSelect }: { onSelect: (f: FocusArea) => void }) {
             <Icon className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-base font-semibold text-white">{label}</span>
+            <span className="block text-base font-semibold text-ink">{label}</span>
             <span className="mt-0.5 block text-sm leading-snug text-slate-400">{description}</span>
           </span>
           <ChevronRight className="h-5 w-5 shrink-0 text-slate-500 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-300" />
@@ -136,7 +136,7 @@ function FocusChat({ focus, label, icon: Icon, onSaved }: FocusChatProps) {
             <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/15 text-brand-soft">
               <Icon className="h-7 w-7" strokeWidth={1.75} />
             </span>
-            <h3 className="mt-5 text-2xl font-semibold text-white">Set up {label.toLowerCase()}</h3>
+            <h3 className="mt-5 text-2xl font-semibold text-ink">Set up {label.toLowerCase()}</h3>
             <p className="mt-1.5 max-w-sm text-base leading-relaxed text-slate-400">
               Aarya will ask a few questions and update your profile. Nothing is saved until you choose Save.
             </p>
