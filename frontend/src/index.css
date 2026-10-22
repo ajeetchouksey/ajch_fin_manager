@@ -54,6 +54,7 @@
   --color-warn-bg: rgb(251 146 60 / 0.12);
   --color-warn-line: rgb(251 146 60 / 0.35);
   --color-warn-text: #fdba74;
+  --color-panel: #0b1526;                  /* dark call-to-action fill (Review N) */
 
   --animate-fade-in: fade-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-sheet-in: sheet-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -114,6 +115,7 @@
   --color-warn-bg: #fff4ec;
   --color-warn-line: #f3d3be;
   --color-warn-text: #8a3a10;
+  --color-panel: #14122b;
   --color-brand-soft: #5b4bd6;
   --color-brand-tint: #4c3fbd;
   --color-brand-lilac: #7c6cf0; /* #a99bff is too pale for text on white */
@@ -288,6 +290,19 @@
     line-height: 1.15;
     color: var(--color-ink);
   }
+  /* Form field (design): 44px, line-2 border, 10px radius, surface fill */
+  .field {
+    min-height: 44px;
+    width: 100%;
+    padding: 0 12px;
+    border: 1px solid var(--color-line-strong);
+    border-radius: 10px;
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: 14px;
+    font-weight: 400;
+  }
+  .field:focus { outline: 2px solid var(--color-brand-soft); outline-offset: 1px; }
   /* Segmented control (period, currency, theme): track + raised active button */
   .seg {
     display: flex;

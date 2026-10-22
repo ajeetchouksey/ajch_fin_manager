@@ -19,7 +19,7 @@ export function KpiRow({ hero, items }: { hero: { label: string; value: string; 
       <div className="col-span-2 flex flex-col gap-2.5 rounded-2xl bg-brand p-5 text-white sm:col-span-1">
         <span className="font-medium">{hero.label}</span>
         <span className="font-display text-[34px] leading-none font-bold tabular-nums">{hero.value}</span>
-        {hero.note && <span className="font-medium text-white/90">{hero.note}</span>}
+        {hero.note && <span className="font-medium opacity-90">{hero.note}</span>}
       </div>
       {items.map((k, i) => (
         <div key={k.label} className={`card flex min-w-0 flex-col gap-2 p-4 sm:gap-2.5 sm:p-5 ${items.length % 2 === 1 && i === items.length - 1 ? 'col-span-2 sm:col-span-1' : ''}`}>

@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 const dry = process.argv.includes('--dry')
-const SOLID = /(^|\s)(bg-brand|bg-brand-strong|bg-red-500(\/\d+)?|bg-rose-500(\/\d+)?)(?=\s|$)/
+const SOLID = /(^|\s)(bg-brand|bg-brand-strong|bg-red-500(\/\d+)?|bg-rose-500(\/\d+)?|bg-panel|bg-good)(?=\s|$)/
 const DELIM = /['"`{}]/
 
 function files(dir) {
