@@ -6,6 +6,8 @@ import { EmptyState } from '../components/EmptyState'
 import { useLedger } from '../context/LedgerContext'
 import { ConnectDrive } from '../components/ledger/ConnectDrive'
 import { TransactionDialog } from '../components/ledger/TransactionDialog'
+import { QuickAdd, type QuickDraft } from '../components/ledger/QuickAdd'
+import { useIsPhone } from '../hooks/useIsPhone'
 import { ImportDialog } from '../components/ledger/ImportDialog'
 import { RecentImports } from '../components/ledger/RecentImports'
 import { BulkCategoryBar } from '../components/ledger/BulkCategoryBar'
@@ -20,7 +22,7 @@ import { categoryColor, categoryTint } from '../lib/ledger/categoryColors'
 import { currenciesByUse, monthName } from '../lib/ledger/summary'
 
 type Open =
-  | { kind: 'add' }
+  | { kind: 'add'; full?: boolean; draft?: QuickDraft }
   | { kind: 'import'; file?: File }
   | { kind: 'details'; tx: Transaction }
   | { kind: 'edit'; tx: Transaction }
@@ -51,6 +53,7 @@ function inPeriod(date: string, period: string, latest: string): boolean {
 export function TransactionsPage() {
   const { status, transactions, trash, refresh, busy, error } = useLedger()
   const [open, setOpen] = useState<Open>(null)
+  const isPhone = useIsPhone()
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [params, setParams] = useSearchParams()
   const [query, setQuery] = useState(params.get('q') ?? '')
@@ -450,7 +453,8 @@ export function TransactionsPage() {
 
       {ready && transactions.length > 0 && <BulkCategoryBar selected={transactions.filter((t) => picked.has(t.id))} onDone={() => setPicked(new Set())} />}
 
-      {open?.kind === 'add' && <TransactionDialog onClose={() => setOpen(null)} onImportStatement={(file) => setOpen({ kind: 'import', file })} />}
+      {open?.kind === 'add' && isPhone && !open.full && <QuickAdd onClose={() => setOpen(null)} onMore={(draft) => setOpen({ kind: 'add', full: true, draft })} />}
+      {open?.kind === 'add' && (!isPhone || open.full) && <TransactionDialog initial={open.draft} onClose={() => setOpen(null)} onImportStatement={(file) => setOpen({ kind: 'import', file })} />}
       {open?.kind === 'edit' && <TransactionDialog existing={open.tx} onClose={() => setOpen(null)} />}
       {open?.kind === 'import' && <ImportDialog initialFile={open.file} onClose={() => setOpen(null)} />}
       {open?.kind === 'attach' && <UploadDocumentsDialog transaction={open.tx} onClose={() => setOpen(null)} />}
