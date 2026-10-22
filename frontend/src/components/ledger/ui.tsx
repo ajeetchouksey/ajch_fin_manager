@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type ReactNode } from 'react'
 import { FileText, Image as ImageIcon, Paperclip, X } from 'lucide-react'
+import { categoryColor, categoryTint } from '../../lib/ledger/categoryColors'
 
 export const inputClass =
   'min-h-11 w-full min-w-0 rounded-xl border border-line-strong bg-canvas/60 px-4 text-[15px] text-ink placeholder:text-slate-500 focus:border-brand-soft/60 focus:outline-none disabled:opacity-60'
@@ -170,5 +171,62 @@ export function CategorySelect({
         </optgroup>
       )}
     </select>
+  )
+}
+
+/**
+ * Category as coloured chips (design: Add transaction): the most used categories first, the chosen one
+ * always shown, and a "More…" list for the rest. A radio group, so it works with the keyboard.
+ */
+export function CategoryChips({
+  labelledBy,
+  value,
+  onChange,
+  options,
+  usage,
+  shown = 9,
+}: {
+  labelledBy: string
+  value: string
+  onChange: (category: string) => void
+  options: string[]
+  usage: Map<string, number>
+  shown?: number
+}) {
+  const ranked = [...options].sort((a, b) => (usage.get(b) ?? 0) - (usage.get(a) ?? 0))
+  const chips = ranked.slice(0, shown)
+  if (value && !chips.includes(value)) chips.push(value)
+  const rest = options.filter((c) => !chips.includes(c))
+  return (
+    <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby={labelledBy}>
+      {chips.map((c) => {
+        const on = c === value
+        return (
+          <button
+            key={c}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(c)}
+            className="flex min-h-10 items-center gap-2 rounded-full border px-3.5 text-sm font-medium text-ink"
+            style={on ? { borderColor: categoryColor(c), background: categoryTint(c, 20) } : { borderColor: 'var(--color-line)', background: 'var(--color-surface)' }}
+          >
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: categoryColor(c) }} aria-hidden />
+            {c}
+          </button>
+        )
+      })}
+      {rest.length > 0 && (
+        <select
+          aria-label="More categories"
+          className="min-h-10 rounded-full border border-line bg-surface px-3.5 text-sm font-medium text-slate-300"
+          value=""
+          onChange={(e) => e.target.value && onChange(e.target.value)}
+        >
+          <option value="">More…</option>
+          {rest.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+      )}
+    </div>
   )
 }
