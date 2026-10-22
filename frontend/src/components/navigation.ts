@@ -4,6 +4,7 @@ import {
   FileText,
   Home,
   LayoutDashboard,
+  MessageCircleQuestion,
   Lightbulb,
   PiggyBank,
   Receipt,
@@ -29,6 +30,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/goals', label: 'Goals', icon: Target },
   { to: '/accounts', label: 'Accounts', icon: Wallet },
   { to: '/report', label: 'Reports', icon: ClipboardList },
+  { to: '/assistant', label: 'Assistant', icon: MessageCircleQuestion },
   { to: '/documents', label: 'Documents', icon: FileText },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]

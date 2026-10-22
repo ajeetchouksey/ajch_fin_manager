@@ -19,6 +19,7 @@ import { LedgerProvider } from './context/LedgerContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
 import { SetupProvider } from './context/SetupContext'
+import { AssistantPage } from './pages/AssistantPage'
 import { useTheme } from './hooks/useTheme'
 
 function AppShell() {
@@ -56,6 +57,7 @@ function App() {
         <Route path="/report/monthly" element={<ReportPage />} />
         <Route path="/analysis" element={<AnalysisPage />} />
         <Route path="/budgets" element={<BudgetsPage />} />
+            <Route path="/assistant" element={<AssistantPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/storage" element={<StoragePage />} />
       </Route>

@@ -13,6 +13,7 @@ import { TransactionDetails } from '../components/ledger/TransactionDetails'
 import { UploadDocumentsDialog } from '../components/ledger/UploadDocumentsDialog'
 import { ErrorNote } from '../components/ledger/ui'
 import { payeeName } from '../components/overview/RecentTable'
+import { PhoneTxRow } from '../components/overview/PhoneTxRow'
 import { formatMoney, type Transaction } from '../lib/ledger/types'
 import { isTransfer } from '../lib/ledger/categorize'
 import { categoryColor, categoryTint } from '../lib/ledger/categoryColors'
@@ -27,6 +28,8 @@ type Open =
   | null
 
 const PAGE = 25
+const PHONE_PAGE = 40
+const weekday = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
 const OTHER = /^other( income)?$/i
 const day = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 const dayYear = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
@@ -54,6 +57,7 @@ export function TransactionsPage() {
   const [category, setCategory] = useState('all')
   const [dir, setDir] = useState<'all' | 'out' | 'in'>('all')
   const [page, setPage] = useState(0)
+  const [phoneCount, setPhoneCount] = useState(PHONE_PAGE)
 
   // "+" and "Upload file" elsewhere link here with ?add=1 / ?import=1: open the dialog, then drop the flag
   useEffect(() => {
@@ -84,7 +88,30 @@ export function TransactionsPage() {
       .filter((t) => !q || [t.description, t.category, t.account, t.notes, t.tags.join(' '), String(t.amount)].join(' ').toLowerCase().includes(q))
       .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))
   }, [inPeriodTx, query, dir, category])
-  useEffect(() => setPage(0), [query, dir, category, activePeriod])
+  useEffect(() => {
+    setPage(0)
+    setPhoneCount(PHONE_PAGE)
+  }, [query, dir, category, activePeriod])
+
+  // Phones (design: MobileTransactions): the list grouped by day, with the money out of what is shown
+  const phoneGroups = useMemo(() => {
+    const groups: Array<{ date: string; rows: Transaction[]; out: number; inn: number }> = []
+    for (const t of filtered.slice(0, phoneCount)) {
+      let g = groups.at(-1)
+      if (!g || g.date !== t.date) groups.push((g = { date: t.date, rows: [], out: 0, inn: 0 }))
+      g.rows.push(t)
+      if (t.currency === currency && !isTransfer(t)) {
+        if (t.direction === 'out') g.out += t.amount
+        else g.inn += t.amount
+      }
+    }
+    return groups
+  }, [filtered, phoneCount, currency])
+  const shownOut = useMemo(() => {
+    const out = filtered.filter((t) => t.direction === 'out' && t.currency === currency && !isTransfer(t))
+    return { count: out.length, sum: out.reduce((a, t) => a + t.amount, 0) }
+  }, [filtered, currency])
+  const reviewing = category !== 'all' && OTHER.test(category)
 
   const totals = useMemo(() => {
     let inn = 0, out = 0, moved = 0, other = 0
@@ -130,13 +157,16 @@ export function TransactionsPage() {
 
   const actions = ready ? (
     <>
-      <Link to="/trash" className="btn btn-ghost">
+      <button type="button" className="icon-btn border border-line-strong md:hidden" aria-label="Import statement" onClick={() => setOpen({ kind: 'import' })}>
+        <Upload className="h-5 w-5" aria-hidden />
+      </button>
+      <Link to="/trash" className="btn btn-ghost max-md:hidden">
         <Trash2 className="h-4 w-4" aria-hidden /> Trash{trash.length > 0 ? ` (${trash.length})` : ''}
       </Link>
-      <button type="button" className="btn btn-secondary" onClick={() => setOpen({ kind: 'import' })}>
+      <button type="button" className="btn btn-secondary max-md:hidden" onClick={() => setOpen({ kind: 'import' })}>
         <Upload className="h-4 w-4" aria-hidden /> Import statement
       </button>
-      <button type="button" className="btn btn-primary" onClick={() => setOpen({ kind: 'add' })}>
+      <button type="button" className="btn btn-primary max-md:hidden" onClick={() => setOpen({ kind: 'add' })}>
         <Plus className="h-4 w-4" strokeWidth={2.4} aria-hidden /> Add transaction
       </button>
     </>
@@ -173,7 +203,7 @@ export function TransactionsPage() {
         </div>
       ) : (
         <>
-          <section aria-label="Period totals" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <section aria-label="Period totals" className="hidden grid-cols-2 gap-3 md:grid lg:grid-cols-4">
             <div className="card flex flex-col gap-1 rounded-[14px] px-5 py-4">
               <span className="text-slate-400">Transactions</span>
               <span className="font-display text-[28px] leading-tight font-bold text-ink">{inPeriodTx.length}</span>
@@ -194,7 +224,7 @@ export function TransactionsPage() {
           </section>
 
           {totals.inn > 0 && flowParts.length > 0 && (
-            <section aria-labelledby="flow-heading" className="card flex flex-col gap-4 p-6">
+            <section aria-labelledby="flow-heading" className="card hidden flex-col gap-4 p-6 md:flex">
               <div className="flex flex-wrap items-baseline justify-between gap-3">
                 <h2 id="flow-heading" className="card-title text-2xl">
                   {activePeriod.startsWith('m:') ? `Where ${monthName(activePeriod.slice(2)).split(' ')[0]}’s ${formatMoney(totals.inn, currency)} went` : `Where the ${formatMoney(totals.inn, currency)} went`}
@@ -222,7 +252,7 @@ export function TransactionsPage() {
             </section>
           )}
 
-          <section aria-label="Filters" className="card flex flex-wrap items-end gap-3 rounded-[14px] p-4">
+          <section aria-label="Filters" className="card hidden flex-wrap items-end gap-3 rounded-[14px] p-4 md:flex">
             <label className="flex flex-[2_1_240px] flex-col gap-1.5 text-xs font-semibold text-slate-400">
               Search
               <input type="search" className="field" placeholder="Payee, note or amount" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -254,7 +284,7 @@ export function TransactionsPage() {
           </section>
 
           {otherAll.length > 0 && (
-            <section aria-label="Needs review" className="card-tint flex flex-wrap items-center justify-between gap-3 rounded-[14px] px-5 py-4">
+            <section aria-label="Needs review" className="card-tint hidden flex-wrap items-center justify-between gap-3 rounded-[14px] px-5 py-4 md:flex">
               <div className="flex items-center gap-3">
                 <Sparkles className="h-[22px] w-[22px] shrink-0 text-brand" aria-hidden />
                 <p>
@@ -266,9 +296,69 @@ export function TransactionsPage() {
             </section>
           )}
 
+          <section aria-label="Filters" className="flex flex-col gap-3 md:hidden">
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <label className="sr-only" htmlFor="ph-search">Search</label>
+              <input id="ph-search" type="search" className="field" placeholder="Search payee or amount" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <select className="field w-[8.5rem]" aria-label="Period" value={activePeriod} onChange={(e) => setPeriod(e.target.value)}>
+                {months.map((m) => <option key={m} value={`m:${m}`}>{monthName(m)}</option>)}
+                <option value="3m">Last 3 months</option>
+                <option value="year">This year</option>
+                <option value="all">All time</option>
+              </select>
+            </div>
+            <div role="group" aria-label="Filter" className="flex gap-2 overflow-x-auto">
+              {([
+                ['All', !reviewing && dir === 'all', () => { setDir('all'); setCategory('all') }],
+                ['Out', !reviewing && dir === 'out', () => { setDir('out'); setCategory('all') }],
+                ['In', !reviewing && dir === 'in', () => { setDir('in'); setCategory('all') }],
+                ...(otherAll.length ? [[`Needs review · ${otherAll.length}`, reviewing, reviewOther] as const] : []),
+              ] as const).map(([label, on, pick]) => (
+                <button
+                  key={label}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={pick}
+                  className={`min-h-9 shrink-0 rounded-full border px-3 text-[13px] font-semibold whitespace-nowrap ${on ? 'border-ink bg-ink text-surface' : 'border-line-strong bg-surface text-ink'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {shownOut.count > 0 && (
+              <div className="flex justify-between rounded-xl border border-line bg-surface px-3.5 py-3">
+                <span className="text-slate-400">{shownOut.count} payment{shownOut.count === 1 ? '' : 's'} out</span>
+                <b className="tabular-nums text-ink">−{formatMoney(shownOut.sum, currency)}</b>
+              </div>
+            )}
+          </section>
+
+          <section aria-label="Transactions by day" className="flex flex-col md:hidden">
+            {filtered.length === 0 ? (
+              <p className="py-10 text-center text-slate-400">Nothing matches these filters.</p>
+            ) : (
+              phoneGroups.map((g) => (
+                <div key={g.date} className="flex flex-col">
+                  <div className="flex justify-between px-0.5 pt-2.5 pb-1 text-xs font-semibold tracking-[0.04em] text-slate-400 uppercase">
+                    <span>{weekday(g.date)}</span>
+                    <span className="tabular-nums">{g.out > 0 ? `−${formatMoney(g.out, currency)}` : g.inn > 0 ? `+${formatMoney(g.inn, currency)}` : ''}</span>
+                  </div>
+                  {g.rows.map((t) => (
+                    <PhoneTxRow key={t.id} tx={t} meta="category" border onOpen={() => setOpen({ kind: 'details', tx: t })} />
+                  ))}
+                </div>
+              ))
+            )}
+            {filtered.length > phoneCount && (
+              <button type="button" className="btn btn-secondary mt-3" onClick={() => setPhoneCount((n) => n + PHONE_PAGE)}>
+                Show more ({filtered.length - phoneCount} left)
+              </button>
+            )}
+          </section>
+
           <ErrorNote>{error}</ErrorNote>
 
-          <section aria-label="Transaction list" className="card px-3 pt-2 pb-5 sm:px-5">
+          <section aria-label="Transaction list" className="card hidden px-3 pt-2 pb-5 sm:px-5 md:block">
             {filtered.length === 0 ? (
               <p className="py-10 text-center text-slate-400">Nothing matches these filters.</p>
             ) : (
