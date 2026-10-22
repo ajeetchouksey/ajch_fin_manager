@@ -13,6 +13,8 @@ import { WhereItWent } from './WhereItWent'
 import { RecentTable, payeeName } from './RecentTable'
 import { RegularPayments } from './RegularPayments'
 import { WorthChecking } from './WorthChecking'
+import { PhoneOverview } from './PhoneOverview'
+import { useAuth } from '../../hooks/useAuth'
 import { recurring } from '../../lib/analysis/engine'
 import { accountBalances } from '../../lib/ledger/balances'
 import { isTransfer } from '../../lib/ledger/categorize'
@@ -31,6 +33,7 @@ const shortDay = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString
 export function LedgerOverview({ intro }: { intro?: ReactNode }) {
   const { status, transactions, accounts, balances, goals } = useLedger()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [mode, setMode] = usePeriodMode()
   const [picked, setPicked] = useState<{ mode: PeriodMode; key: string } | null>(null)
   const [pickedCurrency, setPickedCurrency] = useState<string | null>(null)
@@ -173,8 +176,35 @@ export function LedgerOverview({ intro }: { intro?: ReactNode }) {
     ? { label: counted.length === 1 ? `${counted[0].name} balance` : 'Total balance', value: formatMoney(bal.net, currency), note: asOf ? `as of ${shortDay(asOf)}` : undefined }
     : { label: 'Your accounts', value: '—', note: <Link to="/accounts" className="underline">Add an account</Link> }
 
+  const firstName = user?.name?.split(' ')[0]
   return (
-    <div className="flex flex-col gap-6">
+    <>
+    <PhoneOverview
+      firstName={firstName}
+      title={useSalary ? `Cycle from ${shortDay(cur.start)}` : monthName(cur.start.slice(0, 7)).split(' ')[0]}
+      short={useSalary ? 'cycle' : monthName(cur.start.slice(0, 7), 'short')}
+      onPrev={prev ? () => pick(prev) : undefined}
+      onNext={next ? () => pick(next) : undefined}
+      hero={hero}
+      income={data.now.income}
+      spending={data.now.spending}
+      currency={currency}
+      categories={data.categories}
+      recent={data.recent}
+      intro={intro}
+      after={
+        <>
+          {fellBack && (
+            <p className="rounded-xl border border-warn-line bg-warn-bg px-4 py-3 text-warn-text">
+              No salary found yet, so calendar months are shown.
+            </p>
+          )}
+          <WorthChecking />
+          <Link to="/report" className="btn btn-secondary">Cash flow and reports</Link>
+        </>
+      }
+    />
+    <div className="hidden flex-col gap-6 md:flex">
       <PageHeader
         eyebrow={`From your ledger${lastEntry ? ` · last entry ${shortDay(lastEntry)}` : ''}`}
         title={
@@ -259,5 +289,6 @@ export function LedgerOverview({ intro }: { intro?: ReactNode }) {
         </section>
       )}
     </div>
+    </>
   )
 }
