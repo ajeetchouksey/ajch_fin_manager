@@ -12,6 +12,7 @@ import { AskAI } from './AskAI'
 import { AccountBalances } from './AccountBalances'
 import { TotalHero } from './TotalHero'
 import { HeadlineCard } from './HeadlineCard'
+import { WorthChecking } from './WorthChecking'
 import { budgetProgress } from '../../lib/ledger/budgets'
 import { byAccount, currenciesByUse, inSpan, monthName, spendingByCategory, totalsFor, type Span, type TrendPoint } from '../../lib/ledger/summary'
 import { buildPeriods, type Period, type PeriodMode } from '../../lib/ledger/periods'
@@ -194,6 +195,8 @@ export function LedgerOverview() {
       <AccountBalances accounts={accounts} currency={currency} history={balances} transactions={transactions} />
 
       <AskAI period={title} />
+
+      <WorthChecking />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section aria-labelledby="cat-heading" className="card">
