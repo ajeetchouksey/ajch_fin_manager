@@ -25,6 +25,11 @@
   --color-viz-in: #34d399;
   --color-viz-out: #fb923c;
 
+  /* Theme-aware text and washes (D1): white on dark, ink on light. Use text-ink instead of text-white
+     except on solid brand/red fills; bg-wash/5 instead of bg-white/5. */
+  --color-ink: #ffffff;
+  --color-wash: #ffffff;
+
   /* Semantic aliases used across components */
   --color-brand: var(--color-brand-indigo);           /* primary actions */
   --color-brand-strong: var(--color-brand-indigo-deep); /* primary hover */
@@ -64,7 +69,92 @@
   --color-cat-income: #34d399;
   --color-cat-spending: #fb923c;
   --color-cat-transfer: #94a3b8;
+  --logo-stroke: #f2f2f3;
+  --chart-label: rgb(148 163 184);
 }
+
+/* ─── Light theme (D1) ─────────────────────────────────────────────
+   The app is written for dark; light swaps the variables the utilities read. Slate is the text scale,
+   so it is inverted (300 = body text, 400/500 = captions); 700–900 are fills and become pale. */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --color-ink: #14122b;
+  --color-wash: #14122b;
+  --color-canvas: #f7f6fb;
+  --color-brand-bg: #f7f6fb;
+  --color-surface: #ffffff;
+  --color-surface-2: #f3f1f9;
+  --color-line: #e6e3f0;
+  --color-line-strong: #dcd8ea;
+  --color-brand-soft: #5b4bd6;
+  --color-brand-tint: #4c3fbd;
+  --color-brand-lilac: #7c6cf0; /* #a99bff is too pale for text on white */
+  --color-brand-success: #12805c;
+
+  --color-slate-50: #14122b;
+  --color-slate-100: #14122b;
+  --color-slate-200: #1f1b3a;
+  --color-slate-300: #3f3b57;
+  --color-slate-400: #55516b;
+  --color-slate-500: #615d78;
+  --color-slate-600: #a8a3c2;
+  --color-slate-700: #dcd8ea;
+  --color-slate-800: #ece9f5;
+  --color-slate-900: #f3f1f9;
+  --color-slate-950: #f7f6fb;
+
+  /* Status text tones: the dark theme's pale amber/rose/emerald are unreadable on white */
+  --color-amber-100: #6b4a00;
+  --color-amber-200: #7a5300;
+  --color-amber-300: #a86f00;
+  --color-rose-200: #9f1239;
+  --color-rose-300: #b42318;
+  --color-rose-400: #d92d20;
+  --color-emerald-200: #12805c;
+  --color-emerald-300: #12805c;
+
+  --color-viz-in: #12805c;
+  --color-viz-out: #e0752e;
+  --color-cat-housing: #5b4bd6;
+  --color-cat-health: #d94f8c;
+  --color-cat-transport: #2f7fd1;
+  --color-cat-groceries: #1f9d8b;
+  --color-cat-travel: #e5a400;
+  --color-cat-shopping: #7a9a2e;
+  --color-cat-bills: #a99bff;
+  --color-cat-utilities: #9c6b3f;
+  --color-cat-subscriptions: #4fb3d9;
+  --color-cat-dining: #f2a27e;
+  --color-cat-education: #6e6a85;
+  --color-cat-fees: #8a84a3;
+  --color-cat-fitness: #0e7490;
+  --color-cat-savings: #4d7c0f;
+  --color-cat-entertainment: #c026d3;
+  --color-cat-insurance: #64748b;
+  --color-cat-personal: #f472b6;
+  --color-cat-taxes: #9a3412;
+  --color-cat-other: #b8b3c9;
+  --color-cat-income: #12805c;
+  --color-cat-spending: #e0752e;
+  --color-cat-transfer: #8a84a3;
+  --logo-stroke: #14122b;
+  --chart-label: #55516b;
+}
+
+:root[data-theme='light'] .card {
+  background: #ffffff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 1px solid var(--color-line);
+  box-shadow: 0 1px 2px rgb(20 18 43 / 0.04), 0 4px 16px -8px rgb(20 18 43 / 0.08);
+}
+:root[data-theme='light'] .btn-secondary { color: #4c3fbd; border-color: rgb(91 75 214 / 0.35); }
+:root[data-theme='light'] .btn-secondary:hover:not(:disabled) { color: #3a2fa0; background: #f1eefc; }
+:root[data-theme='light'] .btn-ghost:hover:not(:disabled),
+:root[data-theme='light'] .icon-btn:hover { background: #f1eefc; color: var(--color-ink); }
+:root[data-theme='light'] .eyebrow { color: #5b4bd6; }
+:root[data-theme='light'] ::selection { background: rgb(91 75 214 / 0.25); color: var(--color-ink); }
+:root[data-theme='light'] * { scrollbar-color: rgb(20 18 43 / 0.2) transparent; }
 
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(6px); }

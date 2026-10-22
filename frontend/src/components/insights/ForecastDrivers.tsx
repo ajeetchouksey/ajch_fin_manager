@@ -36,7 +36,7 @@ export function ForecastDrivers({ d, currency }: { d: Drivers; currency: string 
 
   return (
     <div className="px-5 py-4 sm:px-6">
-      <p className="mb-3 text-sm font-semibold text-white">Estimated change in cash each month</p>
+      <p className="mb-3 text-sm font-semibold text-ink">Estimated change in cash each month</p>
       <ul className="space-y-2.5">
         {rows.map((r) => {
           const I = Icon[r.kind]
@@ -44,7 +44,7 @@ export function ForecastDrivers({ d, currency }: { d: Drivers; currency: string 
             <li key={r.label} className="grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm sm:grid-cols-[1rem_minmax(0,1fr)_40%_auto]">
               <I className={`h-4 w-4 ${r.amount >= 0 ? 'text-brand-success' : 'text-rose-300'}`} aria-hidden />
               <span className="truncate text-slate-200">{r.label}</span>
-              <span className="col-span-3 h-2 overflow-hidden rounded-full bg-white/5 sm:col-span-1 sm:col-start-3 sm:row-start-auto" aria-hidden>
+              <span className="col-span-3 h-2 overflow-hidden rounded-full bg-wash/5 sm:col-span-1 sm:col-start-3 sm:row-start-auto" aria-hidden>
                 <span className={`block h-full rounded-full ${tone[r.kind]}`} style={{ width: `${Math.max(2, (Math.abs(r.amount) / largest) * 100)}%` }} />
               </span>
               <span className={`text-right tabular-nums ${r.amount >= 0 ? 'text-brand-success' : 'text-slate-200'}`}>
@@ -56,7 +56,7 @@ export function ForecastDrivers({ d, currency }: { d: Drivers; currency: string 
         })}
       </ul>
       <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3 text-sm">
-        <span className="flex items-center gap-1.5 font-semibold text-white">
+        <span className="flex items-center gap-1.5 font-semibold text-ink">
           {d.net >= 0 ? <ArrowUp className="h-4 w-4 text-brand-success" /> : <Minus className="h-4 w-4 text-rose-300" />}
           Net change per month
         </span>

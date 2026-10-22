@@ -61,7 +61,7 @@ export function SlashCommandPalette() {
             onKeyDown={onKeyDown}
             placeholder="Search actions…"
             aria-label="Search actions"
-            className="h-12 flex-1 bg-transparent text-white placeholder:text-slate-500 focus:outline-none"
+            className="h-12 flex-1 bg-transparent text-ink placeholder:text-slate-500 focus:outline-none"
           />
           <kbd className="rounded border border-line-strong px-1.5 py-0.5 text-[11px] text-slate-500">Esc</kbd>
         </div>
@@ -76,7 +76,7 @@ export function SlashCommandPalette() {
                   onMouseEnter={() => setActive(i)}
                   onClick={() => execute(cmd)}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm ${
-                    i === active ? 'bg-brand/15 text-white' : 'text-slate-300'
+                    i === active ? 'bg-brand/15 text-ink' : 'text-slate-300'
                   }`}
                 >
                   <Icon className="h-4 w-4 text-slate-400" />

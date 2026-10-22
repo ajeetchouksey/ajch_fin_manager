@@ -20,7 +20,7 @@ export function StoragePage() {
             <div className="flex items-start gap-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-success/15 text-brand-success"><HardDrive className="h-5 w-5" /></span>
               <div>
-                <p className="font-semibold text-white">Connected to Google Drive</p>
+                <p className="font-semibold text-ink">Connected to Google Drive</p>
                 <p className="text-sm text-slate-400">{transactions.length} transactions · {documents.length} documents</p>
               </div>
             </div>
@@ -30,7 +30,7 @@ export function StoragePage() {
                 <a href={location.folderLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-line px-4 py-3 hover:border-brand-soft/50">
                   <FolderOpen className="h-5 w-5 text-brand-soft" />
                   <span className="min-w-0 flex-1">
-                    <span className="block font-medium text-white">{location.folderName}</span>
+                    <span className="block font-medium text-ink">{location.folderName}</span>
                     <span className="block text-xs text-slate-400">Folder in My Drive — move or rename it in Drive if you like</span>
                   </span>
                   <ExternalLink className="h-4 w-4 text-slate-500" />
@@ -40,7 +40,7 @@ export function StoragePage() {
                 <a href={location.spreadsheetLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-line px-4 py-3 hover:border-brand-soft/50">
                   <Sheet className="h-5 w-5 text-brand-soft" />
                   <span className="min-w-0 flex-1">
-                    <span className="block font-medium text-white">Ledger (Google Sheet)</span>
+                    <span className="block font-medium text-ink">Ledger (Google Sheet)</span>
                     <span className="block text-xs text-slate-400">Tabs: Transactions, Documents, Meta. You can edit rows there; keep the header row.</span>
                   </span>
                   <ExternalLink className="h-4 w-4 text-slate-500" />

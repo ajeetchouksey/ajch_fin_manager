@@ -138,7 +138,7 @@ export function QuickSetup({ onComplete, onSkip, onAddDetail }: QuickSetupProps)
           <div className="flex min-h-full flex-col justify-center py-4">
             <LogoMark className="h-14 w-14" />
             <p className="eyebrow mt-6">Welcome to AaryaAI Finance</p>
-            <h3 className="mt-2 text-[32px] leading-[1.1] font-semibold text-white sm:text-[38px]">
+            <h3 className="mt-2 text-[32px] leading-[1.1] font-semibold text-ink sm:text-[38px]">
               Let's set up your <span className="heading-gradient">finances</span>
             </h3>
             <p className="mt-2 max-w-md text-base leading-relaxed text-slate-400">
@@ -207,7 +207,7 @@ export function QuickSetup({ onComplete, onSkip, onAddDetail }: QuickSetupProps)
             <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-success/15 text-brand-success">
               <Check className="h-8 w-8" strokeWidth={2.5} />
             </span>
-            <h3 className="mt-6 text-[28px] font-semibold text-white">Your profile is ready</h3>
+            <h3 className="mt-6 text-[28px] font-semibold text-ink">Your profile is ready</h3>
             <p className="mt-2 max-w-sm text-base text-slate-400">
               {countries.map(countryLabel).join(', ')} · {accounts.length} account {accounts.length === 1 ? 'type' : 'types'} ·{' '}
               {allCategories.length} categories

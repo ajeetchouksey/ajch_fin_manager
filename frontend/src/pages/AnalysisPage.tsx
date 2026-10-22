@@ -34,7 +34,7 @@ function EntryCard({ entry, stale, currency, busy, onStatus }: { entry: Analysis
         <span>· {entry.writtenBy}</span>
         {period && <span>· {period}</span>}
       </div>
-      <h3 id={`an-${entry.id}`} className="text-base font-semibold text-white">{entry.title}</h3>
+      <h3 id={`an-${entry.id}`} className="text-base font-semibold text-ink">{entry.title}</h3>
       <p className={`mt-1 flex items-center gap-1.5 text-xs ${v.tone}`}>
         <v.Icon className="h-3.5 w-3.5" aria-hidden /> {v.label}
       </p>
@@ -136,7 +136,7 @@ export function AnalysisPage() {
               type="button"
               aria-pressed={kind === k}
               onClick={() => setKind(k)}
-              className={`min-h-9 rounded-full border px-3 text-sm ${kind === k ? 'border-brand-soft bg-brand/20 text-white' : 'border-line-strong text-slate-400 hover:text-white'}`}
+              className={`min-h-9 rounded-full border px-3 text-sm ${kind === k ? 'border-brand-soft bg-brand/20 text-ink' : 'border-line-strong text-slate-400 hover:text-ink'}`}
             >
               {k === 'all' ? 'All' : KIND_LABEL[k]}
             </button>
@@ -149,20 +149,20 @@ export function AnalysisPage() {
               type="button"
               aria-pressed={filter === s}
               onClick={() => setFilter(s)}
-              className={`min-h-9 rounded-full border px-3 text-sm capitalize ${filter === s ? 'border-brand-soft bg-brand/20 text-white' : 'border-line-strong text-slate-400 hover:text-white'}`}
+              className={`min-h-9 rounded-full border px-3 text-sm capitalize ${filter === s ? 'border-brand-soft bg-brand/20 text-ink' : 'border-line-strong text-slate-400 hover:text-ink'}`}
             >
               {s}
             </button>
           ))}
           {dismissedCount > 0 && !confirmClear && (
-            <button type="button" className="min-h-9 rounded-full px-3 text-sm text-slate-400 hover:text-white" onClick={() => setConfirmClear(true)} disabled={busy}>
+            <button type="button" className="min-h-9 rounded-full px-3 text-sm text-slate-400 hover:text-ink" onClick={() => setConfirmClear(true)} disabled={busy}>
               Clear dismissed ({dismissedCount})
             </button>
           )}
           {confirmClear && (
             <span className="flex flex-wrap items-center gap-2 text-sm text-slate-300">
               Move {dismissedCount} dismissed {dismissedCount === 1 ? 'entry' : 'entries'} to Trash? You can restore them for 30 days.
-              <button type="button" className="min-h-9 rounded-full border border-line-strong px-3 text-slate-300 hover:text-white" onClick={() => setConfirmClear(false)} disabled={busy}>Keep</button>
+              <button type="button" className="min-h-9 rounded-full border border-line-strong px-3 text-slate-300 hover:text-ink" onClick={() => setConfirmClear(false)} disabled={busy}>Keep</button>
               <button
                 type="button"
                 className="min-h-9 rounded-full bg-red-500/90 px-3 text-white hover:bg-red-500"

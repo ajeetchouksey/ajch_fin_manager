@@ -111,7 +111,7 @@ export function TransactionsPage() {
             <div className="flex gap-2">
               <div role="radiogroup" aria-label="Filter" className="grid flex-1 grid-cols-3 gap-1 rounded-xl border border-line-strong p-1 sm:flex-none">
                 {(['all', 'out', 'in'] as const).map((d) => (
-                  <button key={d} type="button" role="radio" aria-checked={dir === d} onClick={() => setDir(d)} className={`min-h-9 rounded-lg px-3 text-sm font-medium ${dir === d ? 'bg-brand text-white' : 'text-slate-400 hover:text-white'}`}>
+                  <button key={d} type="button" role="radio" aria-checked={dir === d} onClick={() => setDir(d)} className={`min-h-9 rounded-lg px-3 text-sm font-medium ${dir === d ? 'bg-brand text-white' : 'text-slate-400 hover:text-ink'}`}>
                     {d === 'all' ? 'All' : d === 'out' ? 'Out' : 'In'}
                   </button>
                 ))}
@@ -146,7 +146,7 @@ export function TransactionsPage() {
             return (
               <section key={month} className="card overflow-hidden p-0">
                 <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-4 py-3 sm:px-5">
-                  <h2 className="font-semibold text-white">{monthLabel(month)}</h2>
+                  <h2 className="font-semibold text-ink">{monthLabel(month)}</h2>
                   <p className="text-xs text-slate-400">
                     {Array.from(byCur.entries()).map(([cur, v]) => (
                       <span key={cur} className="ml-3">In {formatMoney(v.in, cur)} · Out {formatMoney(v.out, cur)}</span>
@@ -160,19 +160,19 @@ export function TransactionsPage() {
                         type="button"
                         onClick={() => (selecting ? togglePick(t.id) : setOpen({ kind: 'details', tx: t }))}
                         aria-pressed={selecting ? picked.has(t.id) : undefined}
-                        className={`flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.03] sm:px-5 ${picked.has(t.id) ? 'bg-brand/10' : ''}`}
+                        className={`flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-wash/[0.03] sm:px-5 ${picked.has(t.id) ? 'bg-brand/10' : ''}`}
                       >
                         {selecting && (
                           <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${picked.has(t.id) ? 'border-brand bg-brand text-white' : 'border-line-strong'}`} aria-hidden="true">
                             {picked.has(t.id) ? '✓' : ''}
                           </span>
                         )}
-                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isTransfer(t) ? 'bg-white/5 text-slate-400' : t.direction === 'in' ? 'bg-brand-success/15 text-brand-success' : 'bg-white/5 text-slate-300'}`}>
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isTransfer(t) ? 'bg-wash/5 text-slate-400' : t.direction === 'in' ? 'bg-brand-success/15 text-brand-success' : 'bg-wash/5 text-slate-300'}`}>
                           {isTransfer(t) ? <ArrowLeftRight className="h-4 w-4" /> : t.direction === 'in' ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-1.5">
-                            <span className="truncate text-[15px] font-medium text-white">{t.description}</span>
+                            <span className="truncate text-[15px] font-medium text-ink">{t.description}</span>
                             {t.documentIds.length > 0 && <Paperclip className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-label="Has documents" />}
                           </span>
                           <span className="block truncate text-xs text-slate-400">
@@ -182,7 +182,7 @@ export function TransactionsPage() {
                           </span>
                           {t.tags.length > 0 && <span className="mt-1 block"><TagChips tags={t.tags} /></span>}
                         </span>
-                        <span className={`shrink-0 text-[15px] font-semibold tabular-nums ${t.direction === 'in' ? 'text-brand-success' : 'text-white'}`}>
+                        <span className={`shrink-0 text-[15px] font-semibold tabular-nums ${t.direction === 'in' ? 'text-brand-success' : 'text-ink'}`}>
                           {formatMoney(t.amount, t.currency, t.direction)}
                         </span>
                       </button>

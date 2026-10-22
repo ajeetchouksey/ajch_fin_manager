@@ -272,7 +272,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-brand-success/15 text-brand-success">
             <Check className="h-6 w-6" />
           </div>
-          <p className="text-xl font-semibold text-white">{done} transactions added</p>
+          <p className="text-xl font-semibold text-ink">{done} transactions added</p>
           <p className="mt-1 text-sm text-slate-400">They are in the Transactions tab of your Ledger. You can add notes or tags to any of them.</p>
           {skippedMatches > 0 && <p className="mt-2 text-sm text-slate-400">{skippedMatches} {skippedMatches === 1 ? 'payment was' : 'payments were'} already in your Ledger and kept as you entered them.</p>}
           {balanceResult && balanceResult !== 'failed' && <p className="mt-2 text-sm text-slate-400">Balance of {balanceResult.name} set to {balanceResult.text}.</p>}
@@ -311,7 +311,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
           <button type="button" disabled={!!extracting} onClick={() => fileRef.current?.click()} className="flex w-full items-center gap-4 rounded-2xl border border-line-strong p-4 text-left hover:border-brand-soft/50">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-brand-soft"><FileUp className="h-5 w-5" /></span>
             <span>
-              <span className="block font-semibold text-white">Upload a statement</span>
+              <span className="block font-semibold text-ink">Upload a statement</span>
               <span className="block text-sm text-slate-400">The CSV export from your bank (Commerzbank, Sparkasse, DKB, ING, N26, HDFC …), a PDF statement, or a photo of one.</span>
             </span>
           </button>
@@ -378,7 +378,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
       footer={
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-400">
-            <b className="text-white">{toImport.length}</b> to import
+            <b className="text-ink">{toImport.length}</b> to import
             {matched.length > 0 && <> · {matched.length} already in your Ledger</>}
             {dupCount > 0 && <> · {dupCount} {skipDuplicates ? 'repeated rows skipped' : 'repeated rows'}</>}
             {badCount > 0 && <> · {badCount} unreadable</>}
@@ -393,10 +393,10 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
     >
       <div className="space-y-6 px-4 py-5 sm:px-6">
         <section>
-          <h3 className="mb-3 font-semibold text-white">1. Which column is which?</h3>
+          <h3 className="mb-3 font-semibold text-ink">1. Which column is which?</h3>
           {!showMapping ? (
             <div className="rounded-xl border border-line p-3 text-sm">
-              <p className="flex items-center gap-1.5 font-medium text-white">
+              <p className="flex items-center gap-1.5 font-medium text-ink">
                 <Sparkles className="h-4 w-4 text-brand-soft" /> {bank ? `Recognised a ${bank} export` : 'Columns recognised'}
               </p>
               <p className="mt-1 text-slate-400">{detected.map(([k, v]) => `${k}: ${v}`).join(' · ')}</p>
@@ -456,7 +456,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
         </section>
 
         <section>
-          <h3 className="mb-1 font-semibold text-white">2. Add context to all rows</h3>
+          <h3 className="mb-1 font-semibold text-ink">2. Add context to all rows</h3>
           <p className="mb-3 text-sm text-slate-400">Optional. You can still change single transactions afterwards.</p>
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Currency" htmlFor="imp-cur">
@@ -513,7 +513,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
         </section>
 
         <section>
-          <h3 className="mb-1 flex items-center gap-2 font-semibold text-white"><Landmark className="h-4 w-4 text-brand-soft" /> Balance as on date</h3>
+          <h3 className="mb-1 flex items-center gap-2 font-semibold text-ink"><Landmark className="h-4 w-4 text-brand-soft" /> Balance as on date</h3>
           <p className="mb-3 text-sm text-slate-400">
             {foundBalance
               ? `Found on the statement${foundBalance.date ? ` for ${foundBalance.date}` : ''}. It becomes the account’s balance, the starting point for net worth and forecasts.`
@@ -539,7 +539,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
 
         {extracted && sourceFile && (
           <section>
-            <h3 className="mb-1 font-semibold text-white">Rows read from {sourceFile.name}</h3>
+            <h3 className="mb-1 font-semibold text-ink">Rows read from {sourceFile.name}</h3>
             <p className="mb-3 text-sm text-slate-400">Read on this device. Check them against the statement and fix any mistakes here; the preview updates as you type.</p>
             <textarea rows={8} className={`${inputClass} py-3 font-mono text-xs`} value={raw} onChange={(e) => editRaw(e.target.value)} aria-label="Extracted rows" spellCheck={false} />
           </section>
@@ -547,14 +547,14 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
 
         {skipDuplicates && matched.length > 0 && (
           <section>
-            <h3 className="mb-1 font-semibold text-white">Already in your Ledger ({matched.length})</h3>
+            <h3 className="mb-1 font-semibold text-ink">Already in your Ledger ({matched.length})</h3>
             <p className="mb-3 text-sm text-slate-400">These look like payments you added yourself, so they will be skipped. Tick “Import anyway” if one is a different payment.</p>
             <ul className="max-h-80 divide-y divide-line overflow-y-auto rounded-xl border border-line">
               {matched.slice(0, 200).map((p) => (
                 <li key={p.i} className={`grid gap-2 px-3 py-2.5 text-sm sm:grid-cols-[1fr_1fr_auto] sm:items-center ${keep.has(p.i) ? '' : 'opacity-80'}`}>
                   <div className="min-w-0">
                     <div className="text-xs text-slate-500">Statement · {p.tx.date}</div>
-                    <div className="truncate text-white">{p.tx.description}</div>
+                    <div className="truncate text-ink">{p.tx.description}</div>
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs text-slate-500">
@@ -564,7 +564,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
                     <div className="truncate text-slate-200">{p.match!.tx.description}</div>
                   </div>
                   <div className="flex items-center justify-between gap-3 sm:justify-end">
-                    <span className={`whitespace-nowrap font-medium ${p.tx.direction === 'in' ? 'text-brand-success' : 'text-white'}`}>{formatMoney(p.tx.amount, p.tx.currency, p.tx.direction)}</span>
+                    <span className={`whitespace-nowrap font-medium ${p.tx.direction === 'in' ? 'text-brand-success' : 'text-ink'}`}>{formatMoney(p.tx.amount, p.tx.currency, p.tx.direction)}</span>
                     <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-slate-300">
                       <input
                         type="checkbox"
@@ -590,7 +590,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
         )}
 
         <section>
-          <h3 className="mb-1 font-semibold text-white">3. Preview</h3>
+          <h3 className="mb-1 font-semibold text-ink">3. Preview</h3>
           {toImport.length > 0 && (
             <p className="mb-2 text-sm text-slate-400">
               Out {formatMoney(totals.out, currency)} · In {formatMoney(totals.in, currency)}
@@ -600,7 +600,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
           )}
           <div className="overflow-x-auto rounded-xl border border-line">
             <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="bg-white/5 text-xs uppercase tracking-wide text-slate-400">
+              <thead className="bg-wash/5 text-xs uppercase tracking-wide text-slate-400">
                 <tr><th className="px-3 py-2">Date</th><th className="px-3 py-2">Description</th><th className="px-3 py-2">Category</th><th className="px-3 py-2 text-right">Amount</th><th className="px-3 py-2">Status</th></tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -608,7 +608,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
                   p.ok ? (
                     <tr key={p.i} className={p.skipped ? 'opacity-45' : ''}>
                       <td className="whitespace-nowrap px-3 py-2 text-slate-300">{p.tx.date}</td>
-                      <td className="max-w-[240px] truncate px-3 py-2 text-white" title={p.tx.description}>{p.tx.description}</td>
+                      <td className="max-w-[240px] truncate px-3 py-2 text-ink" title={p.tx.description}>{p.tx.description}</td>
                       <td className="px-2 py-1">
                         <CategorySelect
                           value={p.tx.category}
@@ -627,7 +627,7 @@ export function ImportDialog({ onClose, initialFile }: { onClose: () => void; in
                           className="min-h-9 w-full min-w-[150px] rounded-lg border border-transparent bg-transparent px-1 text-sm text-slate-200 hover:border-line-strong focus:border-brand-soft/60 focus:outline-none"
                         />
                       </td>
-                      <td className={`whitespace-nowrap px-3 py-2 text-right font-medium ${p.tx.direction === 'in' ? 'text-brand-success' : 'text-white'}`}>{formatMoney(p.tx.amount, p.tx.currency, p.tx.direction)}</td>
+                      <td className={`whitespace-nowrap px-3 py-2 text-right font-medium ${p.tx.direction === 'in' ? 'text-brand-success' : 'text-ink'}`}>{formatMoney(p.tx.amount, p.tx.currency, p.tx.direction)}</td>
                       <td className="px-3 py-2 text-xs text-slate-400">{p.match ? (p.skipped ? 'Already added' : 'Import anyway') : p.inFileDuplicate ? 'Repeated row' : 'Ready'}</td>
                     </tr>
                   ) : (
