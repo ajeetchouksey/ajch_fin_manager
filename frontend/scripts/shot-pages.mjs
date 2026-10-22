@@ -37,6 +37,13 @@ const tabs = {
   Accounts: [
     ['id', 'name', 'type', 'institution', 'currency', 'balance', 'as_of', 'rate', 'monthly', 'notes', 'created_at'],
     ['acc_1', 'Current account', 'current', 'Example Bank', 'EUR', 8420.55, '2026-10-21', '', '', '', ''],
+    ['acc_2', 'Tagesgeld', 'savings', 'Example Bank', 'EUR', 15000, '2026-10-01', 2.5, 500, '', ''],
+  ],
+  Documents: [
+    ['id', 'title', 'type', 'date', 'notes', 'tags', 'transaction_ids', 'file_name', 'mime_type', 'link', 'uploaded_at'],
+    ['doc_1', 'October statement', 'Bank statement', '2026-10-21', '48 transactions imported.', '', '', 'statement-oct.csv', 'text/csv', 'https://example.com', '2026-10-21T10:00:00Z'],
+    ['doc_2', 'October statement', 'Bank statement', '2026-10-21', 'Same file as above.', '', '', 'statement-oct.csv', 'text/csv', 'https://example.com', '2026-10-21T10:05:00Z'],
+    ['doc_3', 'REWE receipt', 'Receipt', '2026-10-03', '', '', '', 'IMG_6613.jpg', 'image/jpeg', 'https://example.com', '2026-10-03T18:00:00Z'],
   ],
   Profile: [['key', 'value', 'updated_at'], ['residenceCountries', '["DE"]', ''], ['accountTypes', '["current"]', ''], ['expenseCategories', '["Housing","Groceries"]', '']],
 }

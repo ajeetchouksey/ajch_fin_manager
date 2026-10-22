@@ -2,7 +2,8 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { LoginPage } from './pages/LoginPage'
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage'
 import { DashboardPage } from './pages/DashboardPage'
-import { AccountsPage } from './pages/PortfolioPages'
+import { AccountsPage } from './pages/AccountsPage'
+import { ReportsPage } from './pages/ReportsPage'
 import { GoalsPage } from './pages/GoalsPage'
 import { InsightsPage } from './pages/InsightsPage'
 import { TaxPage } from './pages/TaxPage'
@@ -51,7 +52,8 @@ function App() {
         <Route path="/goals" element={<GoalsPage />} />
         <Route path="/insights" element={<InsightsPage />} />
         <Route path="/tax" element={<TaxPage />} />
-        <Route path="/report" element={<ReportPage />} />
+        <Route path="/report" element={<ReportsPage />} />
+        <Route path="/report/monthly" element={<ReportPage />} />
         <Route path="/analysis" element={<AnalysisPage />} />
         <Route path="/budgets" element={<BudgetsPage />} />
         <Route path="/settings" element={<SettingsPage />} />

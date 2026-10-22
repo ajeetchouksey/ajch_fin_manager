@@ -34,7 +34,7 @@ export function Sidebar() {
   const lastEntry = useMemo(() => transactions.reduce((m, t) => (t.date > m ? t.date : m), ''), [transactions])
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[232px] flex-col gap-7 border-r border-line bg-surface px-5 pt-7 pb-4 pl-[max(1.25rem,env(safe-area-inset-left))] md:flex">
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[232px] print:!hidden flex-col gap-7 border-r border-line bg-surface px-5 pt-7 pb-4 pl-[max(1.25rem,env(safe-area-inset-left))] md:flex">
       <Link to="/dashboard" className="flex items-center gap-2.5 rounded-lg" aria-label="AaryaAI Finance Manager home">
         <LogoMark className="h-10 w-10 shrink-0" />
         <span className="flex flex-col gap-0.5 leading-[1.05]">
@@ -79,7 +79,7 @@ export function Sidebar() {
 /** Phones: top bar with logo and account menu (the sidebar takes over from md up). */
 export function Header() {
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-canvas/90 pt-safe backdrop-blur-xl md:hidden">
+    <header className="sticky top-0 z-30 border-b border-line bg-canvas/90 pt-safe backdrop-blur-xl md:hidden print:hidden">
       <div className="flex h-14 w-full items-center gap-6 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
         <Link to="/dashboard" className="shrink-0 rounded-lg" aria-label="AaryaAI Finance home">
           <Logo />
@@ -97,7 +97,7 @@ export function TabBar() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 pb-safe pl-safe pr-safe backdrop-blur-xl md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 pb-safe pl-safe pr-safe backdrop-blur-xl md:hidden print:hidden"
     >
       <ul className="mx-auto grid max-w-lg grid-cols-5">
         {TAB_ITEMS.map((item) =>
