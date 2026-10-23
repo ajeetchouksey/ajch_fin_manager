@@ -13,6 +13,7 @@ import { RiskSection } from '../components/invest/RiskSection'
 import { PlansSection } from '../components/invest/PlansSection'
 import { ScenariosSection } from '../components/invest/ScenariosSection'
 import { AllocationSection } from '../components/invest/AllocationSection'
+import { HoldingsSection } from '../components/invest/HoldingsSection'
 import { formatMoney, todayIso } from '../lib/ledger/types'
 
 /** Invest: what you hold, what you tell us about yourself (all optional), and the expert-mode switch. */
@@ -78,7 +79,7 @@ export function InvestPage() {
           <span className="block text-slate-300">
             Adds the deeper investing tools as they arrive: holdings, cost basis and real return. It is off until you turn it on, and it never turns on by itself.
           </span>
-          {expert && <span className="mt-1 block text-sm text-slate-400">Expert mode is on. Nothing extra is available yet; the first tools arrive with holdings.</span>}
+          {expert && <span className="mt-1 block text-sm text-slate-400">Expert mode is on: Holdings appear below. Cost basis and real return arrive next.</span>}
         </span>
         <ExpertSwitch />
       </section>
@@ -109,6 +110,8 @@ export function InvestPage() {
           </ul>
         )}
       </section>
+
+      {expert && <HoldingsSection />}
 
       <AllocationSection />
 

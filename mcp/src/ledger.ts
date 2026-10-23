@@ -9,6 +9,7 @@ import { newAccountId, newGoalId, type Account, type BalanceEntry, type Goal } f
 import type { TransactionDraft } from '@finbuddy/core/ledger/statement'
 import type { Budget } from '@finbuddy/core/ledger/budgets'
 import type { Plan } from '@finbuddy/core/ledger/plans'
+import type { Holding } from '@finbuddy/core/ledger/holdings'
 import type { Analysis, AnalysisStatus } from '@finbuddy/core/ledger/analysis'
 import { rowsToProfile, type UserSchemaDefinition } from '@finbuddy/core/ledger/profile'
 import { ownNamesFrom } from '@finbuddy/core/ledger/categorize'
@@ -27,6 +28,7 @@ export interface LedgerData {
   balances: BalanceEntry[]
   goals: Goal[]
   plans: Plan[]
+  holdings: Holding[]
   documents: LedgerDocument[]
   budgets: Budget[]
   analysis: Analysis[]
@@ -62,7 +64,7 @@ export class LedgerSession {
   async load(): Promise<LedgerData> {
     if (this.data) return this.data
     const { spreadsheetId: id } = await this.requireLocation()
-    const [transactions, accounts, balances, goals, documents, budgets, analysis, plans] = await Promise.all([
+    const [transactions, accounts, balances, goals, documents, budgets, analysis, plans, holdings] = await Promise.all([
       this.client.listTransactions(id),
       this.client.listAccounts(id),
       this.client.listBalances(id),
@@ -71,8 +73,9 @@ export class LedgerSession {
       this.client.listBudgets(id),
       this.client.listAnalysis(id),
       this.client.listPlans(id),
+      this.client.listHoldings(id),
     ])
-    this.data = { transactions, accounts, balances, goals, plans, documents, budgets, analysis }
+    this.data = { transactions, accounts, balances, goals, plans, holdings, documents, budgets, analysis }
     return this.data
   }
 

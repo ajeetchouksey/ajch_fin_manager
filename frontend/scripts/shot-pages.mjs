@@ -68,6 +68,10 @@ if (process.env.SHOT_INVEST) {
       ['plan_3', 'Course fund', 150, 'EUR', 'monthly', '2025-01-01', '2026-06-30', '', '', '', '']]
     tabs.Profile.push(['investorProfile', JSON.stringify({ birthYear: 1990, employment: 'employed', incomeStability: 'stable', riskAnswers: { fall: 2, range: 2, feeling: 3, wait: 3, 'never-below': 2 }, allocationTarget: { funds: 55, shares: 20, retirement: 25 } }), ''])
     tabs.Accounts.push(['acc_10', 'Company pension', 'pension', 'Example Insurer', 'EUR', 9000, '2026-10-01', 4, 150, '', ''])
+    tabs.Holdings = [['id', 'account_id', 'name', 'isin', 'symbol', 'asset_class', 'quantity', 'avg_cost', 'currency', 'price', 'price_date', 'notes', 'created_at'],
+      ['hold_1', 'acc_9', 'World equity ETF', 'IE00B4L5Y983', 'IWDA', 'funds', 120, 90, 'EUR', 110, '2026-10-20', '', ''],
+      ['hold_2', 'acc_9', 'Single share', 'US0378331005', '', 'shares', 20, 150, 'EUR', 240, '2026-10-20', '', ''],
+      ['hold_3', 'acc_9', 'Gold fund', '', '', 'gold', 10, '', 'EUR', '', '', '', '']]
     tabs.Balances = tabs.Balances ?? [['account_id', 'date', 'balance', 'recorded_at']]
     tabs.Balances.push(['acc_9', '2026-01-02', 15000, ''], ['acc_9', '2026-10-21', 18000, ''])
   }
@@ -104,14 +108,15 @@ const browser = await chromium.launch({ channel: 'msedge' }).catch(() => chromiu
 for (const size of sizeNames) {
   for (const theme of themes) {
     const ctx = await browser.newContext({ viewport: sizes[size], isMobile: size === 'phone', hasTouch: size === 'phone' })
-    await ctx.addInitScript(([t, u, hide]) => {
+    await ctx.addInitScript(([t, u, hide, expert]) => {
       localStorage.setItem('aarya.theme', t)
+      if (expert) localStorage.setItem('aarya.expertMode', '1')
       if (hide) localStorage.setItem('aarya.hideAmounts', '1')
       localStorage.setItem('authData', JSON.stringify({ accessToken: 'fake', user: u }))
       // This device "linked Drive before": a stored Ledger location and a fresh Drive token
       localStorage.setItem(`aarya.ledger.${u.id}`, JSON.stringify({ folderId: 'F1', folderName: 'AaryaAI Finance', folderLink: '', documentsFolderId: 'F1', spreadsheetId: 'L1', spreadsheetLink: '' }))
       sessionStorage.setItem('aarya.driveToken', JSON.stringify({ accessToken: 'fake-drive', expiresAt: Date.now() + 3600_000 }))
-    }, [theme, user, !!process.env.SHOT_HIDE])
+    }, [theme, user, !!process.env.SHOT_HIDE, !!process.env.SHOT_EXPERT])
     await mock(ctx)
     const page = await ctx.newPage()
     for (const p of paths) {
