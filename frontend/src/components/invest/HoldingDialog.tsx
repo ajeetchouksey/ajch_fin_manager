@@ -12,7 +12,9 @@ const optionalNumber = (s: string): number | null => (s.trim() === '' ? null : (
 
 /** Add or edit one holding inside an investment or retirement account. The price is the one you enter; FinBuddy does not fetch prices. */
 export function HoldingDialog({ onClose, existing, accountId }: { onClose: () => void; existing?: Holding; accountId?: string }) {
-  const { saveHolding, deleteHolding, accounts, busy, error } = useLedger()
+  const { saveHolding, deleteHolding, accounts, trades, busy, error } = useLedger()
+  // With trades, the units and the average cost are worked out from them and cannot be typed over
+  const traded = existing ? trades.filter((t) => t.holdingId === existing.id).length : 0
   const choices = accounts.filter((a) => ['investments', 'retirement'].includes(accountType(a.type).group))
   const [account, setAccount] = useState(existing?.accountId ?? accountId ?? choices[0]?.id ?? '')
   const [name, setName] = useState(existing?.name ?? '')
@@ -126,16 +128,16 @@ export function HoldingDialog({ onClose, existing, accountId }: { onClose: () =>
           </Field>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Units held" htmlFor="hold-qty" hint="Fractions are fine.">
-            <input id="hold-qty" inputMode="decimal" className={inputClass} value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0" />
+          <Field label="Units held" htmlFor="hold-qty" hint={traded > 0 ? `Worked out from ${traded} ${traded === 1 ? 'trade' : 'trades'}.` : 'Fractions are fine.'}>
+            <input id="hold-qty" readOnly={traded > 0} inputMode="decimal" className={inputClass} value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0" />
           </Field>
           <Field label="Currency" htmlFor="hold-cur">
             <select id="hold-cur" className={selectClass} value={currency} onChange={(e) => setCurrency(e.target.value)}>
               {Array.from(new Set([currency, ...CURRENCIES])).map((c) => <option key={c}>{c}</option>)}
             </select>
           </Field>
-          <Field label="Average cost per unit (optional)" htmlFor="hold-cost">
-            <input id="hold-cost" inputMode="decimal" className={inputClass} value={avgCost} onChange={(e) => setAvgCost(e.target.value)} placeholder="0.00" />
+          <Field label="Average cost per unit (optional)" htmlFor="hold-cost" hint={traded > 0 ? 'Worked out from your trades.' : undefined}>
+            <input id="hold-cost" readOnly={traded > 0} inputMode="decimal" className={inputClass} value={avgCost} onChange={(e) => setAvgCost(e.target.value)} placeholder="0.00" />
           </Field>
           <Field label="Latest price per unit (optional)" htmlFor="hold-price">
             <input id="hold-price" inputMode="decimal" className={inputClass} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" />
