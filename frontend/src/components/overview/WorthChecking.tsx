@@ -52,7 +52,8 @@ export function WorthChecking() {
   const apply = async (c: Check) => {
     if (!c.suggestedCategory) return
     const ids = new Set(c.transactionIds)
-    const changed = transactions.filter((t) => ids.has(t.id)).map((t) => ({ ...t, category: c.suggestedCategory! }))
+    const links = new Map((c.links ?? []).map((l) => [l.id, l.link]))
+    const changed = transactions.filter((t) => ids.has(t.id)).map((t) => ({ ...t, category: c.suggestedCategory!, link: links.get(t.id) ?? t.link }))
     setError(null)
     try {
       await updateTransactions(changed)

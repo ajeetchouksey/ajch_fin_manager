@@ -1,5 +1,6 @@
 import { TRANSFER_CATEGORY, suggestCategory } from './categorize'
 import { belongsTo } from './balances'
+import { makeLink } from './links'
 import { accountType, type Account, type BalanceEntry } from './portfolio'
 import { groupPayees, type PayeeGroup } from './payees'
 import { privately } from './privacy'
@@ -35,6 +36,8 @@ export interface Check {
   transactionIds: string[]
   /** Category to apply to transactionIds, when the check has one */
   suggestedCategory?: string
+  /** Links to save with the fix (a transfer's two legs, a refund and its purchase) */
+  links?: Array<{ id: string; link: string }>
 }
 
 export interface CheckOptions {
@@ -126,7 +129,7 @@ const cents = (n: number) => Math.round(n * 100)
  * Transfer or as Savings & investments are left alone.
  */
 export function findTransferPairs(tx: Transaction[], maxDays = 3): TransferPair[] {
-  const free = tx.filter((t) => t.category !== TRANSFER_CATEGORY && t.category !== SAVINGS && accountKey(t) && t.amount > 0)
+  const free = tx.filter((t) => t.category !== TRANSFER_CATEGORY && t.category !== SAVINGS && !t.link && accountKey(t) && t.amount > 0)
   const outs = free.filter((t) => t.direction === 'out')
   const ins = free.filter((t) => t.direction === 'in')
   const candidates = (t: Transaction, pool: Transaction[]) =>
@@ -162,6 +165,7 @@ function transferPairChecks(tx: Transaction[]): Check[] {
       detail: `For example ${money(first.out.amount, first.out.currency)} out of ${first.out.account || 'one account'} and into ${first.in.account || 'another'} within ${plural(first.days, 'day')}. As transfers both rows stay out of income and spending.`,
       transactionIds: pairs.flatMap((p) => [p.out.id, p.in.id]),
       suggestedCategory: TRANSFER_CATEGORY,
+      links: pairs.flatMap((p) => [p.out, p.in].map((t) => ({ id: t.id, link: makeLink('transfer', p.out.id) }))),
     },
   ]
 }
@@ -185,7 +189,7 @@ export function findRefunds(tx: Transaction[], groups: PayeeGroup[] = groupPayee
   const outs = tx.filter((t) => t.direction === 'out' && t.amount > 0 && !skip(t))
   const out: RefundPair[] = []
   const used = new Set<string>()
-  const ins = tx.filter((t) => t.direction === 'in' && t.amount > 0 && !skip(t)).sort((a, b) => a.date.localeCompare(b.date))
+  const ins = tx.filter((t) => t.direction === 'in' && t.amount > 0 && !skip(t) && !t.link).sort((a, b) => a.date.localeCompare(b.date))
   for (const r of ins) {
     const key = groupOf.get(r.id)
     const age = (p: Transaction) => dayNumber(r.date) - dayNumber(p.date)
@@ -214,6 +218,7 @@ function refundChecks(tx: Transaction[], groups: PayeeGroup[]): Check[] {
     detail: `For example ${money(pairs[0].refund.amount, pairs[0].refund.currency)} back from ${pairs[0].purchase.description}. In ${category}, spending for that category goes down by the refund instead of income going up.`,
     transactionIds: pairs.map((p) => p.refund.id),
     suggestedCategory: category,
+    links: pairs.map((p) => ({ id: p.refund.id, link: makeLink('refund', p.purchase.id) })),
   }))
 }
 
