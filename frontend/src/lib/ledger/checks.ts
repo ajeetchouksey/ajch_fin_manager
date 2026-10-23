@@ -1,7 +1,7 @@
 import { TRANSFER_CATEGORY, suggestCategory } from './categorize'
 import { groupPayees, type PayeeGroup } from './payees'
 import { privately } from './privacy'
-import type { Transaction } from './types'
+import { todayIso, type Transaction } from './types'
 
 /**
  * "Worth checking": things in the Ledger that look wrong and are quick to fix. Each check says what
@@ -12,6 +12,9 @@ import type { Transaction } from './types'
 export type CheckKind =
   | 'own-transfer'
   | 'transfer-pair'
+  | 'refund-pair'
+  | 'missing-category'
+  | 'odd-date'
   | 'likely-salary'
   | 'category-drift'
   | 'payee-variants'
@@ -36,6 +39,8 @@ export interface CheckOptions {
   otherShareLimit?: number
   /** Month to check the Other share for (YYYY-MM); default the latest month with spending */
   month?: string
+  /** Today (YYYY-MM-DD) for the date checks; default the real today */
+  today?: string
 }
 
 const OTHER = /^other( income)?$/i
@@ -149,6 +154,94 @@ function transferPairChecks(tx: Transaction[]): Check[] {
       detail: `For example ${money(first.out.amount, first.out.currency)} out of ${first.out.account || 'one account'} and into ${first.in.account || 'another'} within ${plural(first.days, 'day')}. As transfers both rows stay out of income and spending.`,
       transactionIds: pairs.flatMap((p) => [p.out.id, p.in.id]),
       suggestedCategory: TRANSFER_CATEGORY,
+    },
+  ]
+}
+
+/** A refund: money in that comes back from a payee we paid earlier, and the purchase it undoes. */
+export interface RefundPair {
+  refund: Transaction
+  purchase: Transaction
+}
+
+/**
+ * Links money coming in from a payee to the one earlier payment it undoes: same payee spelling,
+ * same currency, paid at most `maxDays` before, and not more than the purchase. A payment of the
+ * exact same amount wins; otherwise there must be exactly one possible purchase, so a partial
+ * refund is never guessed. Salary and transfers are left alone.
+ */
+export function findRefunds(tx: Transaction[], groups: PayeeGroup[] = groupPayees(tx), maxDays = 60): RefundPair[] {
+  const groupOf = new Map<string, string>()
+  for (const g of groups) for (const t of g.tx) groupOf.set(t.id, g.key)
+  const skip = (t: Transaction) => t.category === TRANSFER_CATEGORY || t.category === 'Salary' || t.category === SAVINGS
+  const outs = tx.filter((t) => t.direction === 'out' && t.amount > 0 && !skip(t))
+  const out: RefundPair[] = []
+  const used = new Set<string>()
+  const ins = tx.filter((t) => t.direction === 'in' && t.amount > 0 && !skip(t)).sort((a, b) => a.date.localeCompare(b.date))
+  for (const r of ins) {
+    const key = groupOf.get(r.id)
+    const age = (p: Transaction) => dayNumber(r.date) - dayNumber(p.date)
+    const pool = outs.filter(
+      (p) => !used.has(p.id) && groupOf.get(p.id) === key && p.currency === r.currency && age(p) >= 0 && age(p) <= maxDays && cents(p.amount) >= cents(r.amount),
+    )
+    const exact = pool.filter((p) => cents(p.amount) === cents(r.amount))
+    const pick = exact.length ? (exact.length === 1 ? exact[0] : undefined) : pool.length === 1 ? pool[0] : undefined
+    if (!pick) continue
+    used.add(pick.id)
+    out.push({ refund: r, purchase: pick })
+  }
+  return out
+}
+
+function refundChecks(tx: Transaction[], groups: PayeeGroup[]): Check[] {
+  const byCategory = new Map<string, RefundPair[]>()
+  for (const p of findRefunds(tx, groups)) {
+    if (p.refund.category === p.purchase.category) continue
+    byCategory.set(p.purchase.category, [...(byCategory.get(p.purchase.category) ?? []), p])
+  }
+  return [...byCategory].map(([category, pairs]) => ({
+    id: `refund-pair:${category}`,
+    kind: 'refund-pair' as const,
+    title: `${plural(pairs.length, 'refund')} not netted against ${category}`,
+    detail: `For example ${money(pairs[0].refund.amount, pairs[0].refund.currency)} back from ${pairs[0].purchase.description}. In ${category}, spending for that category goes down by the refund instead of income going up.`,
+    transactionIds: pairs.map((p) => p.refund.id),
+    suggestedCategory: category,
+  }))
+}
+
+function oddDates(tx: Transaction[], today: string): Check[] {
+  const bad = tx.filter((t) => !/^\d{4}-\d{2}-\d{2}/.test(t.date) || Number.isNaN(Date.parse(t.date.slice(0, 10))))
+  const future = tx.filter((t) => !bad.includes(t) && t.date.slice(0, 10) > today)
+  const out: Check[] = []
+  if (bad.length)
+    out.push({
+      id: 'odd-date:invalid',
+      kind: 'odd-date',
+      title: `${plural(bad.length, 'payment')} without a readable date`,
+      detail: 'Rows without a valid date are left out of months, budgets and reports. Open each one and set the date.',
+      transactionIds: bad.map((t) => t.id),
+    })
+  if (future.length)
+    out.push({
+      id: 'odd-date:future',
+      kind: 'odd-date',
+      title: `${plural(future.length, 'payment')} dated in the future`,
+      detail: 'Bank rows are never booked ahead. A date in the wrong year or day-and-month swapped is the usual cause.',
+      transactionIds: future.map((t) => t.id),
+    })
+  return out
+}
+
+function missingCategory(tx: Transaction[]): Check[] {
+  const none = tx.filter((t) => !t.category.trim())
+  if (!none.length) return []
+  return [
+    {
+      id: 'missing-category',
+      kind: 'missing-category',
+      title: `${plural(none.length, 'payment')} without a category`,
+      detail: 'Rows with an empty category do not show up in budgets or the spending mix.',
+      transactionIds: none.map((t) => t.id),
     },
   ]
 }
@@ -272,7 +365,7 @@ function otherShare(tx: Transaction[], limit: number, wanted?: string): Check[] 
   ]
 }
 
-const ORDER: CheckKind[] = ['own-transfer', 'transfer-pair', 'likely-salary', 'double-payment', 'category-drift', 'other-share', 'missing-payment', 'payee-variants']
+const ORDER: CheckKind[] = ['own-transfer', 'transfer-pair', 'refund-pair', 'odd-date', 'missing-category', 'likely-salary', 'double-payment', 'category-drift', 'other-share', 'missing-payment', 'payee-variants']
 
 /** Everything worth checking in these transactions, most useful first. */
 export function worthChecking(tx: Transaction[], options: CheckOptions = {}): Check[] {
@@ -280,6 +373,9 @@ export function worthChecking(tx: Transaction[], options: CheckOptions = {}): Ch
   const all = [
     ...ownTransfers(tx, options.ownNames ?? []),
     ...transferPairChecks(tx),
+    ...refundChecks(tx, groups),
+    ...oddDates(tx, options.today ?? todayIso()),
+    ...missingCategory(tx),
     ...likelySalary(groups),
     ...categoryDrift(groups),
     ...payeeVariants(groups),
