@@ -6,7 +6,7 @@ import { useLedgerOptions, readLastEntry, writeLastEntry } from '../../hooks/use
 import { EXTRACTABLE_ACCEPT, parseReceipt, readFileText, type ExtractProgress } from '../../lib/ledger/extract'
 import { isCsvFile, looksLikeStatement, readCsvFile } from '../../lib/ledger/csv'
 import { TRANSFER_CATEGORY, suggestCategory } from '../../lib/ledger/categorize'
-import { CURRENCIES, DOCUMENT_TYPES, parseTags, todayIso, type Direction, type Transaction } from '../../lib/ledger/types'
+import { CURRENCIES, DOCUMENT_TYPES, formatMoney, parseTags, todayIso, type Direction, type Transaction } from '../../lib/ledger/types'
 import { CategoryChips, ErrorNote, Field, FilePicker, TagInput, inputClass, selectClass } from './ui'
 import { parseNumber } from '../../lib/ledger/money'
 import type { QuickDraft } from './QuickAdd'
@@ -58,6 +58,9 @@ export function TransactionDialog({
   const [notes, setNotes] = useState(existing?.notes ?? '')
   const [tags, setTags] = useState(existing?.tags.join(', ') ?? '')
   const [files, setFiles] = useState<File[]>([])
+  // Split across categories (design): one bill, several categories. Saved as one transaction per part.
+  const [split, setSplit] = useState(false)
+  const [parts, setParts] = useState<Array<{ category: string; amount: string }>>([{ category: '', amount: '' }, { category: '', amount: '' }])
   const [docType, setDocType] = useState('Receipt')
   const [statement, setStatement] = useState<{ file: File; rows: number; bank?: string } | null>(null)
   const [localError, setLocalError] = useState<string | null>(null)
@@ -181,6 +184,11 @@ export function TransactionDialog({
   const isTransfer = kind === 'transfer'
   const newTransfer = isTransfer && !existing
 
+  const splitTotal = parts.reduce((n, x) => n + (parseNumber(x.amount) ?? 0), 0)
+  const totalValue = parseNumber(amount) ?? 0
+  const splitLeft = Math.round((totalValue - splitTotal) * 100) / 100
+  const setPart = (i: number, patch: Partial<{ category: string; amount: string }>) => setParts((ps) => ps.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+
   const submit = async () => {
     setLocalError(null)
     const value = parseNumber(amount) ?? NaN
@@ -202,6 +210,23 @@ export function TransactionDialog({
       description: description.trim().slice(0, 200),
       notes: notes.trim().slice(0, 2000),
       tags: parseTags(tags),
+    }
+    if (split && !existing && !isTransfer) {
+      if (parts.length < 2 || parts.some((x) => !x.category)) return setLocalError('Choose a category for every part of the split.')
+      if (parts.some((x) => !((parseNumber(x.amount) ?? 0) > 0))) return setLocalError('Enter an amount greater than 0 for every part.')
+      if (Math.abs(splitLeft) >= 0.005) return setLocalError('The parts must add up to the total amount.')
+      const note = (i: number) => [fields.notes, `Split ${i + 1} of ${parts.length} · total ${fields.amount.toFixed(2)} ${currency}`].filter(Boolean).join('\n')
+      const withFiles = files.map((file) => ({ file, title: file.name.replace(/\.[^.]+$/, ''), type: docType, date, notes: '', tags: fields.tags }))
+      try {
+        for (let i = 0; i < parts.length; i++) {
+          await addTransaction({ ...fields, amount: Math.round((parseNumber(parts[i].amount) ?? 0) * 100) / 100, category: parts[i].category, notes: note(i) }, i === 0 ? withFiles : [])
+        }
+        writeLastEntry({ ...last, currency, account: from || undefined })
+        onClose()
+      } catch {
+        /* error shown from context */
+      }
+      return
     }
     const attachments = files.map((file) => ({ file, title: file.name.replace(/\.[^.]+$/, ''), type: docType, date, notes: '', tags: fields.tags }))
     try {
@@ -323,7 +348,7 @@ export function TransactionDialog({
           </Field>
         </div>
 
-        {!isTransfer && (
+        {!isTransfer && !(split && !existing) && (
           <div>
             <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">
               <span id="tx-cat-label" className="text-sm font-medium text-slate-300">Category</span>
@@ -336,6 +361,47 @@ export function TransactionDialog({
               options={direction === 'in' ? opts.incomeCategories : opts.expenseCategories}
               usage={categoryUsage}
             />
+          </div>
+        )}
+
+        {!isTransfer && !existing && (
+          <div className="flex flex-col gap-3 rounded-xl bg-subtle px-4 py-3">
+            <div className="flex items-center gap-3">
+              <span className="flex-1">
+                <span className="block font-semibold text-ink">Split across categories</span>
+                <span className="block text-[13px] text-slate-400">For example one supermarket bill for groceries and household</span>
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={split}
+                aria-label="Split across categories"
+                onClick={() => setSplit((v) => !v)}
+                className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors ${split ? 'border-brand bg-brand' : 'border-line bg-seg'}`}
+              >
+                <span className={`absolute top-0.5 h-5 w-5 rounded-full shadow transition-all ${split ? 'left-[22px] bg-white' : 'left-0.5 bg-slate-400'}`} />
+              </button>
+            </div>
+            {split && (
+              <div className="flex flex-col gap-2">
+                {parts.map((x, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_7.5rem] gap-2">
+                    <select aria-label={`Category for part ${i + 1}`} className={inputClass} value={x.category} onChange={(e) => setPart(i, { category: e.target.value })}>
+                      <option value="">Category…</option>
+                      {(direction === 'in' ? opts.incomeCategories : opts.expenseCategories).map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <input aria-label={`Amount for part ${i + 1}`} inputMode="decimal" className={`${inputClass} text-right font-mono`} value={x.amount} onChange={(e) => setPart(i, { amount: e.target.value })} placeholder="0.00" />
+                  </div>
+                ))}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <button type="button" className="btn btn-ghost" onClick={() => setParts((ps) => [...ps, { category: '', amount: '' }])} disabled={parts.length >= 6}>Add a part</button>
+                  <span role="status" className={`text-[13px] font-semibold ${totalValue > 0 && Math.abs(splitLeft) < 0.005 ? 'text-good' : 'text-slate-400'}`}>
+                    {totalValue > 0 && Math.abs(splitLeft) < 0.005 ? `Splits add up to ${formatMoney(totalValue, currency)} ✓` : totalValue > 0 ? `${formatMoney(Math.abs(splitLeft), currency)} ${splitLeft > 0 ? 'left to assign' : 'too much'}` : 'Enter the total amount first'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">Each part is saved as its own transaction with the same date and payee, so every category total stays right.</p>
+              </div>
+            )}
           </div>
         )}
 

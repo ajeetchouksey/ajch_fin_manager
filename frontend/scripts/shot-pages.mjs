@@ -106,7 +106,7 @@ for (const size of sizeNames) {
       const steps = [...(process.env.SHOT_FILE ? ['@file'] : []), ...(process.env.SHOT_CLICKS ? process.env.SHOT_CLICKS.split(',') : [])]
       for (const [i, step] of steps.entries()) {
         if (step === '@file') await page.locator('input[type=file]').first().setInputFiles(process.env.SHOT_FILE)
-        else await page.getByRole('button', { name: step, exact: true }).or(page.getByRole('radio', { name: step, exact: true })).filter({ visible: true }).first().click()
+        else await page.getByRole('button', { name: step, exact: true }).or(page.getByRole('radio', { name: step, exact: true })).or(page.getByRole('switch', { name: step, exact: true })).filter({ visible: true }).first().click()
         await page.waitForTimeout(Number(process.env.SHOT_WAIT || 900))
         await page.screenshot({ path: `${outDir}/${name}-${i + 1}-${size}-${theme}.png`, fullPage: true, animations: 'disabled' })
       }
