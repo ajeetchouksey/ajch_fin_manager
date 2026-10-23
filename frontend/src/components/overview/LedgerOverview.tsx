@@ -198,6 +198,9 @@ export function LedgerOverview({ intro }: { intro?: ReactNode }) {
       hero={hero}
       income={data.now.income}
       spending={data.now.spending}
+      incomeSub={both && fx ? formatMoney(toQuote(data.now.income, fx), fx.quote) : undefined}
+      spendingSub={both && fx ? formatMoney(toQuote(data.now.spending, fx), fx.quote) : undefined}
+      switcher={currencies.length > 1 ? { options: [...currencies, ...(fx ? ['both'] : [])], value: both ? 'both' : currency, onPick: setPickedCurrency } : undefined}
       currency={currency}
       categories={data.categories}
       recent={data.recent}
