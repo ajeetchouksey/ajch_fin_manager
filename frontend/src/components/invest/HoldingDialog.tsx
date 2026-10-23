@@ -49,7 +49,7 @@ export function HoldingDialog({ onClose, existing, accountId }: { onClose: () =>
       priceDate: unit !== null ? priceDate || todayIso() : '',
       notes: notes.trim().slice(0, 1000),
     }
-    const problem = holdingProblem(draft)
+    const problem = holdingProblem(draft, traded > 0)
     if (problem) return setLocalError(problem)
     try {
       await saveHolding(draft, existing)

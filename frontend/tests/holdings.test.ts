@@ -57,6 +57,10 @@ test('holdings add up per account; other currencies and unpriced ones are counte
 test('problems with a holding are named', () => {
   const ok = { accountId: 'a1', name: 'x', isin: '', quantity: 1, avgCost: null, price: null }
   assert.equal(holdingProblem(ok), null)
+  // Units come from the trades once there are some, so a fully sold holding (0 units) can still be edited
+  assert.match(holdingProblem({ ...ok, quantity: 0 }) ?? '', /units/)
+  assert.equal(holdingProblem({ ...ok, quantity: 0 }, true), null)
+  assert.match(holdingProblem({ ...ok, quantity: -1 }, true) ?? '', /units/)
   assert.match(holdingProblem({ ...ok, accountId: '' }) ?? '', /account/)
   assert.match(holdingProblem({ ...ok, name: ' ' }) ?? '', /name/)
   assert.match(holdingProblem({ ...ok, isin: 'IE00B4L5Y984' }) ?? '', /ISIN/)
