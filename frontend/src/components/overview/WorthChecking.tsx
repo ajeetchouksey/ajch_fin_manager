@@ -30,7 +30,7 @@ function writeDismissed(ids: string[]) {
  * A check with a suggested category can be applied in one step; nothing changes without a click.
  */
 export function WorthChecking() {
-  const { transactions, updateTransactions, busy } = useLedger()
+  const { transactions, accounts, balances, updateTransactions, busy } = useLedger()
   const { ownNames } = useLedgerOptions()
   const [dismissed, setDismissed] = useState<string[]>(readDismissed)
   const [showAll, setShowAll] = useState(false)
@@ -38,8 +38,8 @@ export function WorthChecking() {
   const [error, setError] = useState<string | null>(null)
 
   const checks = useMemo(
-    () => worthChecking(transactions, { ownNames }).filter((c) => !dismissed.includes(c.id)),
-    [transactions, ownNames, dismissed],
+    () => worthChecking(transactions, { ownNames, accounts, balances }).filter((c) => !dismissed.includes(c.id)),
+    [transactions, accounts, balances, ownNames, dismissed],
   )
   if (!checks.length && !done) return null
 

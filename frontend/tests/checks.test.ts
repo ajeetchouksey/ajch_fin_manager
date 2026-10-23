@@ -186,3 +186,26 @@ test('a monthly payment that stops is noticed, but only after two quiet months',
   const c = worthChecking(rows, { today: '2026-09-20' }).find((x) => x.kind === 'series-stopped')
   assert.match(c?.title ?? '', /not been paid for 3 months/)
 })
+
+test('statement balances that do not add up with the transactions are flagged', () => {
+  const acct = { id: 'a1', name: 'Current', type: 'current', institution: '', currency: 'EUR', balance: 0, asOf: '2026-09-01', rate: null, monthly: 0, notes: '', createdAt: '' }
+  const hist = (date: string, balance: number) => ({ accountId: 'a1', date, balance, recordedAt: date })
+  const rows = [
+    tx('2026-09-05', 'Rent', 'Housing', 800, { accountId: 'a1', account: 'Current' }),
+    tx('2026-09-10', 'Salary', 'Salary', 2000, { accountId: 'a1', account: 'Current', direction: 'in' }),
+  ]
+  const ok = worthChecking(rows, { today: '2026-10-22', accounts: [acct], balances: [hist('2026-09-01', 1000), hist('2026-09-30', 2200)] })
+  assert.ok(!ok.some((c) => c.kind === 'balance-drift'))
+  const off = worthChecking(rows, { today: '2026-10-22', accounts: [acct], balances: [hist('2026-09-01', 1000), hist('2026-09-30', 2150)] })
+  const c = off.find((x) => x.kind === 'balance-drift')
+  assert.match(c?.detail ?? '', /50[.,]00.*less than expected/)
+  assert.equal(c?.transactionIds.length, 2)
+})
+
+test('investments are not checked for drift and one balance is not enough', () => {
+  const depot = { id: 'd1', name: 'Depot', type: 'etf_depot', institution: '', currency: 'EUR', balance: 0, asOf: '2026-09-01', rate: null, monthly: 0, notes: '', createdAt: '' }
+  const hist = (date: string, balance: number) => ({ accountId: 'd1', date, balance, recordedAt: date })
+  assert.ok(!worthChecking([], { accounts: [depot], balances: [hist('2026-09-01', 1000), hist('2026-09-30', 5000)] }).some((c) => c.kind === 'balance-drift'))
+  const cur = { ...depot, id: 'a1', type: 'current' }
+  assert.ok(!worthChecking([], { accounts: [cur], balances: [{ accountId: 'a1', date: '2026-09-01', balance: 10, recordedAt: '' }] }).some((c) => c.kind === 'balance-drift'))
+})
