@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { findTransferPairs, worthChecking } from '../src/lib/ledger/checks.ts'
+import { findRefunds, findTransferPairs, worthChecking } from '../src/lib/ledger/checks.ts'
 import { groupPayees, samePayee } from '../src/lib/ledger/payees.ts'
 import type { Transaction } from '../src/lib/ledger/types.ts'
 
@@ -129,4 +129,37 @@ test('an ambiguous or already handled pair is left to the user', () => {
   assert.equal(findTransferPairs([done, in1]).length, 0)
   const noAccount = tx('2026-10-20', 'x', 'Other', 500, { account: '' })
   assert.equal(findTransferPairs([noAccount, in1]).length, 0)
+})
+
+test('a refund is linked to the purchase it undoes', () => {
+  const buy = tx('2026-09-10', 'Zalando', 'Shopping', 80, { account: 'Current' })
+  const back = tx('2026-09-20', 'Zalando', 'Other income', 80, { account: 'Current', direction: 'in' })
+  const pairs = findRefunds([buy, back])
+  assert.equal(pairs.length, 1)
+  assert.equal(pairs[0].purchase.id, buy.id)
+  const c = worthChecking([buy, back], { today: '2026-10-22' }).find((x) => x.kind === 'refund-pair')
+  assert.deepEqual(c?.transactionIds, [back.id])
+  assert.equal(c?.suggestedCategory, 'Shopping')
+})
+
+test('refunds are not guessed: partial with two purchases, too old, too large, or already netted', () => {
+  const a = tx('2026-09-01', 'Zalando', 'Shopping', 80)
+  const b = tx('2026-09-05', 'Zalando', 'Shopping', 60)
+  const partial = tx('2026-09-20', 'Zalando', 'Other income', 30, { direction: 'in' })
+  assert.equal(findRefunds([a, b, partial]).length, 0)
+  const old = tx('2026-01-01', 'Zalando', 'Shopping', 80)
+  assert.equal(findRefunds([old, tx('2026-09-20', 'Zalando', 'Other income', 80, { direction: 'in' })]).length, 0)
+  assert.equal(findRefunds([a, tx('2026-09-20', 'Zalando', 'Other income', 90, { direction: 'in' })]).length, 0)
+  const sameCat = tx('2026-09-20', 'Zalando', 'Shopping', 80, { direction: 'in' })
+  assert.ok(!kinds([a, sameCat], { today: '2026-10-22' }).includes('refund-pair'))
+})
+
+test('hygiene: future dates, unreadable dates and empty categories are flagged', () => {
+  const future = tx('2026-12-31', 'Kiosk', 'Other', 5)
+  const broken = tx('31/12/2026', 'Kiosk', 'Other', 5)
+  const blank = tx('2026-10-01', 'Kiosk', '', 5)
+  const ok = tx('2026-10-01', 'Kiosk', 'Other', 5)
+  const found = worthChecking([future, broken, blank, ok], { today: '2026-10-22' })
+  assert.deepEqual(found.filter((c) => c.kind === 'odd-date').map((c) => c.id).sort(), ['odd-date:future', 'odd-date:invalid'])
+  assert.deepEqual(found.find((c) => c.kind === 'missing-category')?.transactionIds, [blank.id])
 })
