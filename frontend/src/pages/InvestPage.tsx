@@ -162,6 +162,14 @@ export function InvestPage() {
         </p>
       </section>
 
+      <section aria-labelledby="pack-heading" className="card flex flex-col gap-2 p-6">
+        <h2 id="pack-heading" className="card-title">Adviser pack</h2>
+        <p className="text-slate-400">
+          Your situation, goals, plans and holdings on one page, with what is missing and questions to ask. Print it or save it as a PDF.{' '}
+          <Link to="/invest/review" className="font-semibold text-accent">Open the pack</Link>
+        </p>
+      </section>
+
       <ScenariosSection />
 
       <RiskSection />

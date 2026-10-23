@@ -22,6 +22,7 @@ import { budgetProgress } from '@finbuddy/core/ledger/budgets'
 import { worthChecking } from '@finbuddy/core/ledger/checks'
 import { AI_PROMPTS, promptText } from '@finbuddy/core/ledger/prompts'
 import { monthlyEquivalent, planState } from '@finbuddy/core/ledger/plans'
+import { buildReview, planView } from '@finbuddy/core/ledger/review'
 import { holdingCost, holdingValue } from '@finbuddy/core/ledger/holdings'
 import { LINK_PATTERN } from '@finbuddy/core/ledger/links'
 import { unresolvedPayees } from '@finbuddy/core/ledger/cleanup'
@@ -59,8 +60,8 @@ const money = (n: number) => Math.round(n * 100) / 100
 /** Keeps IBANs and card numbers out of what is sent back to the AI app. */
 function mask(text: string): string {
   return text
-    .replace(/\b([A-Z]{2}\d{2})(?:\s?[A-Z0-9]{4}){2,7}(?:\s?[A-Z0-9]{1,4})?\b/g, (m, cc) => `${cc}…${m.replace(/\s/g, '').slice(-4)}`)
-    .replace(/\b\d(?:[ -]?\d){11,18}\b/g, (m) => `…${m.replace(/\D/g, '').slice(-4)}`)
+    .replace(/\b([A-Z]{2}\d{2})(?:\s?[A-Z0-9]{4}){2,7}(?:\s?[A-Z0-9]{1,4})?\b/g, (m, cc) => `${cc}â€¦${m.replace(/\s/g, '').slice(-4)}`)
+    .replace(/\b\d(?:[ -]?\d){11,18}\b/g, (m) => `â€¦${m.replace(/\D/g, '').slice(-4)}`)
 }
 
 const ok = (summary: string, data?: unknown) => ({
@@ -250,7 +251,7 @@ export function buildServer(): McpServer {
     'forecast_what_if',
     {
       title: 'What-if forecast',
-      description: 'Compare the 12-month forecast with a scenario: save or spend more each month, or a one-off payment or windfall. Use for "can I afford…", "what if I save X".',
+      description: 'Compare the 12-month forecast with a scenario: save or spend more each month, or a one-off payment or windfall. Use for "can I affordâ€¦", "what if I save X".',
       inputSchema: z.object({
         months: z.number().int().min(1).max(36).default(12),
         extra_saving_per_month: z.number().min(0).default(0).describe('Extra moved into savings/investments each month'),
@@ -366,7 +367,7 @@ export function buildServer(): McpServer {
         mode: z.enum(['calendar', 'salary']).default('calendar'),
         date: iso.optional().describe('Any date inside the period; default is the latest period with data'),
         threshold_percent: z.number().min(5).max(100).default(20).describe('Watch a category that moved at least this much'),
-        min_amount: z.number().min(0).default(50).describe('…and by at least this amount'),
+        min_amount: z.number().min(0).default(50).describe('â€¦and by at least this amount'),
         currency: z.string().length(3).optional(),
       }),
       annotations: RO,
@@ -963,6 +964,53 @@ export function buildServer(): McpServer {
           trades: d.trades.map((t) => ({ id: t.id, holding: t.holdingId, date: t.date, type: t.type, quantity: t.quantity || undefined, price: t.price || undefined, amount: t.amount || undefined, fee: t.fee || undefined, tax: t.tax || undefined, currency: t.currency })),
           planned_investments: d.plans.map((p) => ({ id: p.id, name: p.name, amount: p.amount, currency: p.currency, frequency: p.frequency, monthly_equivalent: monthlyEquivalent(p), start_date: p.startDate || undefined, end_date: p.endDate || undefined, state: planState(p, todayIso()), linked_goal: p.goalId || undefined, linked_account: p.accountId || undefined, notes: p.notes ? mask(p.notes) : undefined })),
         })
+      }),
+  )
+
+  const packInput = async (l: LedgerSession) => {
+    const d = await l.load()
+    const info = await l.investorInfo()
+    return {
+      accounts: d.accounts,
+      balances: d.balances,
+      transactions: d.transactions,
+      goals: d.goals,
+      plans: d.plans,
+      holdings: d.holdings,
+      trades: d.trades,
+      investor: info.investor,
+      householdMembers: info.householdMembers,
+      today: todayIso(),
+    }
+  }
+
+  server.registerTool(
+    'investment_plan',
+    {
+      title: 'Investment plan',
+      description:
+        'The user\'s investing goals and plans: for each goal paid for from an investment or retirement account, what is set aside, the monthly saving, three illustrative yearly returns (0%, 3%, 6%) and the return the goal needs. Also the three risk answers (ability, comfort with losses, need) and where the plan and the answers disagree. Illustrations, not forecasts; general information, not regulated advice. Do not name or recommend specific products.',
+      annotations: RO,
+    },
+    () =>
+      run(false, async (l) => {
+        const v = planView(await packInput(l))
+        return ok(`${v.goals.length} investing goal${v.goals.length === 1 ? '' : 's'}, ${v.plans.length} planned investment${v.plans.length === 1 ? '' : 's'}.`, v)
+      }),
+  )
+
+  server.registerTool(
+    'investment_review',
+    {
+      title: 'Investment review pack',
+      description:
+        'One review pack for an adviser or for the user\'s own thinking: about the user, risk in three parts, goal scenarios, planned investments, put in versus worth per account, how it is spread against the target, holdings with cost and return, what is missing, and questions worth asking. Use "gaps" to say how far the numbers can be trusted. Quote the figures; do not recompute them. General information, not regulated advice. Do not name or recommend specific products.',
+      annotations: RO,
+    },
+    () =>
+      run(false, async (l) => {
+        const r = buildReview(await packInput(l))
+        return ok(`Review pack: ${r.goals.length} goals, ${r.holdings.length} holdings, ${r.gaps.length} gaps, ${r.questions.length} questions.`, r)
       }),
   )
 
