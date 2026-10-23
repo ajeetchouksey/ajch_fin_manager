@@ -20,6 +20,7 @@ import { change, inSpan, spendingByCategory, totalsFor, ym } from '@finbuddy/cor
 import { buildPeriods, periodContaining, type Period } from '@finbuddy/core/ledger/periods'
 import { budgetProgress } from '@finbuddy/core/ledger/budgets'
 import { worthChecking } from '@finbuddy/core/ledger/checks'
+import { unresolvedPayees } from '@finbuddy/core/ledger/cleanup'
 import { buildReport, choosePeriod } from '@finbuddy/core/ledger/report'
 import { planLabelMigration } from '@finbuddy/core/ledger/accounts'
 import { explain, LedgerSession } from './ledger'
@@ -584,7 +585,7 @@ export function buildServer(): McpServer {
     {
       title: 'Worth checking',
       description:
-        'Things in the Ledger that look wrong and are quick to fix, the same list the FinBuddy app shows: payments in the user\'s own name not marked as Transfer, regular income not marked as Salary, a payee filed under an unusual category, payee spelling variants, a monthly payment paid twice or missing, and a large share of spending in Other. Nothing is changed. To fix one, show it to the user and, if they agree, call update_transactions with the transaction ids and the suggested category.',
+        'Things in the Ledger that look wrong and are quick to fix, the same list the FinBuddy app shows: payments in the user\'s own name not marked as Transfer, regular income not marked as Salary, a payee filed under an unusual category, payee spelling variants, two legs of a move between the user\'s own accounts counted as income and spending, refunds not netted against their purchase, payments with future or unreadable dates or no category, a monthly payment paid twice, missing, changed in price or stopped, and a large share of spending in Other. For a full clean-up with the unresolved payees, use cleanup_review. Nothing is changed. To fix one, show it to the user and, if they agree, call update_transactions with the transaction ids and the suggested category.',
       inputSchema: z.object({
         month: z.string().regex(/^\d{4}-\d{2}$/).optional().describe('Month for the Other-share check (YYYY-MM); default the latest month'),
         other_share_limit: z.number().min(0).max(1).default(0.1).describe('Flag a month whose Other spending is above this share'),
@@ -604,6 +605,51 @@ export function buildServer(): McpServer {
             suggested_category: c.suggestedCategory ?? null,
             count: c.transactionIds.length,
             transaction_ids: c.transactionIds.slice(0, 100),
+          })),
+        })
+      }),
+  )
+
+  server.registerTool(
+    'cleanup_review',
+    {
+      title: 'Clean-up review',
+      description:
+        'Prepares a data clean-up of the Ledger. Returns (1) the deterministic findings from worth_checking, each with its transaction ids and suggested fix, and (2) the payees whose payments are still in Other or have no category, grouped by payee, each with FinBuddy\'s own hint when it has one, sample descriptions and the transaction ids. Nothing is changed. Work through it with the user: show the findings, propose a category for each unresolved payee (use the hint when it fits, otherwise your own judgement from the description; say when you are unsure and ask), and wait for the user to agree. Then apply the agreed ones with update_transactions in one call. Never apply a change the user has not confirmed. If the same payee comes up again and again, suggest the user add a categorisation rule in FinBuddy Settings so it is handled without AI next time.',
+      inputSchema: z.object({
+        limit: z.number().int().min(1).max(100).default(25).describe('Most unresolved payees to return, biggest total first'),
+      }),
+      annotations: RO,
+    },
+    (a) =>
+      run(false, async (l) => {
+        const d = await l.load()
+        const ownNames = await l.ownNames()
+        const userRules = await l.userRules()
+        const checks = worthChecking(d.transactions, { ownNames })
+        const unresolved = unresolvedPayees(d.transactions, { ownNames, userRules, learned: learnFromLedger(d.transactions), limit: a.limit })
+        if (!checks.length && !unresolved.length) return ok('The Ledger is clean: nothing to check and every payee has a category.', { checks: [], unresolved_payees: [] })
+        return ok(`${checks.length} finding${checks.length === 1 ? '' : 's'} and ${unresolved.length} payee${unresolved.length === 1 ? '' : 's'} without a real category.`, {
+          categories: CATEGORY_HELP,
+          checks: checks.map((c) => ({
+            kind: c.kind,
+            title: mask(c.title),
+            detail: mask(c.detail),
+            suggested_category: c.suggestedCategory ?? null,
+            count: c.transactionIds.length,
+            transaction_ids: c.transactionIds.slice(0, 100),
+          })),
+          unresolved_payees: unresolved.map((g) => ({
+            payee: mask(g.label),
+            direction: g.direction,
+            currency: g.currency,
+            payments: g.count,
+            total: g.total,
+            first: g.firstDate,
+            last: g.lastDate,
+            samples: g.samples.map(mask),
+            hint: g.hint,
+            transaction_ids: g.transactionIds.slice(0, 100),
           })),
         })
       }),
