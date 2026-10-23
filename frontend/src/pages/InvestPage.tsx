@@ -10,6 +10,7 @@ import { useProfile } from '../hooks/useProfile'
 import { accountBalances } from '../lib/ledger/balances'
 import { aboutYou, ageIn, cleanInvestorProfile, EMPLOYMENT, INCOME_STABILITY, isEmptyInvestor } from '../lib/ledger/investor'
 import { RiskSection } from '../components/invest/RiskSection'
+import { PlansSection } from '../components/invest/PlansSection'
 import { formatMoney, todayIso } from '../lib/ledger/types'
 
 /** Invest: what you hold, what you tell us about yourself (all optional), and the expert-mode switch. */
@@ -106,6 +107,8 @@ export function InvestPage() {
           </ul>
         )}
       </section>
+
+      <PlansSection />
 
       <section aria-labelledby="you-heading" className="card flex flex-col gap-4 p-6">
         <div>

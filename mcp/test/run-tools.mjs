@@ -154,6 +154,8 @@ r = await call('worth_checking', {})
 check('worth_checking returns a list and changes nothing', !r.error && Array.isArray(r.data?.checks) && r.data.checks.every((c) => c.kind && c.title), r.text.split('\n')[0])
 r = await call('worth_checking', { other_share_limit: 0 })
 check('worth_checking other_share_limit is used', !r.error && Array.isArray(r.data?.checks))
+r = await call('list_accounts_and_goals', {})
+check('list_accounts_and_goals lists planned investments (none yet)', !r.error && Array.isArray(r.data?.planned_investments) && r.data.planned_investments.length === 0, r.text.split('\n')[0])
 r = await call('cleanup_review', {})
 check('cleanup_review returns checks and unresolved payees', !r.error && Array.isArray(r.data?.checks) && Array.isArray(r.data?.unresolved_payees), r.text.split('\n')[0])
 
