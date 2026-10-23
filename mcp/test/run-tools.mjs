@@ -23,11 +23,11 @@ async function call(name, args = {}, query = '') {
 }
 
 function check(label, cond, detail = '') {
-  console.log(`${cond ? 'PASS' : 'FAIL'}  ${label}${detail ? ` — ${detail}` : ''}`)
+  console.log(`${cond ? 'PASS' : 'FAIL'}  ${label}${detail ? ` â€” ${detail}` : ''}`)
   if (!cond) failures++
 }
 
-const CSV = `Buchungstag;Wertstellung;Umsatzart;Buchungstext;Betrag;Währung;Auftraggeberkonto;Bankleitzahl Auftraggeberkonto;IBAN Auftraggeberkonto;Kategorie
+const CSV = `Buchungstag;Wertstellung;Umsatzart;Buchungstext;Betrag;WÃ¤hrung;Auftraggeberkonto;Bankleitzahl Auftraggeberkonto;IBAN Auftraggeberkonto;Kategorie
 03.09.2026;03.09.2026;Lastschrift;REWE Markt GmbH Berlin Kartenzahlung 02.09;-54,20;EUR;0387814700;50040000;DE80500400000387814700;Lebensmittel
 01.09.2026;01.09.2026;Gutschrift;ACME GMBH Gehalt September 2026;4.200,00;EUR;0387814700;50040000;DE80500400000387814700;Einkommen
 01.09.2026;01.09.2026;Dauerauftrag;Max Mustermann Miete September IBAN DE89370400440532013000;-1.150,00;EUR;0387814700;50040000;DE80500400000387814700;Wohnen
@@ -35,7 +35,7 @@ const CSV = `Buchungstag;Wertstellung;Umsatzart;Buchungstext;Betrag;Währung;Auf
 15.09.2026;15.09.2026;Lastschrift;AMAZON EU SARL;-89,00;EUR;0387814700;50040000;DE80500400000387814700;Shopping`
 
 const init = await rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } })
-check('initialize', !!init.serverInfo, `${init.serverInfo?.name} · instructions ${init.instructions ? 'present' : 'missing'}`)
+check('initialize', !!init.serverInfo, `${init.serverInfo?.name} Â· instructions ${init.instructions ? 'present' : 'missing'}`)
 
 const prompts = (await rpc('prompts/list', {})).prompts ?? []
 check('prompts/list has the investing prompts', prompts.length >= 7 && prompts.some((p) => p.name === 'goal-strategy'), prompts.map((p) => p.name).join(', '))
@@ -109,7 +109,7 @@ r = await call('list_accounts_and_goals')
 check('list accounts and goals', r.data?.accounts?.length === 3 && r.data?.goals?.length === 1 && r.data.accounts.find((a) => a.id === accId)?.balance === 2600)
 
 r = await call('financial_review')
-check('financial_review', !r.error && r.data?.net_worth?.net_worth === 3800 && Array.isArray(r.data?.gaps), `score ${r.data?.health_score} · gaps: ${r.data?.gaps?.map((g) => g.title).join(' | ')}`)
+check('financial_review', !r.error && r.data?.net_worth?.net_worth === 3800 && Array.isArray(r.data?.gaps), `score ${r.data?.health_score} Â· gaps: ${r.data?.gaps?.map((g) => g.title).join(' | ')}`)
 r = await call('financial_review', { sections: ['score', 'cash_flow'] })
 check('review sections filter', r.data && !('gaps' in r.data) && 'cash_flow' in r.data, `savings rate ${r.data?.cash_flow?.savings_rate_percent}%`)
 
@@ -160,6 +160,61 @@ r = await call('investment_plan', {})
 check('investment_plan returns goals, plans and the three risk answers', !r.error && Array.isArray(r.data?.goals) && Array.isArray(r.data?.plans) && 'ability' in (r.data?.risk ?? {}) && /not regulated advice/i.test(r.data?.notice ?? ''), r.text.split('\n')[0])
 r = await call('investment_review', {})
 check('investment_review returns the whole pack with gaps and questions', !r.error && Array.isArray(r.data?.gaps) && r.data.questions?.length >= 1 && Array.isArray(r.data?.holdings) && Array.isArray(r.data?.allocation), r.text.split('\n')[0])
+// ---- investing on a realistic ledger, checked against numbers worked out separately (Python, scipy) ----
+{
+  const seed = async (tab, rows) => (await fetch(`${BASE}/_seed`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tab, rows }) })).json()
+  const dep = await call('save_account', { name: 'Depot', type: 'brokerage', balance: 18000, as_of: '2026-10-01' })
+  const depId = dep.data?.id
+  const goal = await call('save_goal', { name: 'Home deposit', target: 60000, target_date: '2032-06-01', monthly: 300, account_id: depId, priority: 'high' })
+  const goalId = goal.data?.id
+  const tr = (id, date, type, quantity, price, amount, fee, tax) => [id, 'hold_a', depId, date, type, quantity, price, amount, fee, tax, 'EUR', '', `${date}T10:00:00Z`]
+  const seeded = [
+    await seed('Holdings', [['hold_a', depId, 'World equity ETF', 'IE00B4L5Y983', '', 'funds', 15, 110.1, 'EUR', 160, '2026-10-20', 'private note', '2024-01-01T00:00:00Z']]),
+    await seed('Trades', [tr('t1', '2024-01-01', 'buy', 10, 100, 0, 1, 0), tr('t2', '2024-07-01', 'buy', 10, 120, 0, 1, 0), tr('t3', '2025-03-01', 'sell', 5, 150, 0, 1, 2), tr('t4', '2025-06-01', 'dividend', 0, 0, 20, 0, 3)]),
+    await seed('Plans', [['plan_a', 'Monthly investing', 300, 'EUR', 'monthly', '', '', goalId, depId, '', '2024-01-01T00:00:00Z']]),
+    await seed('Profile', [['investorProfile', JSON.stringify({ birthYear: 1990, employment: 'employed', incomeStability: 'stable', riskAnswers: { fall: 2, range: 2, feeling: 3, wait: 3, 'never-below': 2 }, allocationTarget: { funds: 60, shares: 40 } }), '']]),
+  ]
+  check('investing: test data seeded', seeded.every((s) => s.ok), JSON.stringify(seeded))
+
+  // independent yearly-rate solver (actual/365), not the app's code
+  const today = new Date().toISOString().slice(0, 10)
+  const days = (a, b) => (Date.parse(b) - Date.parse(a)) / 86_400_000
+  const flows = [['2024-01-01', -1001], ['2024-07-01', -1201], ['2025-03-01', 747], ['2025-06-01', 17], [today, 15 * 160]]
+  const npv = (rate) => flows.reduce((s, [d, a]) => s + a / (1 + rate) ** (days('2024-01-01', d) / 365), 0)
+  let lo = -0.99
+  let hi = 10
+  for (let i = 0; i < 200; i++) {
+    const mid = (lo + hi) / 2
+    if (npv(mid) > 0) lo = mid
+    else hi = mid
+  }
+  const expectYearly = (lo + hi) / 2
+
+  const rev = await call('investment_review', {})
+  const h = rev.data?.holdings?.[0]
+  check('investment_review: holding value, gain and share match (2.400; +962; 43.69%)', !rev.error && h?.value === 2400 && h?.gain === 962 && Math.abs(h?.gainShare - 0.4369) < 0.0002, JSON.stringify(h))
+  check('investment_review: realised gain 196.50 and dividends after tax 17.00', h?.realised === 196.5 && h?.dividends === 17, `realised ${h?.realised}, dividends ${h?.dividends}`)
+  check(`investment_review: yearly return matches an independent solver (${(expectYearly * 100).toFixed(2)}%)`, typeof h?.yearly === 'number' && Math.abs(h.yearly - expectYearly) < 0.0006, `got ${h?.yearly}`)
+  check('investment_review: private notes on holdings are not in the pack', !JSON.stringify(rev.data).includes('private note'))
+  check('investment_review: the risk picture uses the saved answers', rev.data?.risk?.answered === 5 && rev.data?.risk?.willingness !== null && rev.data?.risk?.ability !== null, JSON.stringify(rev.data?.risk).slice(0, 160))
+  check('investment_review: about you comes from the saved profile', rev.data?.about?.work === 'Employed' && rev.data?.about?.age >= 35, JSON.stringify(rev.data?.about))
+  check('investment_review: target mix shows in the spread', rev.data?.allocation?.[0]?.lines?.some((l) => l.id === 'funds' && l.target === 60), JSON.stringify(rev.data?.allocation?.[0]?.lines?.map((l) => [l.id, l.target])))
+
+  const plan = await call('investment_plan', {})
+  const s = plan.data?.goals?.[0]
+  const fv = (cur, m, n, r) => {
+    if (r === 0) return cur + m * n
+    const i = (1 + r) ** (1 / 12) - 1
+    return cur * (1 + i) ** n + m * (((1 + i) ** n - 1) / i)
+  }
+  check('investment_plan: the goal is found and uses the planned 300 a month', !plan.error && s?.name === 'Home deposit' && s?.monthly === 300 && s?.source === 'plans' && s?.current === 18000, JSON.stringify({ monthly: s?.monthly, source: s?.source, current: s?.current }))
+  check('investment_plan: 0%, 3% and 6% cases match an independent calculation', s?.cases?.length === 3 && s.cases.every((c) => Math.abs(c.value - fv(18000, 300, s.months, c.rate)) < 0.51), JSON.stringify(s?.cases?.map((c) => [c.rate, c.value])))
+  check('investment_plan: runs for 5 to 7 years (months ' + s?.months + ')', s?.months >= 60 && s?.months <= 84)
+  check('investment_plan: has the not-advice notice', /not regulated advice/i.test(plan.data?.notice ?? ''))
+  const ro = await call('investment_review', {}, '?readonly=1')
+  check('investment_review: works on a read-only connection', !ro.error && Array.isArray(ro.data?.holdings))
+}
+
 r = await call('cleanup_review', {})
 check('cleanup_review returns checks and unresolved payees', !r.error && Array.isArray(r.data?.checks) && Array.isArray(r.data?.unresolved_payees), r.text.split('\n')[0])
 

@@ -21,6 +21,14 @@ export default {
   async fetch(request: Request, env: unknown, ctx: ExecutionContext) {
     const url = new URL(request.url)
     if (url.pathname === '/_calls') return Response.json(google.calls.splice(0))
+    // Test-only: put rows straight into a tab, for data the tools cannot write (plans, holdings, trades, profile)
+    if (url.pathname === '/_seed' && request.method === 'POST') {
+      const { tab, rows } = (await request.json()) as { tab: string; rows: unknown[][] }
+      const t = google.sheets.get(tab)
+      if (!t) return Response.json({ error: `no tab ${tab}` }, { status: 404 })
+      t.rows.push(...rows)
+      return Response.json({ ok: true, rows: t.rows.length })
+    }
     const scope = url.searchParams.get('readonly') ? ['ledger:read'] : ['ledger:read', 'ledger:write']
     // What the OAuth provider would put on ctx.props for a signed-in user
     const props = { userId: 'u1', email: 'test@example.com', scope, googleAccessToken: 'fake-token' }

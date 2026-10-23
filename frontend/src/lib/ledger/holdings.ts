@@ -138,11 +138,12 @@ export function holdingsByAccount(holdings: Holding[], accountCurrency: (account
 }
 
 /** Why a holding cannot be saved yet, or null. */
-export function holdingProblem(d: Pick<HoldingDraft, 'accountId' | 'name' | 'isin' | 'quantity' | 'avgCost' | 'price'>): string | null {
+export function holdingProblem(d: Pick<HoldingDraft, 'accountId' | 'name' | 'isin' | 'quantity' | 'avgCost' | 'price'>, hasTrades = false): string | null {
   if (!d.accountId) return 'Pick the account this is held in.'
   if (!d.name.trim()) return 'Give the holding a name.'
   if (d.isin && !isIsin(d.isin)) return 'The ISIN does not look right (12 characters, for example IE00B4L5Y983). Leave it empty if unsure.'
-  if (!(d.quantity > 0)) return 'Enter how many units you hold.'
+  // A holding with trades gets its units from them, and a fully sold one is at zero
+  if (hasTrades ? !(d.quantity >= 0) : !(d.quantity > 0)) return 'Enter how many units you hold.'
   if (d.avgCost !== null && d.avgCost < 0) return 'The average cost cannot be negative.'
   if (d.price !== null && d.price < 0) return 'The price cannot be negative.'
   return null
