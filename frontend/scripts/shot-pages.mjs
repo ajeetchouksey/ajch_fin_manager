@@ -62,6 +62,10 @@ if (process.env.SHOT_INVEST) {
   tabs.Goals.push(['goal_9', 'Home deposit', 60000, 'EUR', '2032-06-01', 0, 300, 'acc_9', 'high', '', ''])
   tabs.Profile.push(['householdMembers', '[{"name":"Mia","relationship":"Daughter"}]', ''])
   if (process.env.SHOT_INVEST === '2') {
+    tabs.Plans = [['id', 'name', 'amount', 'currency', 'frequency', 'start_date', 'end_date', 'goal_id', 'account_id', 'notes', 'created_at'],
+      ['plan_1', 'Monthly investing', 300, 'EUR', 'monthly', '', '', 'goal_9', 'acc_9', '', ''],
+      ['plan_2', 'Bonus top-up', 1200, 'EUR', 'yearly', '2027-03-01', '', 'goal_9', '', '', ''],
+      ['plan_3', 'Course fund', 150, 'EUR', 'monthly', '2025-01-01', '2026-06-30', '', '', '', '']]
     tabs.Profile.push(['investorProfile', JSON.stringify({ birthYear: 1990, employment: 'employed', incomeStability: 'stable', riskAnswers: { fall: 2, range: 2, feeling: 3, wait: 3, 'never-below': 2 } }), ''])
   }
 }

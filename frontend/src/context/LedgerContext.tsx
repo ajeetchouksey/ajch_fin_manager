@@ -1,10 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { clearDriveToken, getStoredDriveToken, requestDriveToken } from '../lib/google/gis'
-import { ACCOUNT_SHEET, ANALYSIS_SHEET, BUDGET_SHEET, DOC_SHEET, DriveError, GOAL_SHEET, LedgerClient, TRASH_SHEET, TX_SHEET } from '../lib/google/driveClient'
+import { ACCOUNT_SHEET, ANALYSIS_SHEET, BUDGET_SHEET, DOC_SHEET, DriveError, GOAL_SHEET, LedgerClient, PLAN_SHEET, TRASH_SHEET, TX_SHEET } from '../lib/google/driveClient'
 import { accountToTrash, analysisToTrash, documentToTrash, expiredItems, transactionToTrash, type TrashItem } from '../lib/ledger/trash'
 import type { ImportBatch } from '../lib/ledger/imports'
 import type { Budget } from '../lib/ledger/budgets'
+import { newPlanId, type Plan, type PlanDraft } from '../lib/ledger/plans'
 import type { Analysis, AnalysisStatus } from '../lib/ledger/analysis'
 import { mergeProfile, profileToRows, rowsToProfile, type ProfileRow } from '../lib/ledger/profile'
 import type { UserSchemaDefinition } from '../types'
@@ -40,6 +41,7 @@ interface LedgerContextValue {
   accounts: Account[]
   balances: BalanceEntry[]
   goals: Goal[]
+  plans: Plan[]
   budgets: Budget[]
   analysis: Analysis[]
   /** The financial profile from the Profile tab, or null when none is saved yet */
@@ -74,6 +76,9 @@ interface LedgerContextValue {
   deleteAccount: (a: Account) => Promise<void>
   saveGoal: (draft: GoalDraft, existing?: Goal) => Promise<Goal>
   deleteGoal: (g: Goal) => Promise<void>
+  /** Adds or changes a planned investment. */
+  savePlan: (draft: PlanDraft, existing?: Plan) => Promise<Plan>
+  deletePlan: (p: Plan) => Promise<void>
   /** Adds or changes the budget for a category (one per category). */
   saveBudget: (draft: Omit<Budget, 'createdAt' | 'row'>, existing?: Budget) => Promise<Budget>
   deleteBudget: (b: Budget) => Promise<void>
@@ -124,6 +129,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [balances, setBalances] = useState<BalanceEntry[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
+  const [plans, setPlans] = useState<Plan[]>([])
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [analysis, setAnalysis] = useState<Analysis[]>([])
   const [profileRows, setProfileRows] = useState<ProfileRow[]>([])
@@ -164,7 +170,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         checkedTabs.current = loc.spreadsheetId
       }
       const id = loc.spreadsheetId
-      const [tx, docs, accs, bals, gls, buds, anls, prof, bin] = await Promise.all([
+      const [tx, docs, accs, bals, gls, buds, anls, prof, bin, pls] = await Promise.all([
         client.listTransactions(id),
         client.listDocuments(id),
         client.listAccounts(id),
@@ -174,6 +180,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         client.listAnalysis(id),
         client.listProfile(id),
         client.listTrash(id),
+        client.listPlans(id),
       ])
       // Items past the retention period are erased; a failure here must not stop the Ledger loading
       const expired = expiredItems(bin, new Date())
@@ -184,6 +191,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       setAccounts(accs)
       setBalances(bals)
       setGoals(gls)
+      setPlans(pls)
       setBudgets(buds)
       setAnalysis(anls)
       setProfileRows(prof)
@@ -276,6 +284,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     setAccounts([])
     setBalances([])
     setGoals([])
+    setPlans([])
     setBudgets([])
     setAnalysis([])
     setProfileRows([])
@@ -453,9 +462,10 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         if (accounts.length) await client.deleteRows(id, ACCOUNT_SHEET, accounts.map((a) => ({ row: a.row, id: a.id })))
         if (goals.length) await client.deleteRows(id, GOAL_SHEET, goals.map((g) => ({ row: g.row, id: g.id })))
         if (budgets.length) await client.deleteRows(id, BUDGET_SHEET, budgets.map((b) => ({ row: b.row, id: b.category })))
+        if (plans.length) await client.deleteRows(id, PLAN_SHEET, plans.map((p) => ({ row: p.row, id: p.id })))
         await load(loc)
       }),
-    [run, client, load, transactions, accounts, goals, budgets],
+    [run, client, load, transactions, accounts, goals, budgets, plans],
   )
 
   const eraseFromTrash: LedgerContextValue['eraseFromTrash'] = useCallback(
@@ -546,6 +556,29 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [run, client, load],
   )
 
+  const savePlan: LedgerContextValue['savePlan'] = useCallback(
+    (draft, existing) =>
+      run(async () => {
+        const loc = requireLoc()
+        const plan: Plan = existing ? { ...existing, ...draft } : { ...draft, id: newPlanId(), createdAt: new Date().toISOString() }
+        if (existing) await client.updatePlan(loc.spreadsheetId, plan)
+        else await client.appendPlans(loc.spreadsheetId, [plan])
+        await load(loc)
+        return plan
+      }),
+    [run, client, load],
+  )
+
+  const deletePlan: LedgerContextValue['deletePlan'] = useCallback(
+    (p) =>
+      run(async () => {
+        const loc = requireLoc()
+        await client.deleteRow(loc.spreadsheetId, PLAN_SHEET, p.row ?? 0, p.id)
+        await load(loc)
+      }),
+    [run, client, load],
+  )
+
   const saveBudget: LedgerContextValue['saveBudget'] = useCallback(
     (draft, existing) =>
       run(async () => {
@@ -613,6 +646,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     accounts,
     balances,
     goals,
+    plans,
     budgets,
     analysis,
     profile,
@@ -638,6 +672,8 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     deleteAccount,
     saveGoal,
     deleteGoal,
+    savePlan,
+    deletePlan,
     saveBudget,
     deleteBudget,
     setAnalysisStatus,
