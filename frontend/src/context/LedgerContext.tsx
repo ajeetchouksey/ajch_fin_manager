@@ -1,12 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { clearDriveToken, getStoredDriveToken, requestDriveToken } from '../lib/google/gis'
-import { ACCOUNT_SHEET, ANALYSIS_SHEET, BUDGET_SHEET, DOC_SHEET, DriveError, GOAL_SHEET, HOLDING_SHEET, LedgerClient, PLAN_SHEET, TRASH_SHEET, TX_SHEET } from '../lib/google/driveClient'
+import { ACCOUNT_SHEET, ANALYSIS_SHEET, BUDGET_SHEET, DOC_SHEET, DriveError, GOAL_SHEET, HOLDING_SHEET, LedgerClient, TRADE_SHEET, PLAN_SHEET, TRASH_SHEET, TX_SHEET } from '../lib/google/driveClient'
 import { accountToTrash, analysisToTrash, documentToTrash, expiredItems, transactionToTrash, type TrashItem } from '../lib/ledger/trash'
 import type { ImportBatch } from '../lib/ledger/imports'
 import type { Budget } from '../lib/ledger/budgets'
 import { newPlanId, type Plan, type PlanDraft } from '../lib/ledger/plans'
 import { newHoldingId, type Holding, type HoldingDraft } from '../lib/ledger/holdings'
+import { newTradeId, positionFrom, type Trade, type TradeDraft } from '../lib/ledger/trades'
 import type { Analysis, AnalysisStatus } from '../lib/ledger/analysis'
 import { mergeProfile, profileToRows, rowsToProfile, type ProfileRow } from '../lib/ledger/profile'
 import type { UserSchemaDefinition } from '../types'
@@ -44,6 +45,7 @@ interface LedgerContextValue {
   goals: Goal[]
   plans: Plan[]
   holdings: Holding[]
+  trades: Trade[]
   budgets: Budget[]
   analysis: Analysis[]
   /** The financial profile from the Profile tab, or null when none is saved yet */
@@ -84,6 +86,9 @@ interface LedgerContextValue {
   /** Adds or changes a holding inside an investment or retirement account. */
   saveHolding: (draft: HoldingDraft, existing?: Holding) => Promise<Holding>
   deleteHolding: (h: Holding) => Promise<void>
+  /** Adds or changes a trade; the holding's units and average cost are worked out again from all its trades. */
+  saveTrade: (draft: TradeDraft, existing?: Trade) => Promise<Trade>
+  deleteTrade: (t: Trade) => Promise<void>
   /** Adds or changes the budget for a category (one per category). */
   saveBudget: (draft: Omit<Budget, 'createdAt' | 'row'>, existing?: Budget) => Promise<Budget>
   deleteBudget: (b: Budget) => Promise<void>
@@ -136,6 +141,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const [goals, setGoals] = useState<Goal[]>([])
   const [plans, setPlans] = useState<Plan[]>([])
   const [holdings, setHoldings] = useState<Holding[]>([])
+  const [trades, setTrades] = useState<Trade[]>([])
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [analysis, setAnalysis] = useState<Analysis[]>([])
   const [profileRows, setProfileRows] = useState<ProfileRow[]>([])
@@ -176,7 +182,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         checkedTabs.current = loc.spreadsheetId
       }
       const id = loc.spreadsheetId
-      const [tx, docs, accs, bals, gls, buds, anls, prof, bin, pls, hlds] = await Promise.all([
+      const [tx, docs, accs, bals, gls, buds, anls, prof, bin, pls, hlds, trds] = await Promise.all([
         client.listTransactions(id),
         client.listDocuments(id),
         client.listAccounts(id),
@@ -188,6 +194,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         client.listTrash(id),
         client.listPlans(id),
         client.listHoldings(id),
+        client.listTrades(id),
       ])
       // Items past the retention period are erased; a failure here must not stop the Ledger loading
       const expired = expiredItems(bin, new Date())
@@ -200,6 +207,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       setGoals(gls)
       setPlans(pls)
       setHoldings(hlds)
+      setTrades(trds)
       setBudgets(buds)
       setAnalysis(anls)
       setProfileRows(prof)
@@ -294,6 +302,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     setGoals([])
     setPlans([])
     setHoldings([])
+    setTrades([])
     setBudgets([])
     setAnalysis([])
     setProfileRows([])
@@ -472,10 +481,11 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         if (goals.length) await client.deleteRows(id, GOAL_SHEET, goals.map((g) => ({ row: g.row, id: g.id })))
         if (budgets.length) await client.deleteRows(id, BUDGET_SHEET, budgets.map((b) => ({ row: b.row, id: b.category })))
         if (plans.length) await client.deleteRows(id, PLAN_SHEET, plans.map((p) => ({ row: p.row, id: p.id })))
+        if (trades.length) await client.deleteRows(id, TRADE_SHEET, trades.map((t) => ({ row: t.row, id: t.id })))
         if (holdings.length) await client.deleteRows(id, HOLDING_SHEET, holdings.map((h) => ({ row: h.row, id: h.id })))
         await load(loc)
       }),
-    [run, client, load, transactions, accounts, goals, budgets, plans, holdings],
+    [run, client, load, transactions, accounts, goals, budgets, plans, holdings, trades],
   )
 
   const eraseFromTrash: LedgerContextValue['eraseFromTrash'] = useCallback(
@@ -612,6 +622,43 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [run, client, load],
   )
 
+  /** After trades change, a holding's units and average cost follow from its trades. */
+  const syncHolding = useCallback(
+    async (spreadsheetId: string, holdingId: string, list: Trade[]) => {
+      const holding = holdings.find((h) => h.id === holdingId)
+      if (!holding) return
+      const pos = positionFrom(list.filter((t) => t.holdingId === holdingId))
+      await client.updateHolding(spreadsheetId, { ...holding, quantity: pos.quantity, avgCost: pos.avgCost })
+    },
+    [client, holdings],
+  )
+
+  const saveTrade: LedgerContextValue['saveTrade'] = useCallback(
+    (draft, existing) =>
+      run(async () => {
+        const loc = requireLoc()
+        const trade: Trade = existing ? { ...existing, ...draft } : { ...draft, id: newTradeId(), createdAt: new Date().toISOString() }
+        if (existing) await client.updateTrade(loc.spreadsheetId, trade)
+        else await client.appendTrades(loc.spreadsheetId, [trade])
+        const next = [...trades.filter((t) => t.id !== trade.id), trade]
+        for (const id of new Set([trade.holdingId, existing?.holdingId ?? ''])) if (id) await syncHolding(loc.spreadsheetId, id, next)
+        await load(loc)
+        return trade
+      }),
+    [run, client, load, trades, syncHolding],
+  )
+
+  const deleteTrade: LedgerContextValue['deleteTrade'] = useCallback(
+    (t) =>
+      run(async () => {
+        const loc = requireLoc()
+        await client.deleteRow(loc.spreadsheetId, TRADE_SHEET, t.row ?? 0, t.id)
+        await syncHolding(loc.spreadsheetId, t.holdingId, trades.filter((x) => x.id !== t.id))
+        await load(loc)
+      }),
+    [run, client, load, trades, syncHolding],
+  )
+
   const saveBudget: LedgerContextValue['saveBudget'] = useCallback(
     (draft, existing) =>
       run(async () => {
@@ -681,6 +728,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     goals,
     plans,
     holdings,
+    trades,
     budgets,
     analysis,
     profile,
@@ -710,6 +758,8 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     deletePlan,
     saveHolding,
     deleteHolding,
+    saveTrade,
+    deleteTrade,
     saveBudget,
     deleteBudget,
     setAnalysisStatus,

@@ -72,6 +72,11 @@ if (process.env.SHOT_INVEST) {
       ['hold_1', 'acc_9', 'World equity ETF', 'IE00B4L5Y983', 'IWDA', 'funds', 120, 90, 'EUR', 110, '2026-10-20', '', ''],
       ['hold_2', 'acc_9', 'Single share', 'US0378331005', '', 'shares', 20, 150, 'EUR', 240, '2026-10-20', '', ''],
       ['hold_3', 'acc_9', 'Gold fund', '', '', 'gold', 10, '', 'EUR', '', '', '', '']]
+    tabs.Trades = [['id', 'holding_id', 'account_id', 'date', 'type', 'quantity', 'price', 'amount', 'fee', 'tax', 'currency', 'notes', 'created_at'],
+      ['tr_1', 'hold_1', 'acc_9', '2024-01-15', 'buy', 60, 80, 0, 0, 0, 'EUR', '', '2024-01-15T00:00:01Z'],
+      ['tr_2', 'hold_1', 'acc_9', '2025-02-10', 'buy', 60, 100, 0, 0, 0, 'EUR', '', '2025-02-10T00:00:01Z'],
+      ['tr_3', 'hold_1', 'acc_9', '2025-12-01', 'dividend', 0, 0, 40, 0, 10, 'EUR', '', '2025-12-01T00:00:01Z'],
+      ['tr_4', 'hold_2', 'acc_9', '2023-06-01', 'buy', 20, 150, 0, 0, 0, 'EUR', '', '2023-06-01T00:00:01Z']]
     tabs.Balances = tabs.Balances ?? [['account_id', 'date', 'balance', 'recorded_at']]
     tabs.Balances.push(['acc_9', '2026-01-02', 15000, ''], ['acc_9', '2026-10-21', 18000, ''])
   }
