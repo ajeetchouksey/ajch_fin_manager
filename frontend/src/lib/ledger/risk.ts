@@ -161,7 +161,7 @@ export interface GoalNeed {
 
 export const levelOfRate = (rate: number | null): Level => (rate === null || rate > 0.06 ? 'high' : rate > 0.03 ? 'medium' : 'low')
 
-const monthsBetween = (from: string, to: string) => {
+export const monthsBetween = (from: string, to: string) => {
   const [fy, fm] = from.split('-').map(Number)
   const [ty, tm] = to.split('-').map(Number)
   return (ty - fy) * 12 + (tm - fm)
@@ -200,6 +200,24 @@ export interface LedgerRiskData {
   today: string
 }
 
+/**
+ * The goals paid for from an investment or retirement account, with the money already set aside for each.
+ * Only these say anything about investment risk; a cash goal such as an emergency fund is met by saving, not by return.
+ */
+export function investingGoals(d: Pick<LedgerRiskData, 'accounts' | 'balances' | 'transactions' | 'goals' | 'today'>): Array<{ goal: Goal; current: number }> {
+  const balanceOf = new Map<string, number>()
+  const groupOf = new Map<string, string>()
+  for (const c of new Set(d.accounts.map((a) => a.currency))) {
+    for (const r of accountBalances(d.accounts, c, d.balances, d.transactions, d.today).rows) {
+      balanceOf.set(r.id, r.balance)
+      groupOf.set(r.id, r.group)
+    }
+  }
+  return d.goals
+    .filter((g) => g.accountId && ['investments', 'retirement'].includes(groupOf.get(g.accountId) ?? ''))
+    .map((goal) => ({ goal, current: goal.accountId && balanceOf.has(goal.accountId) ? balanceOf.get(goal.accountId)! : goal.saved }))
+}
+
 /** The calculated inputs for ability and need, from what the Ledger holds. Missing information stays missing. */
 export function ledgerRiskInputs(d: LedgerRiskData): { ability: AbilityInput; needs: GoalNeed[] } {
   const year = Number(d.today.slice(0, 4))
@@ -220,19 +238,10 @@ export function ledgerRiskInputs(d: LedgerRiskData): { ability: AbilityInput; ne
 
   if (d.householdMembers) input.dependants = d.householdMembers.filter((m) => /child|son|daughter|kid|dependent/i.test(m.relationship)).length
 
-  const balanceOf = new Map<string, number>()
-  const groupOf = new Map<string, string>()
-  for (const c of currencies) for (const r of rowsOf(c).rows) {
-    balanceOf.set(r.id, r.balance)
-    groupOf.set(r.id, r.group)
-  }
-  const currentOf = (g: Goal) => (g.accountId && balanceOf.has(g.accountId) ? balanceOf.get(g.accountId)! : g.saved)
-  // Only goals paid for from an investment or retirement account say anything about investment risk;
-  // a cash goal such as an emergency fund is met by saving, not by return.
-  const investing = d.goals.filter((g) => g.accountId && ['investments', 'retirement'].includes(groupOf.get(g.accountId) ?? ''))
-  const needs = goalNeeds(investing, currentOf, d.today)
+  const investing = investingGoals(d)
+  const needs = goalNeeds(investing.map((i) => i.goal), (g) => investing.find((i) => i.goal.id === g.id)?.current ?? g.saved, d.today)
 
-  const funded = investing.filter((g) => g.targetDate && monthsBetween(d.today.slice(0, 7), g.targetDate.slice(0, 7)) >= 1)
+  const funded = investing.map((i) => i.goal).filter((g) => g.targetDate && monthsBetween(d.today.slice(0, 7), g.targetDate.slice(0, 7)) >= 1)
   if (funded.length) input.nearestGoalMonths = Math.min(...funded.map((g) => monthsBetween(d.today.slice(0, 7), g.targetDate.slice(0, 7))))
   return { ability: input, needs }
 }

@@ -11,6 +11,7 @@ import { accountBalances } from '../lib/ledger/balances'
 import { aboutYou, ageIn, cleanInvestorProfile, EMPLOYMENT, INCOME_STABILITY, isEmptyInvestor } from '../lib/ledger/investor'
 import { RiskSection } from '../components/invest/RiskSection'
 import { PlansSection } from '../components/invest/PlansSection'
+import { ScenariosSection } from '../components/invest/ScenariosSection'
 import { formatMoney, todayIso } from '../lib/ledger/types'
 
 /** Invest: what you hold, what you tell us about yourself (all optional), and the expert-mode switch. */
@@ -154,6 +155,8 @@ export function InvestPage() {
           <Link to="/ask-ai" className="font-semibold text-accent">Open the prompts</Link>
         </p>
       </section>
+
+      <ScenariosSection />
 
       <RiskSection />
     </div>
