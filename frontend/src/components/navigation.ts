@@ -5,6 +5,7 @@ import {
   Home,
   LayoutDashboard,
   MessageCircleQuestion,
+  MessageSquareText,
   Lightbulb,
   PiggyBank,
   Receipt,
@@ -41,6 +42,7 @@ export const NAV_ITEMS: NavItem[] = [
 export const MORE_ITEMS: NavItem[] = [
   { to: '/insights', label: 'Insights', icon: Lightbulb },
   { to: '/tax', label: 'Tax', icon: Receipt },
+  { to: '/ask-ai', label: 'Ask your AI', icon: MessageSquareText },
   { to: '/analysis', label: 'Saved analysis', icon: Sparkles },
   { to: '/trash', label: 'Trash', icon: Trash2 },
 ]

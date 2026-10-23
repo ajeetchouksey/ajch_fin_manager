@@ -21,6 +21,7 @@ import { Layout } from './components/Layout'
 import { SetupProvider } from './context/SetupContext'
 import { AssistantPage } from './pages/AssistantPage'
 import { InvestPage } from './pages/InvestPage'
+import { AskAiPage } from './pages/AskAiPage'
 import { useTheme } from './hooks/useTheme'
 import { useHideAmounts } from './hooks/useHideAmounts'
 
@@ -63,6 +64,7 @@ function App() {
         <Route path="/budgets" element={<BudgetsPage />} />
             <Route path="/assistant" element={<AssistantPage />} />
 <Route path="/invest" element={<InvestPage />} />
+        <Route path="/ask-ai" element={<AskAiPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/storage" element={<StoragePage />} />
       </Route>

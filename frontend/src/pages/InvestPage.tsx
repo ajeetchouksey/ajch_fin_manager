@@ -144,6 +144,14 @@ export function InvestPage() {
         </div>
       </section>
 
+      <section aria-labelledby="ask-heading" className="card flex flex-col gap-2 p-6">
+        <h2 id="ask-heading" className="card-title">Think it through with your AI</h2>
+        <p className="text-slate-400">
+          Ready-made prompts for your own AI app to plan a goal, test it against bad years and prepare for an adviser. You decide.{' '}
+          <Link to="/ask-ai" className="font-semibold text-accent">Open the prompts</Link>
+        </p>
+      </section>
+
       <RiskSection />
     </div>
   )

@@ -20,6 +20,7 @@ import { change, inSpan, spendingByCategory, totalsFor, ym } from '@finbuddy/cor
 import { buildPeriods, periodContaining, type Period } from '@finbuddy/core/ledger/periods'
 import { budgetProgress } from '@finbuddy/core/ledger/budgets'
 import { worthChecking } from '@finbuddy/core/ledger/checks'
+import { AI_PROMPTS, promptText } from '@finbuddy/core/ledger/prompts'
 import { LINK_PATTERN } from '@finbuddy/core/ledger/links'
 import { unresolvedPayees } from '@finbuddy/core/ledger/cleanup'
 import { buildReport, choosePeriod } from '@finbuddy/core/ledger/report'
@@ -114,6 +115,15 @@ export function buildServer(): McpServer {
     { mimeType: VIEW_MIME, description: 'FinBuddy month summary, shown in the chat' },
     async () => ({ contents: [{ uri: MONTH_VIEW_URI, mimeType: VIEW_MIME, text: MONTH_VIEW_HTML }] }),
   )
+
+  // Prompts the user can start from in their AI app (same text as the web app's "Ask your AI" page)
+  for (const p of AI_PROMPTS) {
+    server.registerPrompt(
+      p.id,
+      { title: p.title, description: p.when },
+      () => ({ messages: [{ role: 'user' as const, content: { type: 'text' as const, text: promptText(p, true) } }] }),
+    )
+  }
 
   /** Runs a tool body and turns Drive/Ledger errors into a message the AI can relay. */
   const run = async <T,>(write: boolean, body: (l: LedgerSession) => Promise<T>) => {
