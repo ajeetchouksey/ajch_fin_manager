@@ -69,6 +69,12 @@
   --color-cat-groceries: #2dd4bf;
   --color-cat-travel: #fbbf24;
   --color-cat-shopping: #a3c45a;
+  /* Invest charts: five slots in a fixed order, checked for colour-blind separation (funds, shares, gold, crypto, retirement) */
+  --color-viz-1: #3987e5;
+  --color-viz-2: #199e70;
+  --color-viz-3: #c98500;
+  --color-viz-4: #d55181;
+  --color-viz-5: #9085e9;
   --color-cat-bills: #c4b5fd;
   --color-cat-utilities: #c49a6c;
   --color-cat-subscriptions: #67e8f9;
@@ -151,6 +157,11 @@
   --color-cat-groceries: #1f9d8b;
   --color-cat-travel: #e5a400;
   --color-cat-shopping: #7a9a2e;
+  --color-viz-1: #2a78d6;
+  --color-viz-2: #1baf7a;
+  --color-viz-3: #eda100;
+  --color-viz-4: #e87ba4;
+  --color-viz-5: #6250d6;
   --color-cat-bills: #a99bff;
   --color-cat-utilities: #9c6b3f;
   --color-cat-subscriptions: #4fb3d9;
