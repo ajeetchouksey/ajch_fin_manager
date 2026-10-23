@@ -3,6 +3,8 @@
  * the Invest page works without any of them. Kept in the Profile tab of the user's own Ledger.
  */
 
+import { cleanTarget, type AllocationTarget } from './allocation'
+
 export const EMPLOYMENT = [
   { value: 'employed', label: 'Employed' },
   { value: 'self_employed', label: 'Self-employed' },
@@ -31,6 +33,8 @@ export interface InvestorProfile {
   employment?: Employment
   incomeStability?: IncomeStability
   riskAnswers?: RiskAnswers
+  /** Target share of each kind of holding, in whole percent (see allocation.ts) */
+  allocationTarget?: AllocationTarget
 }
 
 const oneOf = <T extends string>(options: ReadonlyArray<{ value: T }>, v: unknown): T | undefined =>
@@ -57,6 +61,8 @@ export function cleanInvestorProfile(raw: unknown, now = new Date().getFullYear(
     }
     if (Object.keys(answers).length) out.riskAnswers = answers
   }
+  const target = cleanTarget(r.allocationTarget)
+  if (target) out.allocationTarget = target
   return out
 }
 
@@ -65,8 +71,8 @@ export function ageIn(profile: InvestorProfile | undefined, now = new Date().get
   return profile?.birthYear ? now - profile.birthYear : undefined
 }
 
-/** True when none of the about-you answers is given (the risk answers are kept separately). */
+/** True when none of the about-you answers is given (the risk answers and the allocation target are kept separately). */
 export const isEmptyInvestor = (p: InvestorProfile | undefined) => !p || (!p.birthYear && !p.employment && !p.incomeStability)
 
-/** The about-you part of a profile, without the risk answers. */
+/** The about-you part of a profile, without the risk answers and the allocation target. */
 export const aboutYou = (p: InvestorProfile): InvestorProfile => ({ birthYear: p.birthYear, employment: p.employment, incomeStability: p.incomeStability })

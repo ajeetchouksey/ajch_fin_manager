@@ -12,6 +12,7 @@ import { aboutYou, ageIn, cleanInvestorProfile, EMPLOYMENT, INCOME_STABILITY, is
 import { RiskSection } from '../components/invest/RiskSection'
 import { PlansSection } from '../components/invest/PlansSection'
 import { ScenariosSection } from '../components/invest/ScenariosSection'
+import { AllocationSection } from '../components/invest/AllocationSection'
 import { formatMoney, todayIso } from '../lib/ledger/types'
 
 /** Invest: what you hold, what you tell us about yourself (all optional), and the expert-mode switch. */
@@ -59,7 +60,7 @@ export function InvestPage() {
   const submit = async (next: typeof draft) => {
     setSaved(false)
     setError(null)
-    const done = await save({ investorProfile: { ...next, riskAnswers: stored.riskAnswers } })
+    const done = await save({ investorProfile: { ...next, riskAnswers: stored.riskAnswers, allocationTarget: stored.allocationTarget } })
     if (done) setSaved(true)
   }
 
@@ -108,6 +109,8 @@ export function InvestPage() {
           </ul>
         )}
       </section>
+
+      <AllocationSection />
 
       <PlansSection />
 
