@@ -102,7 +102,7 @@ export function rowsToProfile(rows: ProfileRow[]): UserSchemaDefinition | null {
     profile.exchangeRate = { base: String(fx.base).toUpperCase(), quote: String(fx.quote).toUpperCase(), rate: Number(fx.rate) }
   }
   const investor = cleanInvestorProfile(get('investorProfile'))
-  if (!isEmptyInvestor(investor)) profile.investorProfile = investor
+  if (!isEmptyInvestor(investor) || investor.riskAnswers) profile.investorProfile = investor
   const inv = get('investmentPreferences')
   if (inv && typeof inv === 'object') profile.investmentPreferences = inv as UserSchemaDefinition['investmentPreferences']
   const tax = get('taxSettings')

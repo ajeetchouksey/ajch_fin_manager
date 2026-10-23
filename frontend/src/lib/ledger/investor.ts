@@ -22,11 +22,15 @@ export const INCOME_STABILITY = [
 export type Employment = (typeof EMPLOYMENT)[number]['value']
 export type IncomeStability = (typeof INCOME_STABILITY)[number]['value']
 
+/** Answers to the willingness questions: question id to 1 (most cautious) to 4 (most comfortable with risk) */
+export type RiskAnswers = Record<string, 1 | 2 | 3 | 4>
+
 export interface InvestorProfile {
   /** Year of birth, used for the time left before money is needed */
   birthYear?: number
   employment?: Employment
   incomeStability?: IncomeStability
+  riskAnswers?: RiskAnswers
 }
 
 const oneOf = <T extends string>(options: ReadonlyArray<{ value: T }>, v: unknown): T | undefined =>
@@ -46,6 +50,13 @@ export function cleanInvestorProfile(raw: unknown, now = new Date().getFullYear(
   if (employment) out.employment = employment
   const stability = oneOf(INCOME_STABILITY, r.incomeStability)
   if (stability) out.incomeStability = stability
+  if (r.riskAnswers && typeof r.riskAnswers === 'object') {
+    const answers: RiskAnswers = {}
+    for (const [id, v] of Object.entries(r.riskAnswers as Record<string, unknown>).slice(0, 12)) {
+      if (/^[a-z-]{1,20}$/.test(id) && (v === 1 || v === 2 || v === 3 || v === 4)) answers[id] = v
+    }
+    if (Object.keys(answers).length) out.riskAnswers = answers
+  }
   return out
 }
 
@@ -54,4 +65,8 @@ export function ageIn(profile: InvestorProfile | undefined, now = new Date().get
   return profile?.birthYear ? now - profile.birthYear : undefined
 }
 
+/** True when none of the about-you answers is given (the risk answers are kept separately). */
 export const isEmptyInvestor = (p: InvestorProfile | undefined) => !p || (!p.birthYear && !p.employment && !p.incomeStability)
+
+/** The about-you part of a profile, without the risk answers. */
+export const aboutYou = (p: InvestorProfile): InvestorProfile => ({ birthYear: p.birthYear, employment: p.employment, incomeStability: p.incomeStability })
