@@ -130,7 +130,7 @@ export function ReportsPage() {
   // Line chart geometry (viewBox units)
   const W = 880, H = 260, L = 56, R = 870, T = 20, B = 230
   const top = Math.max(1000, ...series.flatMap((s) => [s.income, s.spending]))
-  const step = (() => { const raw = top / 4; const p = 10 ** Math.floor(Math.log10(raw)); return [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].map((m) => m * p).find((v) => v >= raw)! })()
+  const step = (() => { const raw = top / 4; const p = 10 ** Math.floor(Math.log10(raw)); return [1, 2, 2.5, 5, 10].map((m) => m * p).find((v) => v >= raw)! })()
   const max = step * 4
   const x = (i: number) => (series.length === 1 ? (L + R) / 2 : L + 14 + (i * (R - L - 28)) / (series.length - 1))
   const y = (v: number) => B - (v / max) * (B - T)
@@ -259,16 +259,16 @@ export function ReportsPage() {
           })}
         </section>
 
-        <section aria-labelledby="tax-heading" className="card-tint flex flex-col gap-3 p-6">
-          <span className="eyebrow">Tax return helper</span>
-          <h2 id="tax-heading" className="card-title">Tax year {taxYear} — so far</h2>
+        <section aria-labelledby="tax-heading" className="flex flex-col gap-3 rounded-2xl bg-panel p-6 text-white">
+          <span className="eyebrow !text-[#a99bff]">Tax return helper</span>
+          <h2 id="tax-heading" className="font-display text-[22px] leading-tight font-bold">Tax year {taxYear} — so far</h2>
           {taxLines.map((l) => (
-            <div key={l.label} className="flex justify-between gap-3 border-b border-tintline py-1.5 last:border-0">
-              <span className="text-slate-300">{l.label}</span>
-              <b className="tabular-nums text-ink">{l.value ? formatMoney(l.value, currency) : '—'}</b>
+            <div key={l.label} className="flex justify-between gap-3 border-b border-[#2c2a4a] py-1.5 last:border-0">
+              <span className="text-[#c9c5e6]">{l.label}</span>
+              <b className={`tabular-nums ${l.value ? '' : 'font-sans text-sm font-semibold whitespace-nowrap text-[#a99bff]'}`}>{l.value ? formatMoney(l.value, currency) : 'tag to include'}</b>
             </div>
           ))}
-          <Link to="/tax" className="font-semibold text-accent print:hidden">Open the tax page</Link>
+          <Link to="/tax" className="mt-1 inline-flex min-h-10 items-center justify-center rounded-xl bg-white px-4 font-semibold text-[#14122b] print:hidden">Open the tax page</Link>
         </section>
       </div>
 
