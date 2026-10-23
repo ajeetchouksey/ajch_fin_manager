@@ -8,6 +8,7 @@ import { getMcpAuthContext } from 'agents/mcp'
 import { z } from 'zod'
 import { analyzeTable, findCsvBalance, parseCsv, type DateFormat } from '@finbuddy/core/ledger/csv'
 import { TRANSFER_CATEGORY, isTransfer, learnFromLedger, payeeKey, suggestCategory } from '@finbuddy/core/ledger/categorize'
+import { combinedTotals } from '@finbuddy/core/ledger/fx'
 import { matchToLedger, DEFAULT_MATCH_DAYS } from '@finbuddy/core/ledger/reconcile'
 import { statementRow, type Sign, type TransactionDraft } from '@finbuddy/core/ledger/statement'
 import { dedupeKey, INCOME_CATEGORIES, MORE_EXPENSE_CATEGORIES, newId, parseTags, todayIso, type Transaction } from '@finbuddy/core/ledger/types'
@@ -33,6 +34,7 @@ const INSTRUCTIONS = `FinBuddy is the user's personal finance Ledger: a Google S
 - Start with ledger_status. Use financial_review for "how am I doing", gaps, forecasts and advice; use find_transactions and spending_breakdown for questions about payments.
 - Numbers come from FinBuddy's own calculations. Quote them; do not recompute or invent figures.
 - For "how was this month" or "how was my salary cycle", call month_summary with the mode the user uses (calendar by default, or salary). Its periods match the FinBuddy app. Figures in it are actual, not estimates.
+- With two currencies, the figures stay per currency. If the user saved an exchange rate in FinBuddy, month_summary also returns combined_at_your_rate: both currencies added at that rate. Say it is an estimate at their rate, and never convert with any other rate.
 - Forecasts and what-ifs are estimates. Say so, name the drivers (income, spending, the safety margin, savings) and the months they are based on.
 - When the user asks how things compare over time or asks for a picture, draw a small chart from the series or totals you were given, and label any estimate on it. Do not chart numbers you did not get from a tool.
 - To import a bank statement (CSV text from an attached file), call import_statement with apply=false first, show the user the preview, then call it again with apply=true. For PDFs or photos, read the rows yourself and use add_transactions.
@@ -319,12 +321,16 @@ export function buildServer(): McpServer {
             ? `From the salary credit on ${chosen.start} to the day before the next one${chosen.open && chosen.expectedEnd ? `, expected to end ${chosen.expectedEnd}` : ''}. Transfers between your own accounts are left out.`
             : 'The calendar month, 1st to last day. Transfers between your own accounts are left out.'
         const spendChange = before ? change(totals.spending, before.spending) : null
-        return ok(`${label} ${chosen.start} to ${chosen.end}: in ${totals.income}, out ${totals.spending}, left ${totals.net} ${currency}.`, {
+        // With a rate the user typed, both of its currencies added together in the first one (an estimate at that rate)
+        const fx = await l.exchangeRate()
+        const both = fx && d.transactions.some((t) => t.currency === fx.base) && d.transactions.some((t) => t.currency === fx.quote) ? combinedTotals(d.transactions, span, fx) : null
+        return ok(`${label} ${chosen.start} to ${chosen.end}: in ${totals.income}, out ${totals.spending}, left ${totals.net} ${currency}.${both && fx ? ` Both currencies together at your rate (1 ${fx.base} = ${fx.rate} ${fx.quote}): in ${both.income}, out ${both.spending}, left ${both.net} ${fx.base}.` : ''}`, {
           period: { kind: chosen.kind, label, start: chosen.start, end: chosen.end, partial: chosen.partial ?? false, open: chosen.open ?? false, expected_end: chosen.expectedEnd },
           fell_back_to_calendar: fellBack,
           currency,
           previous_period: prev ? { start: prev.start, end: prev.end } : null,
           totals: { income: totals.income, spending: totals.spending, net: totals.net, transactions: totals.count },
+          combined_at_your_rate: both && fx ? { rate: `1 ${fx.base} = ${fx.rate} ${fx.quote}`, currency: fx.base, income: both.income, spending: both.spending, net: both.net, transactions: both.count, note: 'Estimate: the two currencies added at the rate the user typed in Settings.' } : null,
           previous_totals: before ? { income: before.income, spending: before.spending, net: before.net } : null,
           spending_change_percent: spendChange === null ? null : Math.round(spendChange * 100),
           categories: categoryRows,

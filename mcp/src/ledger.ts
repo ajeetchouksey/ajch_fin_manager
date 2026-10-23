@@ -11,6 +11,7 @@ import type { Budget } from '@finbuddy/core/ledger/budgets'
 import type { Analysis, AnalysisStatus } from '@finbuddy/core/ledger/analysis'
 import { rowsToProfile, type UserSchemaDefinition } from '@finbuddy/core/ledger/profile'
 import { ownNamesFrom } from '@finbuddy/core/ledger/categorize'
+import { validRate, type ExchangeRate } from '@finbuddy/core/ledger/fx'
 
 export class NoLedgerError extends Error {
   constructor() {
@@ -78,6 +79,7 @@ export class LedgerSession {
 
   private names: string[] | undefined
   private rules: Array<{ match: string; category: string }> | undefined
+  private fx: ExchangeRate | null | undefined
 
   /**
    * Names that count as the user for transfers: the ones saved in the profile (as banks print them)
@@ -94,7 +96,14 @@ export class LedgerSession {
     }
     this.names = ownNamesFrom(undefined, profile?.householdMembers, profile?.ownNames)
     this.rules = profile?.categoryRules ?? []
+    this.fx = validRate(profile?.exchangeRate) ? profile!.exchangeRate! : null
     return this.names
+  }
+
+  /** The exchange rate the user typed in Settings (1 base = N quote), or null. Used only to add two currencies together. */
+  async exchangeRate(): Promise<ExchangeRate | null> {
+    if (this.fx === undefined) await this.ownNames()
+    return this.fx ?? null
   }
 
   /** The user's own "text contains -> category" rules from Settings; they win over history and keywords. */
