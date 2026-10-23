@@ -1,3 +1,5 @@
+import { cleanInvestorProfile, isEmptyInvestor, type InvestorProfile } from './investor'
+
 /**
  * The user's financial profile (countries, accounts, categories, goals, household, investments, tax) kept in
  * the Profile tab of their own Ledger, one row per field, so it stays in their Drive and not on our servers.
@@ -19,6 +21,8 @@ export interface UserSchemaDefinition {
     hasInvestments: boolean
     types?: string[]
   }
+  /** Optional facts about the user for investment planning (age, work, income stability) */
+  investorProfile?: InvestorProfile
   taxSettings?: {
     country: string
     fillingStatus?: string
@@ -39,6 +43,7 @@ export const PROFILE_KEYS = [
   'ownNames',
   'categoryRules',
   'exchangeRate',
+  'investorProfile',
 ] as const
 export type ProfileKey = (typeof PROFILE_KEYS)[number]
 
@@ -96,6 +101,8 @@ export function rowsToProfile(rows: ProfileRow[]): UserSchemaDefinition | null {
   if (fx && typeof fx === 'object' && Number(fx.rate) > 0 && Number.isFinite(Number(fx.rate)) && fx.base && fx.quote) {
     profile.exchangeRate = { base: String(fx.base).toUpperCase(), quote: String(fx.quote).toUpperCase(), rate: Number(fx.rate) }
   }
+  const investor = cleanInvestorProfile(get('investorProfile'))
+  if (!isEmptyInvestor(investor)) profile.investorProfile = investor
   const inv = get('investmentPreferences')
   if (inv && typeof inv === 'object') profile.investmentPreferences = inv as UserSchemaDefinition['investmentPreferences']
   const tax = get('taxSettings')
