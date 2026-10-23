@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth'
 import { usePeriodMode } from '../hooks/usePeriodMode'
 import { useProfile } from '../hooks/useProfile'
 import { useHideAmounts } from '../hooks/useHideAmounts'
+import { DeleteAllDialog } from '../components/ledger/DeleteAllDialog'
 import { useLedgerOptions } from '../hooks/useLedgerOptions'
 import { learnFromLedger, payeeKey } from '../lib/ledger/categorize'
 import { categoryColor } from '../lib/ledger/categoryColors'
@@ -26,10 +27,11 @@ const csvCell = (v: string | number) => (/[",\n;]/.test(String(v)) ? `"${String(
 export function SettingsPage() {
   const { openDetailedSetup } = useSetup()
   const { user } = useAuth()
-  const { transactions, trash, profile } = useLedger()
+  const { transactions, trash, profile, accounts, goals, budgets } = useLedger()
   const [mode, setMode] = usePeriodMode()
   const { save, saving, error: saveError } = useProfile()
   const [hideAmounts, setHideAmounts] = useHideAmounts()
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const opts = useLedgerOptions()
   const myRules = opts.userRules
   const categories = useMemo(() => Array.from(new Set([...opts.expenseCategories, ...opts.incomeCategories])), [opts.expenseCategories, opts.incomeCategories])
@@ -159,6 +161,7 @@ export function SettingsPage() {
           <div className="flex flex-wrap gap-2 pt-1">
             <button type="button" className="btn btn-secondary" onClick={exportAll} disabled={!transactions.length}><Download className="h-4 w-4" aria-hidden /> Export all data</button>
             <Link to="/trash" className="btn btn-secondary"><Trash2 className="h-4 w-4" aria-hidden /> Trash{trash.length ? ` (${trash.length})` : ''}</Link>
+            <button type="button" className="btn border border-warn-line bg-warn-bg text-warn-text hover:border-warn-text" onClick={() => setConfirmDelete(true)} disabled={!transactions.length && !accounts.length && !goals.length && !budgets.length}>Delete all data</button>
           </div>
           <p className="text-sm text-slate-400">Your Ledger is a Google Sheet in your own Drive; exporting gives you a CSV copy of every transaction.</p>
         </section>
@@ -255,6 +258,7 @@ export function SettingsPage() {
           </div>
         </section>
       </div>
+      {confirmDelete && <DeleteAllDialog onClose={() => setConfirmDelete(false)} />}
     </div>
   )
 }
