@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { allocationFor, assetClassOf, cleanTarget, driftNotes, putInVersusWorth, targetProblem } from '../src/lib/ledger/allocation.ts'
+import type { Holding } from '../src/lib/ledger/holdings.ts'
 import { cleanInvestorProfile } from '../src/lib/ledger/investor.ts'
 import type { Account, BalanceEntry } from '../src/lib/ledger/portfolio.ts'
 import type { Transaction } from '../src/lib/ledger/types.ts'
@@ -80,4 +81,19 @@ test('the target is stored with the investor profile and survives cleaning', () 
   const p = cleanInvestorProfile({ birthYear: 1990, allocationTarget: { funds: 70, shares: 30, junk: 1 } }, 2026)
   assert.deepEqual(p.allocationTarget, { funds: 70, shares: 30 })
   assert.equal(cleanInvestorProfile({ allocationTarget: {} }, 2026).allocationTarget, undefined)
+})
+
+test('priced holdings split an account by kind; a pension stays one kind; unpriced holdings change nothing', () => {
+  const hold = (over: Partial<Holding>): Holding => ({ id: 'h', accountId: 'a1', name: 'x', isin: '', symbol: '', assetClass: 'funds', quantity: 10, avgCost: null, currency: 'EUR', price: 10, priceDate: '', notes: '', createdAt: '', ...over })
+  const accounts = [acc({ balance: 10000 }), acc({ id: 'a3', type: 'pension', balance: 2000 })]
+  const holdings = [hold({ id: 'h1', quantity: 30, price: 10 }), hold({ id: 'h2', assetClass: 'shares', quantity: 10, price: 10 }), hold({ id: 'h3', accountId: 'a3', price: 99 }), hold({ id: 'h4', price: null, assetClass: 'gold' })]
+  const a = allocationFor(accounts, [], [], 'EUR', TODAY, undefined, holdings)
+  const by = Object.fromEntries(a.lines.map((l) => [l.id, l.value]))
+  assert.equal(by.funds, 7500)
+  assert.equal(by.shares, 2500)
+  assert.equal(by.retirement, 2000)
+  assert.equal(by.gold, undefined)
+  assert.equal(a.total, 12000)
+  // Without holdings the account's type decides
+  assert.equal(allocationFor(accounts, [], [], 'EUR', TODAY).lines.find((l) => l.id === 'funds')?.value, 10000)
 })

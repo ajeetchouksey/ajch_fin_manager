@@ -12,7 +12,7 @@ const signed = (v: number, currency: string) => `${v > 0 ? '+' : v < 0 ? '-' : '
 
 /** Put in versus worth for each investment account, and how the money is spread across kinds of holding against a target. */
 export function AllocationSection() {
-  const { accounts, balances, transactions, profile } = useLedger()
+  const { accounts, balances, transactions, holdings, profile } = useLedger()
   const { save, saving, error, setError } = useProfile()
   const stored = useMemo(() => cleanInvestorProfile(profile?.investorProfile), [profile])
   const today = todayIso()
@@ -20,8 +20,8 @@ export function AllocationSection() {
   const rows = useMemo(() => putInVersusWorth(accounts, balances, transactions, today), [accounts, balances, transactions, today])
   const currencies = useMemo(() => [...new Set(rows.map((r) => r.currency))], [rows])
   const allocations = useMemo(
-    () => currencies.map((c) => allocationFor(accounts, balances, transactions, c, today, stored.allocationTarget)),
-    [currencies, accounts, balances, transactions, today, stored.allocationTarget],
+    () => currencies.map((c) => allocationFor(accounts, balances, transactions, c, today, stored.allocationTarget, holdings)),
+    [currencies, accounts, balances, transactions, today, stored.allocationTarget, holdings],
   )
 
   const [editing, setEditing] = useState(false)
@@ -160,7 +160,7 @@ export function AllocationSection() {
           )
         })}
         <p className="text-sm text-slate-400">
-          Kinds come from account types, so a depot counts as funds even if it holds some shares. Holdings will make this exact. A gap from your target is information, not an instruction;
+          Kinds come from account types, so a depot counts as funds even if it holds some shares, unless you list its holdings with prices (expert mode), which then split it. A gap from your target is information, not an instruction;
           what to do about it is your decision. <Link to="/ask-ai" className="font-semibold text-accent">Think it through with your AI</Link>
         </p>
       </section>

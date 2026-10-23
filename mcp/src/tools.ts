@@ -22,6 +22,7 @@ import { budgetProgress } from '@finbuddy/core/ledger/budgets'
 import { worthChecking } from '@finbuddy/core/ledger/checks'
 import { AI_PROMPTS, promptText } from '@finbuddy/core/ledger/prompts'
 import { monthlyEquivalent, planState } from '@finbuddy/core/ledger/plans'
+import { holdingCost, holdingValue } from '@finbuddy/core/ledger/holdings'
 import { LINK_PATTERN } from '@finbuddy/core/ledger/links'
 import { unresolvedPayees } from '@finbuddy/core/ledger/cleanup'
 import { buildReport, choosePeriod } from '@finbuddy/core/ledger/report'
@@ -955,9 +956,10 @@ export function buildServer(): McpServer {
     () =>
       run(false, async (l) => {
         const d = await l.load()
-        return ok(`${d.accounts.length} accounts, ${d.goals.length} goals, ${d.plans.length} planned investments.`, {
+        return ok(`${d.accounts.length} accounts, ${d.goals.length} goals, ${d.plans.length} planned investments, ${d.holdings.length} holdings.`, {
           accounts: d.accounts.map((a) => ({ id: a.id, name: a.name, type: a.type, kind: accountType(a.type).group, institution: a.institution || undefined, balance: a.balance, currency: a.currency, as_of: a.asOf, rate_percent: a.rate ?? undefined, monthly: a.monthly || undefined, notes: a.notes ? mask(a.notes) : undefined })),
           goals: d.goals.map((g) => ({ id: g.id, name: g.name, target: g.target, currency: g.currency, target_date: g.targetDate || undefined, saved: g.saved, monthly: g.monthly, linked_account: g.accountId || undefined, priority: g.priority })),
+          holdings: d.holdings.map((h) => ({ id: h.id, account: h.accountId, name: h.name, isin: h.isin || undefined, symbol: h.symbol || undefined, kind: h.assetClass, quantity: h.quantity, average_cost: h.avgCost ?? undefined, price: h.price ?? undefined, price_date: h.priceDate || undefined, currency: h.currency, value: holdingValue(h) ?? undefined, cost: holdingCost(h) ?? undefined })),
           planned_investments: d.plans.map((p) => ({ id: p.id, name: p.name, amount: p.amount, currency: p.currency, frequency: p.frequency, monthly_equivalent: monthlyEquivalent(p), start_date: p.startDate || undefined, end_date: p.endDate || undefined, state: planState(p, todayIso()), linked_goal: p.goalId || undefined, linked_account: p.accountId || undefined, notes: p.notes ? mask(p.notes) : undefined })),
         })
       }),

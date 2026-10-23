@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { clearDriveToken, getStoredDriveToken, requestDriveToken } from '../lib/google/gis'
-import { ACCOUNT_SHEET, ANALYSIS_SHEET, BUDGET_SHEET, DOC_SHEET, DriveError, GOAL_SHEET, LedgerClient, PLAN_SHEET, TRASH_SHEET, TX_SHEET } from '../lib/google/driveClient'
+import { ACCOUNT_SHEET, ANALYSIS_SHEET, BUDGET_SHEET, DOC_SHEET, DriveError, GOAL_SHEET, HOLDING_SHEET, LedgerClient, PLAN_SHEET, TRASH_SHEET, TX_SHEET } from '../lib/google/driveClient'
 import { accountToTrash, analysisToTrash, documentToTrash, expiredItems, transactionToTrash, type TrashItem } from '../lib/ledger/trash'
 import type { ImportBatch } from '../lib/ledger/imports'
 import type { Budget } from '../lib/ledger/budgets'
 import { newPlanId, type Plan, type PlanDraft } from '../lib/ledger/plans'
+import { newHoldingId, type Holding, type HoldingDraft } from '../lib/ledger/holdings'
 import type { Analysis, AnalysisStatus } from '../lib/ledger/analysis'
 import { mergeProfile, profileToRows, rowsToProfile, type ProfileRow } from '../lib/ledger/profile'
 import type { UserSchemaDefinition } from '../types'
@@ -42,6 +43,7 @@ interface LedgerContextValue {
   balances: BalanceEntry[]
   goals: Goal[]
   plans: Plan[]
+  holdings: Holding[]
   budgets: Budget[]
   analysis: Analysis[]
   /** The financial profile from the Profile tab, or null when none is saved yet */
@@ -79,6 +81,9 @@ interface LedgerContextValue {
   /** Adds or changes a planned investment. */
   savePlan: (draft: PlanDraft, existing?: Plan) => Promise<Plan>
   deletePlan: (p: Plan) => Promise<void>
+  /** Adds or changes a holding inside an investment or retirement account. */
+  saveHolding: (draft: HoldingDraft, existing?: Holding) => Promise<Holding>
+  deleteHolding: (h: Holding) => Promise<void>
   /** Adds or changes the budget for a category (one per category). */
   saveBudget: (draft: Omit<Budget, 'createdAt' | 'row'>, existing?: Budget) => Promise<Budget>
   deleteBudget: (b: Budget) => Promise<void>
@@ -130,6 +135,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const [balances, setBalances] = useState<BalanceEntry[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
   const [plans, setPlans] = useState<Plan[]>([])
+  const [holdings, setHoldings] = useState<Holding[]>([])
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [analysis, setAnalysis] = useState<Analysis[]>([])
   const [profileRows, setProfileRows] = useState<ProfileRow[]>([])
@@ -170,7 +176,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         checkedTabs.current = loc.spreadsheetId
       }
       const id = loc.spreadsheetId
-      const [tx, docs, accs, bals, gls, buds, anls, prof, bin, pls] = await Promise.all([
+      const [tx, docs, accs, bals, gls, buds, anls, prof, bin, pls, hlds] = await Promise.all([
         client.listTransactions(id),
         client.listDocuments(id),
         client.listAccounts(id),
@@ -181,6 +187,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         client.listProfile(id),
         client.listTrash(id),
         client.listPlans(id),
+        client.listHoldings(id),
       ])
       // Items past the retention period are erased; a failure here must not stop the Ledger loading
       const expired = expiredItems(bin, new Date())
@@ -192,6 +199,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       setBalances(bals)
       setGoals(gls)
       setPlans(pls)
+      setHoldings(hlds)
       setBudgets(buds)
       setAnalysis(anls)
       setProfileRows(prof)
@@ -285,6 +293,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     setBalances([])
     setGoals([])
     setPlans([])
+    setHoldings([])
     setBudgets([])
     setAnalysis([])
     setProfileRows([])
@@ -463,9 +472,10 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         if (goals.length) await client.deleteRows(id, GOAL_SHEET, goals.map((g) => ({ row: g.row, id: g.id })))
         if (budgets.length) await client.deleteRows(id, BUDGET_SHEET, budgets.map((b) => ({ row: b.row, id: b.category })))
         if (plans.length) await client.deleteRows(id, PLAN_SHEET, plans.map((p) => ({ row: p.row, id: p.id })))
+        if (holdings.length) await client.deleteRows(id, HOLDING_SHEET, holdings.map((h) => ({ row: h.row, id: h.id })))
         await load(loc)
       }),
-    [run, client, load, transactions, accounts, goals, budgets, plans],
+    [run, client, load, transactions, accounts, goals, budgets, plans, holdings],
   )
 
   const eraseFromTrash: LedgerContextValue['eraseFromTrash'] = useCallback(
@@ -579,6 +589,29 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [run, client, load],
   )
 
+  const saveHolding: LedgerContextValue['saveHolding'] = useCallback(
+    (draft, existing) =>
+      run(async () => {
+        const loc = requireLoc()
+        const holding: Holding = existing ? { ...existing, ...draft } : { ...draft, id: newHoldingId(), createdAt: new Date().toISOString() }
+        if (existing) await client.updateHolding(loc.spreadsheetId, holding)
+        else await client.appendHoldings(loc.spreadsheetId, [holding])
+        await load(loc)
+        return holding
+      }),
+    [run, client, load],
+  )
+
+  const deleteHolding: LedgerContextValue['deleteHolding'] = useCallback(
+    (h) =>
+      run(async () => {
+        const loc = requireLoc()
+        await client.deleteRow(loc.spreadsheetId, HOLDING_SHEET, h.row ?? 0, h.id)
+        await load(loc)
+      }),
+    [run, client, load],
+  )
+
   const saveBudget: LedgerContextValue['saveBudget'] = useCallback(
     (draft, existing) =>
       run(async () => {
@@ -647,6 +680,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     balances,
     goals,
     plans,
+    holdings,
     budgets,
     analysis,
     profile,
@@ -674,6 +708,8 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     deleteGoal,
     savePlan,
     deletePlan,
+    saveHolding,
+    deleteHolding,
     saveBudget,
     deleteBudget,
     setAnalysisStatus,

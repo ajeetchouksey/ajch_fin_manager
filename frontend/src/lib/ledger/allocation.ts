@@ -5,6 +5,7 @@
  */
 
 import { belongsTo, currentBalance } from './balances'
+import { holdingValue, type Holding } from './holdings'
 import { accountType, type Account, type BalanceEntry } from './portfolio'
 import type { Transaction } from './types'
 
@@ -122,13 +123,27 @@ export interface Allocation {
 }
 
 /** How the investment and retirement accounts in one currency are spread, with drift from the target when one is set. */
-export function allocationFor(accounts: Account[], history: BalanceEntry[], transactions: Transaction[], currency: string, today: string, target?: AllocationTarget): Allocation {
+export function allocationFor(accounts: Account[], history: BalanceEntry[], transactions: Transaction[], currency: string, today: string, target?: AllocationTarget, holdings: Holding[] = []): Allocation {
   const values = new Map<AssetClassId, number>()
   for (const a of accounts) {
     if (a.currency.toUpperCase() !== currency.toUpperCase()) continue
-    const cls = assetClassOf(a.type)
-    if (!cls) continue
-    values.set(cls, (values.get(cls) ?? 0) + currentBalance(a, history, transactions, today).balance)
+    const own = assetClassOf(a.type)
+    if (!own) continue
+    const balance = currentBalance(a, history, transactions, today).balance
+    // Priced holdings split the account's balance by kind; a retirement account stays one kind. Without them the account's type decides.
+    const parts =
+      own === 'retirement'
+        ? []
+        : holdings
+            .filter((h) => h.accountId === a.id && h.currency.toUpperCase() === a.currency.toUpperCase())
+            .map((h) => ({ cls: h.assetClass === 'other' ? own : h.assetClass, value: holdingValue(h) ?? 0 }))
+            .filter((p) => p.value > 0)
+    const priced = parts.reduce((s, p) => s + p.value, 0)
+    if (priced > 0) {
+      for (const p of parts) values.set(p.cls, (values.get(p.cls) ?? 0) + (balance * p.value) / priced)
+    } else {
+      values.set(own, (values.get(own) ?? 0) + balance)
+    }
   }
   const total = round([...values.values()].reduce((s, v) => s + v, 0))
   const lines: AllocationLine[] = []

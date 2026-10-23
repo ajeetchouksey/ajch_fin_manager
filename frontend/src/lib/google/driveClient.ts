@@ -33,6 +33,7 @@ import {
 } from '../ledger/portfolio'
 import { BUDGET_COLUMNS, budgetToRow, rowToBudget, type Budget } from '../ledger/budgets'
 import { PLAN_COLUMNS, planToRow, rowToPlan, type Plan } from '../ledger/plans'
+import { HOLDING_COLUMNS, holdingToRow, rowToHolding, type Holding } from '../ledger/holdings'
 import { ANALYSIS_COLUMNS, analysisToRow, rowToAnalysis, type Analysis } from '../ledger/analysis'
 import { TRASH_COLUMNS, rowToTrash, trashToRow, type TrashItem } from '../ledger/trash'
 import { PROFILE_COLUMNS, profileRowToRow, rowToProfileRow, type ProfileRow } from '../ledger/profile'
@@ -50,6 +51,7 @@ export const BALANCE_SHEET = 'Balances'
 export const GOAL_SHEET = 'Goals'
 export const BUDGET_SHEET = 'Budgets'
 export const PLAN_SHEET = 'Plans'
+export const HOLDING_SHEET = 'Holdings'
 export const ANALYSIS_SHEET = 'Analysis'
 export const PROFILE_SHEET = 'Profile'
 export const TRASH_SHEET = 'Trash'
@@ -63,12 +65,13 @@ const DATA_TABS: Array<[string, readonly string[]]> = [
   [GOAL_SHEET, GOAL_COLUMNS],
   [BUDGET_SHEET, BUDGET_COLUMNS],
   [PLAN_SHEET, PLAN_COLUMNS],
+  [HOLDING_SHEET, HOLDING_COLUMNS],
   [ANALYSIS_SHEET, ANALYSIS_COLUMNS],
   [PROFILE_SHEET, PROFILE_COLUMNS],
   [TRASH_SHEET, TRASH_COLUMNS],
 ]
 
-type RowSheet = typeof TX_SHEET | typeof DOC_SHEET | typeof ACCOUNT_SHEET | typeof GOAL_SHEET | typeof BUDGET_SHEET | typeof PLAN_SHEET | typeof ANALYSIS_SHEET | typeof PROFILE_SHEET | typeof TRASH_SHEET
+type RowSheet = typeof TX_SHEET | typeof DOC_SHEET | typeof ACCOUNT_SHEET | typeof GOAL_SHEET | typeof BUDGET_SHEET | typeof PLAN_SHEET | typeof HOLDING_SHEET | typeof ANALYSIS_SHEET | typeof PROFILE_SHEET | typeof TRASH_SHEET
 
 /** Last column letter for a table of n columns (n ≤ 26). */
 const lastCol = (n: number) => String.fromCharCode(64 + n)
@@ -281,6 +284,16 @@ export class LedgerClient {
     return (await this.readTab(spreadsheetId, BALANCE_SHEET)).map((r) => rowToBalance(r)).filter((b): b is BalanceEntry => b !== null)
   }
 
+  /** Ledgers made before holdings have no Holdings tab until the web app opens them; that reads as no holdings. */
+  async listHoldings(spreadsheetId: string): Promise<Holding[]> {
+    try {
+      return (await this.readTab(spreadsheetId, HOLDING_SHEET)).map((r, i) => rowToHolding(r, i + 2)).filter((h): h is Holding => h !== null)
+    } catch (error) {
+      if (error instanceof DriveError && (error.status === 400 || error.status === 404)) return []
+      throw error
+    }
+  }
+
   /** Ledgers made before planned investments have no Plans tab until the web app opens them; that reads as no plans. */
   async listPlans(spreadsheetId: string): Promise<Plan[]> {
     try {
@@ -351,6 +364,8 @@ export class LedgerClient {
   appendAccounts = (spreadsheetId: string, rows: Account[]) => this.append(spreadsheetId, ACCOUNT_SHEET, rows.map(accountToRow))
   appendBalances = (spreadsheetId: string, rows: BalanceEntry[]) => this.append(spreadsheetId, BALANCE_SHEET, rows.map(balanceToRow))
   appendGoals = (spreadsheetId: string, rows: Goal[]) => this.append(spreadsheetId, GOAL_SHEET, rows.map(goalToRow))
+  appendHoldings = (spreadsheetId: string, rows: Holding[]) => this.append(spreadsheetId, HOLDING_SHEET, rows.map(holdingToRow))
+  updateHolding = (spreadsheetId: string, h: Holding) => this.replaceRow(spreadsheetId, HOLDING_SHEET, h.row, h.id, holdingToRow(h))
   appendPlans = (spreadsheetId: string, rows: Plan[]) => this.append(spreadsheetId, PLAN_SHEET, rows.map(planToRow))
   updatePlan = (spreadsheetId: string, p: Plan) => this.replaceRow(spreadsheetId, PLAN_SHEET, p.row, p.id, planToRow(p))
   updateAccount = (spreadsheetId: string, a: Account) => this.replaceRow(spreadsheetId, ACCOUNT_SHEET, a.row, a.id, accountToRow(a))
