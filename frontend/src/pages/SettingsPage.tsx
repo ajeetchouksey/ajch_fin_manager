@@ -90,7 +90,7 @@ export function SettingsPage() {
     <div className="flex flex-col gap-5">
       <PageHeader eyebrow="Your data stays in your Google Drive" title="Settings" />
 
-      <div className="grid items-start gap-4 lg:grid-cols-2">
+      <div className="flex max-w-3xl flex-col gap-4">
         <section aria-labelledby="pf-heading" className="card flex flex-col gap-4 p-6">
           <h2 id="pf-heading" className="card-title">Profile & currencies</h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -228,7 +228,7 @@ export function SettingsPage() {
           </div>
         </section>
 
-        <section aria-labelledby="profile-heading" className="card flex flex-col gap-2 p-6 lg:col-span-2">
+        <section aria-labelledby="profile-heading" className="card flex flex-col gap-2 p-6">
           <h2 id="profile-heading" className="card-title mb-1">Your profile</h2>
           <div className="grid gap-2 md:grid-cols-3">
             <button type="button" className={row} onClick={() => openDetailedSetup()}>
