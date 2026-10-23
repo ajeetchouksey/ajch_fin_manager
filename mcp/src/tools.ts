@@ -585,7 +585,7 @@ export function buildServer(): McpServer {
     {
       title: 'Worth checking',
       description:
-        'Things in the Ledger that look wrong and are quick to fix, the same list the FinBuddy app shows: payments in the user\'s own name not marked as Transfer, regular income not marked as Salary, a payee filed under an unusual category, payee spelling variants, two legs of a move between the user\'s own accounts counted as income and spending, refunds not netted against their purchase, payments with future or unreadable dates or no category, a monthly payment paid twice, missing, changed in price or stopped, and a large share of spending in Other. For a full clean-up with the unresolved payees, use cleanup_review. Nothing is changed. To fix one, show it to the user and, if they agree, call update_transactions with the transaction ids and the suggested category.',
+        'Things in the Ledger that look wrong and are quick to fix, the same list the FinBuddy app shows: payments in the user\'s own name not marked as Transfer, regular income not marked as Salary, a payee filed under an unusual category, payee spelling variants, two legs of a move between the user\'s own accounts counted as income and spending, refunds not netted against their purchase, payments with future or unreadable dates or no category, a monthly payment paid twice, missing, changed in price or stopped, a cash or debt account whose statement balances do not add up with its transactions, and a large share of spending in Other. For a full clean-up with the unresolved payees, use cleanup_review. Nothing is changed. To fix one, show it to the user and, if they agree, call update_transactions with the transaction ids and the suggested category.',
       inputSchema: z.object({
         month: z.string().regex(/^\d{4}-\d{2}$/).optional().describe('Month for the Other-share check (YYYY-MM); default the latest month'),
         other_share_limit: z.number().min(0).max(1).default(0.1).describe('Flag a month whose Other spending is above this share'),
@@ -595,7 +595,7 @@ export function buildServer(): McpServer {
     (a) =>
       run(false, async (l) => {
         const d = await l.load()
-        const checks = worthChecking(d.transactions, { ownNames: await l.ownNames(), month: a.month, otherShareLimit: a.other_share_limit })
+        const checks = worthChecking(d.transactions, { ownNames: await l.ownNames(), accounts: d.accounts, balances: d.balances, month: a.month, otherShareLimit: a.other_share_limit })
         if (!checks.length) return ok('Nothing worth checking: categories, salary and transfers look consistent.', { checks: [] })
         return ok(`${checks.length} thing${checks.length === 1 ? '' : 's'} worth checking.`, {
           checks: checks.map((c) => ({
@@ -626,7 +626,7 @@ export function buildServer(): McpServer {
         const d = await l.load()
         const ownNames = await l.ownNames()
         const userRules = await l.userRules()
-        const checks = worthChecking(d.transactions, { ownNames })
+        const checks = worthChecking(d.transactions, { ownNames, accounts: d.accounts, balances: d.balances })
         const unresolved = unresolvedPayees(d.transactions, { ownNames, userRules, learned: learnFromLedger(d.transactions), limit: a.limit })
         if (!checks.length && !unresolved.length) return ok('The Ledger is clean: nothing to check and every payee has a category.', { checks: [], unresolved_payees: [] })
         return ok(`${checks.length} finding${checks.length === 1 ? '' : 's'} and ${unresolved.length} payee${unresolved.length === 1 ? '' : 's'} without a real category.`, {

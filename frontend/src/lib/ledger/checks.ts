@@ -1,4 +1,6 @@
 import { TRANSFER_CATEGORY, suggestCategory } from './categorize'
+import { belongsTo } from './balances'
+import { accountType, type Account, type BalanceEntry } from './portfolio'
 import { groupPayees, type PayeeGroup } from './payees'
 import { privately } from './privacy'
 import { todayIso, type Transaction } from './types'
@@ -17,6 +19,7 @@ export type CheckKind =
   | 'odd-date'
   | 'price-change'
   | 'series-stopped'
+  | 'balance-drift'
   | 'likely-salary'
   | 'category-drift'
   | 'payee-variants'
@@ -43,6 +46,9 @@ export interface CheckOptions {
   month?: string
   /** Today (YYYY-MM-DD) for the date checks; default the real today */
   today?: string
+  /** With the Balances history, cash and debt accounts are checked against their statement balances */
+  accounts?: Account[]
+  balances?: BalanceEntry[]
 }
 
 const OTHER = /^other( income)?$/i
@@ -248,6 +254,40 @@ function missingCategory(tx: Transaction[]): Check[] {
   ]
 }
 
+/**
+ * Two statement balances of a cash or debt account, and the transactions booked between them, must
+ * add up. When they do not, a payment is missing, entered twice or dated in the wrong period. Only
+ * the latest period that is off is reported per account. Investments and property move with the
+ * market, so they are not checked.
+ */
+function balanceDrift(accounts: Account[], history: BalanceEntry[], tx: Transaction[]): Check[] {
+  const out: Check[] = []
+  for (const a of accounts) {
+    const group = accountType(a.type).group
+    if (group !== 'cash' && group !== 'debt') continue
+    const byDate = new Map<string, BalanceEntry>()
+    for (const h of history.filter((x) => x.accountId === a.id).sort((x, y) => x.recordedAt.localeCompare(y.recordedAt))) byDate.set(h.date, h)
+    const points = [...byDate.values()].sort((x, y) => x.date.localeCompare(y.date))
+    for (let i = points.length - 1; i > 0; i--) {
+      const p = points[i - 1]
+      const q = points[i]
+      const inside = tx.filter((t) => t.date.slice(0, 10) > p.date && t.date.slice(0, 10) <= q.date && belongsTo(t, a))
+      const change = inside.reduce((s, t) => s + ((t.direction === 'out') === (group === 'debt') ? t.amount : -t.amount), 0)
+      const off = Math.round((q.balance - (p.balance + change)) * 100) / 100
+      if (Math.abs(off) < 0.01) continue
+      out.push({
+        id: `balance-drift:${a.id}:${q.date}`,
+        kind: 'balance-drift',
+        title: `${a.name}: payments between ${p.date} and ${q.date} do not add up to the balance`,
+        detail: `The balance went from ${money(p.balance, a.currency)} to ${money(q.balance, a.currency)}, but the ${plural(inside.length, 'payment')} in between explain ${money(p.balance + change, a.currency)}: ${money(Math.abs(off), a.currency)} ${off > 0 ? 'more' : 'less'} than expected. A payment may be missing, entered twice or dated in the wrong period.`,
+        transactionIds: inside.map((t) => t.id),
+      })
+      break
+    }
+  }
+  return out
+}
+
 function likelySalary(groups: PayeeGroup[]): Check[] {
   const out: Check[] = []
   for (const g of groups) {
@@ -392,7 +432,7 @@ function otherShare(tx: Transaction[], limit: number, wanted?: string): Check[] 
   ]
 }
 
-const ORDER: CheckKind[] = ['own-transfer', 'transfer-pair', 'refund-pair', 'odd-date', 'missing-category', 'likely-salary', 'double-payment', 'price-change', 'series-stopped', 'category-drift', 'other-share', 'missing-payment', 'payee-variants']
+const ORDER: CheckKind[] = ['own-transfer', 'transfer-pair', 'refund-pair', 'balance-drift', 'odd-date', 'missing-category', 'likely-salary', 'double-payment', 'price-change', 'series-stopped', 'category-drift', 'other-share', 'missing-payment', 'payee-variants']
 
 /** Everything worth checking in these transactions, most useful first. */
 export function worthChecking(tx: Transaction[], options: CheckOptions = {}): Check[] {
@@ -400,6 +440,7 @@ export function worthChecking(tx: Transaction[], options: CheckOptions = {}): Ch
   const all = [
     ...ownTransfers(tx, options.ownNames ?? []),
     ...transferPairChecks(tx),
+    ...balanceDrift(options.accounts ?? [], options.balances ?? [], tx),
     ...refundChecks(tx, groups),
     ...oddDates(tx, options.today ?? todayIso()),
     ...missingCategory(tx),
