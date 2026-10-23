@@ -15,6 +15,8 @@ export type CheckKind =
   | 'refund-pair'
   | 'missing-category'
   | 'odd-date'
+  | 'price-change'
+  | 'series-stopped'
   | 'likely-salary'
   | 'category-drift'
   | 'payee-variants'
@@ -306,7 +308,7 @@ function payeeVariants(groups: PayeeGroup[]): Check[] {
     }))
 }
 
-function monthlyPayments(groups: PayeeGroup[]): Check[] {
+function monthlyPayments(groups: PayeeGroup[], thisMonth: string): Check[] {
   const out: Check[] = []
   for (const g of groups) {
     const rows = g.tx.filter((t) => t.direction === 'out' && t.category !== TRANSFER_CATEGORY)
@@ -330,6 +332,31 @@ function monthlyPayments(groups: PayeeGroup[]): Check[] {
           transactionIds: same.map((t) => t.id),
         })
       }
+    }
+    const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date))
+    const last = sorted[sorted.length - 1]
+    const before = sorted.slice(-7, -1)
+    const base = median(before.map((t) => t.amount))
+    const steady = before.length >= 2 && before.every((t) => near(t.amount, base, 0.02))
+    if (steady && last.currency === before[0].currency && !near(last.amount, base, 0.03) && Math.abs(last.amount - base) >= 0.5) {
+      const pct = Math.round(((last.amount - base) / base) * 100)
+      out.push({
+        id: `price-change:${g.key}`,
+        kind: 'price-change',
+        title: `${g.label} ${last.amount > base ? 'went up' : 'went down'} ${Math.abs(pct)}%`,
+        detail: `Paid about ${money(base, last.currency)} a month, then ${money(last.amount, last.currency)} on ${last.date.slice(0, 10)}. Worth knowing if you did not agree to a new price.`,
+        transactionIds: [last.id],
+      })
+    }
+    const idle = monthsBetween(ms[ms.length - 1], thisMonth).length - 1
+    if (ms.length >= 4 && idle >= 2 && ms[ms.length - 1] < thisMonth) {
+      out.push({
+        id: `series-stopped:${g.key}`,
+        kind: 'series-stopped',
+        title: `${g.label} has not been paid for ${plural(idle, 'month')}`,
+        detail: `Paid most months until ${monthLabel(ms[ms.length - 1])} (about ${money(m, rows[0].currency)}). Cancelled on purpose, or paid under another name?`,
+        transactionIds: [],
+      })
     }
     const missing = span.filter((mo) => !byMonth.has(mo))
     if (missing.length) {
@@ -365,7 +392,7 @@ function otherShare(tx: Transaction[], limit: number, wanted?: string): Check[] 
   ]
 }
 
-const ORDER: CheckKind[] = ['own-transfer', 'transfer-pair', 'refund-pair', 'odd-date', 'missing-category', 'likely-salary', 'double-payment', 'category-drift', 'other-share', 'missing-payment', 'payee-variants']
+const ORDER: CheckKind[] = ['own-transfer', 'transfer-pair', 'refund-pair', 'odd-date', 'missing-category', 'likely-salary', 'double-payment', 'price-change', 'series-stopped', 'category-drift', 'other-share', 'missing-payment', 'payee-variants']
 
 /** Everything worth checking in these transactions, most useful first. */
 export function worthChecking(tx: Transaction[], options: CheckOptions = {}): Check[] {
@@ -379,7 +406,7 @@ export function worthChecking(tx: Transaction[], options: CheckOptions = {}): Ch
     ...likelySalary(groups),
     ...categoryDrift(groups),
     ...payeeVariants(groups),
-    ...monthlyPayments(groups),
+    ...monthlyPayments(groups, (options.today ?? todayIso()).slice(0, 7)),
     ...otherShare(tx, options.otherShareLimit ?? 0.1, options.month),
   ]
   return all.sort((a, b) => ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind))
