@@ -922,6 +922,7 @@ export function buildServer(): McpServer {
         const d = await l.load()
         const learned = learnFromLedger(d.transactions)
         const ownNames = await l.ownNames()
+        const userRules = await l.userRules()
         const fallbackCurrency = baseCurrency({ transactions: d.transactions, accounts: d.accounts })
         const drafts: TransactionDraft[] = items.map((t) => ({
           date: t.date,
@@ -929,7 +930,7 @@ export function buildServer(): McpServer {
           amount: money(t.amount),
           currency: (t.currency ?? fallbackCurrency).toUpperCase(),
           account: t.account?.trim() ?? '',
-          category: t.category?.trim() || suggestCategory(t.description, t.direction, learned, { ownNames })?.category || (t.direction === 'out' ? 'Other' : 'Other income'),
+          category: t.category?.trim() || suggestCategory(t.description, t.direction, learned, { ownNames, userRules })?.category || (t.direction === 'out' ? 'Other' : 'Other income'),
           description: t.description.trim().slice(0, 200),
           notes: t.notes?.trim() ?? '',
           tags: parseTags((t.tags ?? []).join(',')),
@@ -983,6 +984,7 @@ export function buildServer(): McpServer {
         const knownCategories = Array.from(new Set([...SPENDING_CATEGORIES, ...INCOME_CATEGORIES, ...d.transactions.map((t) => t.category)]))
         const learned = learnFromLedger(d.transactions)
         const ownNames = await l.ownNames()
+        const userRules = await l.userRules()
         const rows = table.slice(analysis.firstRow, analysis.firstRow + 5000).map((r) =>
           statementRow(r, analysis.map, {
             dateFormat: a.date_format as DateFormat,
@@ -994,6 +996,7 @@ export function buildServer(): McpServer {
             notes: '',
             learned,
             ownNames,
+            userRules,
             knownCategories,
           }),
         )

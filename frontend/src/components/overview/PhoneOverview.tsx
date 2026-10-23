@@ -18,9 +18,14 @@ interface PhoneOverviewProps {
   short: string
   onPrev?: () => void
   onNext?: () => void
-  hero: { label: string; value: string; note?: ReactNode }
+  hero: { label: string; value: string; note?: ReactNode; sub?: string }
   income: number
   spending: number
+  /** The same figures in the second currency (the "Both" view) */
+  incomeSub?: string
+  spendingSub?: string
+  /** Currency choice, shown when there is more than one */
+  switcher?: { options: string[]; value: string; onPick: (v: string) => void }
   currency: string
   categories: CategoryShare[]
   recent: Transaction[]
@@ -29,7 +34,7 @@ interface PhoneOverviewProps {
 }
 
 /** Overview on phones (design: Mobile): greeting, balance card, top categories, recent. */
-export function PhoneOverview({ firstName, title, short, onPrev, onNext, hero, income, spending, currency, categories, recent, intro, after }: PhoneOverviewProps) {
+export function PhoneOverview({ firstName, title, short, onPrev, onNext, hero, income, spending, incomeSub, spendingSub, switcher, currency, categories, recent, intro, after }: PhoneOverviewProps) {
   const top = categories.slice(0, 4)
   return (
     <div className="flex flex-col gap-4 md:hidden">
@@ -44,10 +49,19 @@ export function PhoneOverview({ firstName, title, short, onPrev, onNext, hero, i
         </div>
       </header>
 
+      {switcher && (
+        <div className="seg self-start" role="radiogroup" aria-label="Currency">
+          {switcher.options.map((o) => (
+            <button key={o} type="button" role="radio" aria-checked={o === switcher.value} onClick={() => switcher.onPick(o)}>{o === 'both' ? 'Both' : o}</button>
+          ))}
+        </div>
+      )}
+
       <section aria-label="Balance" className="flex flex-col gap-3.5 rounded-[20px] bg-brand p-5 text-white">
         <div className="flex flex-col gap-1">
           <span className="font-medium">{hero.label}{hero.note ? <> · {hero.note}</> : null}</span>
           <span className="font-display text-[38px] leading-none font-bold tabular-nums">{hero.value}</span>
+          {hero.sub && <span className="font-mono text-sm font-medium tabular-nums opacity-90">{hero.sub}</span>}
         </div>
         <div className="grid grid-cols-2 gap-2.5">
           {[
@@ -57,6 +71,7 @@ export function PhoneOverview({ firstName, title, short, onPrev, onNext, hero, i
             <div key={label as string} className="flex flex-col gap-0.5 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.16)' }}>
               <span className="text-[13px]">{label}</span>
               <span className="text-[17px] font-bold tabular-nums">{formatMoney(v as number, currency)}</span>
+              {(String(label).startsWith('In') ? incomeSub : spendingSub) && <span className="font-mono text-[12px] tabular-nums opacity-90">{String(label).startsWith('In') ? incomeSub : spendingSub}</span>}
             </div>
           ))}
         </div>

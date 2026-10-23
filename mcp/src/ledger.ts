@@ -77,6 +77,7 @@ export class LedgerSession {
   }
 
   private names: string[] | undefined
+  private rules: Array<{ match: string; category: string }> | undefined
 
   /**
    * Names that count as the user for transfers: the ones saved in the profile (as banks print them)
@@ -92,7 +93,14 @@ export class LedgerSession {
       profile = null // no Profile tab yet: no names, rules and history still work
     }
     this.names = ownNamesFrom(undefined, profile?.householdMembers, profile?.ownNames)
+    this.rules = profile?.categoryRules ?? []
     return this.names
+  }
+
+  /** The user's own "text contains -> category" rules from Settings; they win over history and keywords. */
+  async userRules(): Promise<Array<{ match: string; category: string }>> {
+    if (!this.rules) await this.ownNames()
+    return this.rules ?? []
   }
 
   async appendTransactions(drafts: TransactionDraft[], source: Transaction['source']): Promise<Transaction[]> {
