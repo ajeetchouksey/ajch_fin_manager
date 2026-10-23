@@ -12,6 +12,7 @@ import type { Plan } from '@finbuddy/core/ledger/plans'
 import type { Holding } from '@finbuddy/core/ledger/holdings'
 import type { Trade } from '@finbuddy/core/ledger/trades'
 import type { Analysis, AnalysisStatus } from '@finbuddy/core/ledger/analysis'
+import { cleanInvestorProfile, type InvestorProfile } from '@finbuddy/core/ledger/investor'
 import { rowsToProfile, type UserSchemaDefinition } from '@finbuddy/core/ledger/profile'
 import { ownNamesFrom } from '@finbuddy/core/ledger/categorize'
 import { validRate, type ExchangeRate } from '@finbuddy/core/ledger/fx'
@@ -89,6 +90,7 @@ export class LedgerSession {
   private names: string[] | undefined
   private rules: Array<{ match: string; category: string }> | undefined
   private fx: ExchangeRate | null | undefined
+  private investorData: { investor: InvestorProfile; householdMembers?: Array<{ name: string; relationship: string }> } | undefined
 
   /**
    * Names that count as the user for transfers: the ones saved in the profile (as banks print them)
@@ -105,6 +107,7 @@ export class LedgerSession {
     }
     this.names = ownNamesFrom(undefined, profile?.householdMembers, profile?.ownNames)
     this.rules = profile?.categoryRules ?? []
+    this.investorData = { investor: cleanInvestorProfile(profile?.investorProfile), householdMembers: profile?.householdMembers }
     this.fx = validRate(profile?.exchangeRate) ? profile!.exchangeRate! : null
     return this.names
   }
@@ -113,6 +116,12 @@ export class LedgerSession {
   async exchangeRate(): Promise<ExchangeRate | null> {
     if (this.fx === undefined) await this.ownNames()
     return this.fx ?? null
+  }
+
+  /** What the user told FinBuddy about themselves for investing (all optional), and the household, for the risk picture. */
+  async investorInfo(): Promise<{ investor: InvestorProfile; householdMembers?: Array<{ name: string; relationship: string }> }> {
+    if (!this.investorData) await this.ownNames()
+    return this.investorData ?? { investor: {} }
   }
 
   /** The user's own "text contains -> category" rules from Settings; they win over history and keywords. */
