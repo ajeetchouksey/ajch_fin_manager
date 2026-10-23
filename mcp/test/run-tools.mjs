@@ -37,6 +37,11 @@ const CSV = `Buchungstag;Wertstellung;Umsatzart;Buchungstext;Betrag;Währung;Auf
 const init = await rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } })
 check('initialize', !!init.serverInfo, `${init.serverInfo?.name} · instructions ${init.instructions ? 'present' : 'missing'}`)
 
+const prompts = (await rpc('prompts/list', {})).prompts ?? []
+check('prompts/list has the investing prompts', prompts.length >= 7 && prompts.some((p) => p.name === 'goal-strategy'), prompts.map((p) => p.name).join(', '))
+const gotPrompt = await rpc('prompts/get', { name: 'goal-strategy' })
+check('prompts/get returns text that uses the FinBuddy tools', /FinBuddy tools/.test(gotPrompt.messages?.[0]?.content?.text ?? ''))
+
 const tools = (await rpc('tools/list', {})).tools
 check('tools/list', tools.length === 29, tools.map((t) => t.name).join(', '))
 const monthTool = tools.find((t) => t.name === 'month_summary')
