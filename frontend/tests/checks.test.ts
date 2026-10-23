@@ -163,3 +163,26 @@ test('hygiene: future dates, unreadable dates and empty categories are flagged',
   assert.deepEqual(found.filter((c) => c.kind === 'odd-date').map((c) => c.id).sort(), ['odd-date:future', 'odd-date:invalid'])
   assert.deepEqual(found.find((c) => c.kind === 'missing-category')?.transactionIds, [blank.id])
 })
+
+const monthly = (name: string, from: string[], amount: number | number[]) =>
+  from.map((d, i) => tx(d, name, 'Subscriptions', Array.isArray(amount) ? amount[i] : amount))
+
+test('a steady monthly payment that changes price is flagged', () => {
+  const rows = monthly('Netflix', ['2026-05-06', '2026-06-06', '2026-07-06', '2026-08-06', '2026-09-06'], [12.99, 12.99, 12.99, 12.99, 15.99])
+  const c = worthChecking(rows, { today: '2026-09-20' }).find((x) => x.kind === 'price-change')
+  assert.match(c?.title ?? '', /went up 23%/)
+  assert.deepEqual(c?.transactionIds, [rows[4].id])
+})
+
+test('varying bills and unchanged prices are not price changes', () => {
+  const same = monthly('Netflix', ['2026-05-06', '2026-06-06', '2026-07-06', '2026-08-06'], 12.99)
+  const bill = monthly('Stadtwerke', ['2026-05-06', '2026-06-06', '2026-07-06', '2026-08-06'], [55, 80, 62, 97])
+  assert.ok(!kinds([...same, ...bill], { today: '2026-08-20' }).includes('price-change'))
+})
+
+test('a monthly payment that stops is noticed, but only after two quiet months', () => {
+  const rows = monthly('Gym', ['2026-03-03', '2026-04-03', '2026-05-03', '2026-06-03'], 29.9)
+  assert.ok(!kinds(rows, { today: '2026-07-20' }).includes('series-stopped'))
+  const c = worthChecking(rows, { today: '2026-09-20' }).find((x) => x.kind === 'series-stopped')
+  assert.match(c?.title ?? '', /not been paid for 3 months/)
+})
