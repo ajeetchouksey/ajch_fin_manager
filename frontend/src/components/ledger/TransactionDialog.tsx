@@ -6,9 +6,11 @@ import { useLedgerOptions, readLastEntry, writeLastEntry } from '../../hooks/use
 import { EXTRACTABLE_ACCEPT, parseReceipt, readFileText, type ExtractProgress } from '../../lib/ledger/extract'
 import { isCsvFile, looksLikeStatement, readCsvFile } from '../../lib/ledger/csv'
 import { TRANSFER_CATEGORY, suggestCategory } from '../../lib/ledger/categorize'
-import { CURRENCIES, DOCUMENT_TYPES, formatMoney, parseTags, todayIso, type Direction, type Transaction } from '../../lib/ledger/types'
+import { CURRENCIES, DOCUMENT_TYPES, formatMoney, newId, parseTags, todayIso, type Direction, type Transaction } from '../../lib/ledger/types'
 import { CategoryChips, ErrorNote, Field, FilePicker, TagInput, inputClass, selectClass } from './ui'
 import { parseNumber } from '../../lib/ledger/money'
+import { makeLink } from '../../lib/ledger/links'
+import { LinkedRows } from './LinkedRows'
 import type { QuickDraft } from './QuickAdd'
 
 type Kind = Direction | 'transfer'
@@ -233,8 +235,9 @@ export function TransactionDialog({
       if (existing) {
         await updateTransaction({ ...existing, ...fields })
       } else if (newTransfer) {
-        await addTransaction({ ...fields, direction: 'out', description: fields.description || `Transfer to ${to}` }, attachments)
-        await addTransaction({ ...fields, direction: 'in', account: to, description: fields.description || `Transfer from ${from}` }, [])
+        const link = makeLink('transfer', newId('lnk'))
+        await addTransaction({ ...fields, link, direction: 'out', description: fields.description || `Transfer to ${to}` }, attachments)
+        await addTransaction({ ...fields, link, direction: 'in', account: to, description: fields.description || `Transfer from ${from}` }, [])
       } else {
         await addTransaction(fields, attachments)
       }
@@ -421,7 +424,8 @@ export function TransactionDialog({
           </datalist>
         </div>
 
-        <Field label="Notes" htmlFor="tx-notes" hint="Any context you want to remember: why, who with, warranty, split with someone…">
+        {existing?.link && <LinkedRows existing={existing} />}
+<Field label="Notes" htmlFor="tx-notes" hint="Any context you want to remember: why, who with, warranty, split with someone…">
           <textarea id="tx-notes" rows={3} className={`${inputClass} py-3`} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={2000} />
         </Field>
 

@@ -347,8 +347,15 @@ export class LedgerClient {
   // An analysis entry's row key is its id (the first column)
   updateAnalysis = (spreadsheetId: string, a: Analysis) => this.replaceRow(spreadsheetId, ANALYSIS_SHEET, a.row, a.id, analysisToRow(a))
 
+  /** Ledgers made before the link column have no header over it; name it the first time a link is saved. */
+  private async linkHeader(spreadsheetId: string) {
+    const cell = `${TX_SHEET}!${lastCol(TRANSACTION_COLUMNS.length)}1`
+    await this.call(`${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(cell)}?valueInputOption=RAW`, { method: 'PUT', body: JSON.stringify({ values: [['link']] }) })
+  }
+
   async appendTransactions(spreadsheetId: string, rows: Transaction[]) {
     if (!rows.length) return
+    if (rows.some((t) => t.link)) await this.linkHeader(spreadsheetId)
     await this.call(
       `${SHEETS}/${spreadsheetId}/values/${encodeURIComponent(`${TX_SHEET}!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
       { method: 'POST', body: JSON.stringify({ values: rows.map(transactionToRow) }) },
@@ -388,6 +395,7 @@ export class LedgerClient {
     for (const t of txs) {
       if (!t.row || ids[t.row - 1] !== t.id) throw new DriveError('The Ledger changed since it was loaded. Reload and try again.', 409)
     }
+    if (txs.some((t) => t.link)) await this.linkHeader(spreadsheetId)
     await this.call(`${SHEETS}/${spreadsheetId}/values:batchUpdate`, {
       method: 'POST',
       body: JSON.stringify({

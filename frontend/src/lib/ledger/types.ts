@@ -23,6 +23,7 @@ export const TRANSACTION_COLUMNS = [
   'source',
   'created_at',
   'account_id',
+  'link',
 ] as const
 
 export const DOCUMENT_COLUMNS = [
@@ -58,6 +59,8 @@ export interface Transaction {
   createdAt: string
   /** The account id this row belongs to (F01). Empty until the row is linked. */
   accountId?: string
+  /** Links this row to others (transfer legs, a refund and its purchase); see links.ts. Empty when not linked. */
+  link?: string
   /** 1-based sheet row, for edits and deletes (not stored) */
   row?: number
 }
@@ -152,6 +155,7 @@ export function transactionToRow(t: Transaction): (string | number)[] {
     t.source,
     t.createdAt,
     t.accountId ?? '',
+    t.link ?? '',
   ]
 }
 
@@ -174,6 +178,7 @@ export function rowToTransaction(r: unknown[], row: number): Transaction | null 
     source: r[11] === 'import' ? 'import' : 'manual',
     createdAt: String(r[12] ?? ''),
     accountId: String(r[13] ?? '').trim() || undefined,
+    link: String(r[14] ?? '').trim() || undefined,
     row,
   }
 }

@@ -20,6 +20,7 @@ import { change, inSpan, spendingByCategory, totalsFor, ym } from '@finbuddy/cor
 import { buildPeriods, periodContaining, type Period } from '@finbuddy/core/ledger/periods'
 import { budgetProgress } from '@finbuddy/core/ledger/budgets'
 import { worthChecking } from '@finbuddy/core/ledger/checks'
+import { LINK_PATTERN } from '@finbuddy/core/ledger/links'
 import { unresolvedPayees } from '@finbuddy/core/ledger/cleanup'
 import { buildReport, choosePeriod } from '@finbuddy/core/ledger/report'
 import { planLabelMigration } from '@finbuddy/core/ledger/accounts'
@@ -92,6 +93,7 @@ function txOut(t: Transaction) {
     account: t.account || undefined,
     notes: t.notes ? mask(t.notes) : undefined,
     tags: t.tags.length ? t.tags : undefined,
+    link: t.link,
   }
 }
 
@@ -603,6 +605,7 @@ export function buildServer(): McpServer {
             title: mask(c.title),
             detail: mask(c.detail),
             suggested_category: c.suggestedCategory ?? null,
+            links: c.links?.map((l) => ({ transaction_id: l.id, link: l.link })),
             count: c.transactionIds.length,
             transaction_ids: c.transactionIds.slice(0, 100),
           })),
@@ -636,6 +639,7 @@ export function buildServer(): McpServer {
             title: mask(c.title),
             detail: mask(c.detail),
             suggested_category: c.suggestedCategory ?? null,
+            links: c.links?.map((l) => ({ transaction_id: l.id, link: l.link })),
             count: c.transactionIds.length,
             transaction_ids: c.transactionIds.slice(0, 100),
           })),
@@ -1141,6 +1145,7 @@ export function buildServer(): McpServer {
               account: z.string().max(80).optional(),
               notes: z.string().max(2000).optional(),
               tags: z.array(z.string().max(40)).max(20).optional().describe('Replaces the tags'),
+              link: z.union([z.string().regex(LINK_PATTERN), z.literal('')]).optional().describe('Link rows together, as a finding\'s links say; an empty string unlinks the row'),
               add_tags: z.array(z.string().max(40)).max(20).optional(),
             }),
           )
@@ -1155,10 +1160,10 @@ export function buildServer(): McpServer {
         const byId = new Map(transactions.map((t) => [t.id, t]))
         const missing = updates.filter((u) => !byId.has(u.id)).map((u) => u.id)
         if (missing.length) return fail(`No transaction with id ${missing.slice(0, 5).join(', ')}. Use find_transactions to get current ids.`)
-        const changed = updates.map(({ id, add_tags, tags, ...f }) => {
+        const changed = updates.map(({ id, add_tags, tags, link, ...f }) => {
           const t = byId.get(id)!
           const nextTags = parseTags([...(tags ?? t.tags), ...(add_tags ?? [])].join(','))
-          return { ...t, ...Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined)), tags: nextTags } as Transaction
+          return { ...t, ...Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined)), tags: nextTags, link: link === undefined ? t.link : link || undefined } as Transaction
         })
         await l.updateTransactions(changed)
         return ok(`Updated ${changed.length} transaction${changed.length === 1 ? '' : 's'}.`, { updated: changed.slice(0, 50).map(txOut) })
