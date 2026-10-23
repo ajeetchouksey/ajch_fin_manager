@@ -38,7 +38,7 @@ const init = await rpc('initialize', { protocolVersion: '2025-06-18', capabiliti
 check('initialize', !!init.serverInfo, `${init.serverInfo?.name} · instructions ${init.instructions ? 'present' : 'missing'}`)
 
 const tools = (await rpc('tools/list', {})).tools
-check('tools/list', tools.length === 28, tools.map((t) => t.name).join(', '))
+check('tools/list', tools.length === 29, tools.map((t) => t.name).join(', '))
 const monthTool = tools.find((t) => t.name === 'month_summary')
 check('month_summary links to the month view', monthTool?._meta?.ui?.resourceUri === 'ui://finbuddy/month-view', JSON.stringify(monthTool?._meta ?? null))
 const resList = await rpc('resources/list', {})
@@ -149,6 +149,8 @@ r = await call('worth_checking', {})
 check('worth_checking returns a list and changes nothing', !r.error && Array.isArray(r.data?.checks) && r.data.checks.every((c) => c.kind && c.title), r.text.split('\n')[0])
 r = await call('worth_checking', { other_share_limit: 0 })
 check('worth_checking other_share_limit is used', !r.error && Array.isArray(r.data?.checks))
+r = await call('cleanup_review', {})
+check('cleanup_review returns checks and unresolved payees', !r.error && Array.isArray(r.data?.checks) && Array.isArray(r.data?.unresolved_payees), r.text.split('\n')[0])
 
 r = await call('spending_breakdown', { group_by: 'category' })
 check('spending_breakdown', !r.error && r.data?.groups?.[0]?.name === 'Housing', r.data?.groups?.map((g) => `${g.name} ${g.total}`).join(', '))
