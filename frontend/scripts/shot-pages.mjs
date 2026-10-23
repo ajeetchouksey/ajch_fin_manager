@@ -66,7 +66,10 @@ if (process.env.SHOT_INVEST) {
       ['plan_1', 'Monthly investing', 300, 'EUR', 'monthly', '', '', 'goal_9', 'acc_9', '', ''],
       ['plan_2', 'Bonus top-up', 1200, 'EUR', 'yearly', '2027-03-01', '', 'goal_9', '', '', ''],
       ['plan_3', 'Course fund', 150, 'EUR', 'monthly', '2025-01-01', '2026-06-30', '', '', '', '']]
-    tabs.Profile.push(['investorProfile', JSON.stringify({ birthYear: 1990, employment: 'employed', incomeStability: 'stable', riskAnswers: { fall: 2, range: 2, feeling: 3, wait: 3, 'never-below': 2 } }), ''])
+    tabs.Profile.push(['investorProfile', JSON.stringify({ birthYear: 1990, employment: 'employed', incomeStability: 'stable', riskAnswers: { fall: 2, range: 2, feeling: 3, wait: 3, 'never-below': 2 }, allocationTarget: { funds: 55, shares: 20, retirement: 25 } }), ''])
+    tabs.Accounts.push(['acc_10', 'Company pension', 'pension', 'Example Insurer', 'EUR', 9000, '2026-10-01', 4, 150, '', ''])
+    tabs.Balances = tabs.Balances ?? [['account_id', 'date', 'balance', 'recorded_at']]
+    tabs.Balances.push(['acc_9', '2026-01-02', 15000, ''], ['acc_9', '2026-10-21', 18000, ''])
   }
 }
 // SHOT_INR=1 adds an INR account and payments plus a typed rate, for the second-currency views (SHOT_NORATE=1 leaves the rate out)
