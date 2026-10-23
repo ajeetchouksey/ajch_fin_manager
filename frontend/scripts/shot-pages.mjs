@@ -6,7 +6,7 @@ import { chromium } from 'playwright'
 const [base = 'http://localhost:5173', outDir = '.', pathsArg = '/dashboard', themesArg = 'both', sizesArg = 'desktop'] = process.argv.slice(2)
 const paths = pathsArg.split(',')
 const themes = themesArg === 'both' ? ['dark', 'light'] : [themesArg]
-const sizes = { desktop: { width: 1280, height: 900 }, phone: { width: 390, height: 844 } }
+const sizes = { desktop: { width: Number(process.env.SHOT_WIDTH || 1280), height: 900 }, phone: { width: 390, height: 844 } }
 const sizeNames = sizesArg === 'both' ? ['desktop', 'phone'] : [sizesArg]
 const user = { id: 'test', email: 'test@example.com', name: 'Asha Verma', picture: '' }
 
@@ -54,6 +54,16 @@ if (process.env.SHOT_GOALS) {
     ['goal_1', 'Emergency fund', 10000, 'EUR', '2027-06-01', 3200, 400, '', 'high', '', ''],
     ['goal_2', 'Family trip', 2500, 'EUR', '2027-03-01', 600, 150, '', 'medium', '', ''],
   ]
+}
+// SHOT_INVEST=1 adds a depot with a goal linked to it, a child in the household, and optional Invest answers
+if (process.env.SHOT_INVEST) {
+  tabs.Accounts.push(['acc_9', 'Depot', 'brokerage', 'Example Broker', 'EUR', 18000, '2026-10-21', 5, 300, '', ''])
+  tabs.Goals = tabs.Goals ?? [['id', 'name', 'target', 'currency', 'target_date', 'saved', 'monthly', 'account_id', 'priority', 'notes', 'created_at']]
+  tabs.Goals.push(['goal_9', 'Home deposit', 60000, 'EUR', '2032-06-01', 0, 300, 'acc_9', 'high', '', ''])
+  tabs.Profile.push(['householdMembers', '[{"name":"Mia","relationship":"Daughter"}]', ''])
+  if (process.env.SHOT_INVEST === '2') {
+    tabs.Profile.push(['investorProfile', JSON.stringify({ birthYear: 1990, employment: 'employed', incomeStability: 'stable', riskAnswers: { fall: 2, range: 2, feeling: 3, wait: 3, 'never-below': 2 } }), ''])
+  }
 }
 // SHOT_INR=1 adds an INR account and payments plus a typed rate, for the second-currency views (SHOT_NORATE=1 leaves the rate out)
 if (process.env.SHOT_INR) {

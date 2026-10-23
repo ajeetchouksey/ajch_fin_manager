@@ -8,7 +8,8 @@ import { useLedger } from '../context/LedgerContext'
 import { useExpertMode } from '../hooks/useExpertMode'
 import { useProfile } from '../hooks/useProfile'
 import { accountBalances } from '../lib/ledger/balances'
-import { ageIn, cleanInvestorProfile, EMPLOYMENT, INCOME_STABILITY, isEmptyInvestor } from '../lib/ledger/investor'
+import { aboutYou, ageIn, cleanInvestorProfile, EMPLOYMENT, INCOME_STABILITY, isEmptyInvestor } from '../lib/ledger/investor'
+import { RiskSection } from '../components/invest/RiskSection'
 import { formatMoney, todayIso } from '../lib/ledger/types'
 
 /** Invest: what you hold, what you tell us about yourself (all optional), and the expert-mode switch. */
@@ -51,12 +52,12 @@ export function InvestPage() {
   const draft = cleanInvestorProfile({ birthYear, employment, incomeStability: stability })
   const yearBad = birthYear.trim() !== '' && draft.birthYear === undefined
   const age = ageIn(draft)
-  const changed = JSON.stringify(draft) !== JSON.stringify(stored)
+  const changed = JSON.stringify(aboutYou(draft)) !== JSON.stringify(aboutYou(stored))
 
   const submit = async (next: typeof draft) => {
     setSaved(false)
     setError(null)
-    const done = await save({ investorProfile: next })
+    const done = await save({ investorProfile: { ...next, riskAnswers: stored.riskAnswers } })
     if (done) setSaved(true)
   }
 
@@ -142,6 +143,8 @@ export function InvestPage() {
           )}
         </div>
       </section>
+
+      <RiskSection />
     </div>
   )
 }
