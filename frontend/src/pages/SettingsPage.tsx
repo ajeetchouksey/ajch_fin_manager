@@ -14,6 +14,7 @@ import { useLedgerOptions } from '../hooks/useLedgerOptions'
 import { learnFromLedger, payeeKey } from '../lib/ledger/categorize'
 import { categoryColor } from '../lib/ledger/categoryColors'
 import { currenciesByUse } from '../lib/ledger/summary'
+import { ExpertSwitch } from '../components/invest/ExpertSwitch'
 
 const AI_APPS = [
   { name: 'Claude', note: 'Add FinBuddy as a connector', url: 'https://claude.ai/new' },
@@ -157,6 +158,13 @@ export function SettingsPage() {
             >
               <span className={`absolute top-0.5 h-5 w-5 rounded-full shadow transition-all ${hideAmounts ? 'left-[22px] bg-white' : 'left-0.5 bg-slate-400'}`} />
             </button>
+          </div>
+          <div className="flex items-center gap-3 rounded-xl border border-line px-4 py-3">
+            <span className="flex-1">
+              <span className="block font-medium text-ink">Expert mode</span>
+              <span className="block text-sm text-slate-400">Adds the deeper investing tools as they arrive. Off until you turn it on. Also on the <Link to="/invest" className="font-semibold text-accent">Invest</Link> page.</span>
+            </span>
+            <ExpertSwitch />
           </div>
           <div className="flex flex-wrap gap-2 pt-1">
             <button type="button" className="btn btn-secondary" onClick={exportAll} disabled={!transactions.length}><Download className="h-4 w-4" aria-hidden /> Export all data</button>
