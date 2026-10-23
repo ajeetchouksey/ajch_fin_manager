@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { worthChecking } from '../src/lib/ledger/checks.ts'
+import { findTransferPairs, worthChecking } from '../src/lib/ledger/checks.ts'
 import { groupPayees, samePayee } from '../src/lib/ledger/payees.ts'
 import type { Transaction } from '../src/lib/ledger/types.ts'
 
@@ -98,4 +98,35 @@ test('Other share of the latest month', () => {
   const c = worthChecking(rows).find((x) => x.kind === 'other-share')
   assert.ok(c && c.title.startsWith('20%'))
   assert.ok(!kinds(rows, { otherShareLimit: 0.25 }).includes('other-share'))
+})
+
+test('two legs of a move between own accounts are paired', () => {
+  const a = tx('2026-10-20', 'Tagesgeld', 'Other', 500, { account: 'Current', direction: 'out' })
+  const b = tx('2026-10-21', 'Einzahlung', 'Other income', 500, { account: 'Tagesgeld', direction: 'in' })
+  const pairs = findTransferPairs([a, b])
+  assert.equal(pairs.length, 1)
+  assert.equal(pairs[0].days, 1)
+  const c = worthChecking([a, b]).find((x) => x.kind === 'transfer-pair')
+  assert.deepEqual(c?.transactionIds, [a.id, b.id])
+  assert.equal(c?.suggestedCategory, 'Transfer')
+})
+
+test('pairing needs different accounts, same amount and currency, and a few days', () => {
+  const out = tx('2026-10-20', 'x', 'Other', 500, { account: 'Current' })
+  const sameAccount = tx('2026-10-20', 'y', 'Other income', 500, { account: 'Current', direction: 'in' })
+  const otherAmount = tx('2026-10-20', 'y', 'Other income', 499.99, { account: 'Tagesgeld', direction: 'in' })
+  const otherCurrency = tx('2026-10-20', 'y', 'Other income', 500, { account: 'Tagesgeld', direction: 'in', currency: 'INR' })
+  const late = tx('2026-10-25', 'y', 'Other income', 500, { account: 'Tagesgeld', direction: 'in' })
+  assert.equal(findTransferPairs([out, sameAccount, otherAmount, otherCurrency, late]).length, 0)
+})
+
+test('an ambiguous or already handled pair is left to the user', () => {
+  const out = tx('2026-10-20', 'x', 'Other', 500, { account: 'Current' })
+  const in1 = tx('2026-10-20', 'y', 'Other income', 500, { account: 'Tagesgeld', direction: 'in' })
+  const in2 = tx('2026-10-20', 'z', 'Other income', 500, { account: 'Depot', direction: 'in' })
+  assert.equal(findTransferPairs([out, in1, in2]).length, 0)
+  const done = tx('2026-10-20', 'x', 'Transfer', 500, { account: 'Current' })
+  assert.equal(findTransferPairs([done, in1]).length, 0)
+  const noAccount = tx('2026-10-20', 'x', 'Other', 500, { account: '' })
+  assert.equal(findTransferPairs([noAccount, in1]).length, 0)
 })

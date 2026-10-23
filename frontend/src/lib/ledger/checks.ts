@@ -11,6 +11,7 @@ import type { Transaction } from './types'
 
 export type CheckKind =
   | 'own-transfer'
+  | 'transfer-pair'
   | 'likely-salary'
   | 'category-drift'
   | 'payee-variants'
@@ -88,6 +89,65 @@ function ownTransfers(tx: Transaction[], ownNames: string[]): Check[] {
       title: `${plural(hits.length, 'payment')} to or from your own name`,
       detail: 'These look like money moved between your own accounts. As transfers they stay out of income and spending.',
       transactionIds: hits.map((t) => t.id),
+      suggestedCategory: TRANSFER_CATEGORY,
+    },
+  ]
+}
+
+/** Two rows that look like the two legs of one move between the user's own accounts. */
+export interface TransferPair {
+  out: Transaction
+  in: Transaction
+  /** Days between the two bookings */
+  days: number
+}
+
+const dayNumber = (iso: string) => Math.round(Date.parse(iso.slice(0, 10) + 'T00:00:00Z') / 86_400_000)
+const accountKey = (t: Transaction) => (t.accountId || t.account || '').trim().toLowerCase()
+const cents = (n: number) => Math.round(n * 100)
+
+/**
+ * Pairs a payment out of one account with an equal payment into a different account of the same
+ * currency, booked within `maxDays` of each other. Only unambiguous pairs are returned: when more
+ * than one row could be the other leg, none is chosen, so the user decides. Rows already marked as
+ * Transfer or as Savings & investments are left alone.
+ */
+export function findTransferPairs(tx: Transaction[], maxDays = 3): TransferPair[] {
+  const free = tx.filter((t) => t.category !== TRANSFER_CATEGORY && t.category !== SAVINGS && accountKey(t) && t.amount > 0)
+  const outs = free.filter((t) => t.direction === 'out')
+  const ins = free.filter((t) => t.direction === 'in')
+  const candidates = (t: Transaction, pool: Transaction[]) =>
+    pool.filter(
+      (u) => u.currency === t.currency && cents(u.amount) === cents(t.amount) && accountKey(u) !== accountKey(t) && Math.abs(dayNumber(u.date) - dayNumber(t.date)) <= maxDays,
+    )
+  const nearest = (t: Transaction, pool: Transaction[]) => {
+    const c = candidates(t, pool)
+    if (!c.length) return undefined
+    const d = (u: Transaction) => Math.abs(dayNumber(u.date) - dayNumber(t.date))
+    const best = Math.min(...c.map(d))
+    const top = c.filter((u) => d(u) === best)
+    return top.length === 1 ? top[0] : undefined
+  }
+  const pairs: TransferPair[] = []
+  for (const o of outs) {
+    const i = nearest(o, ins)
+    if (!i || nearest(i, outs) !== o) continue
+    pairs.push({ out: o, in: i, days: Math.abs(dayNumber(i.date) - dayNumber(o.date)) })
+  }
+  return pairs
+}
+
+function transferPairChecks(tx: Transaction[]): Check[] {
+  const pairs = findTransferPairs(tx)
+  if (!pairs.length) return []
+  const first = pairs[0]
+  return [
+    {
+      id: 'transfer-pair',
+      kind: 'transfer-pair',
+      title: `${plural(pairs.length, 'move')} between your own accounts counted as income and spending`,
+      detail: `For example ${money(first.out.amount, first.out.currency)} out of ${first.out.account || 'one account'} and into ${first.in.account || 'another'} within ${plural(first.days, 'day')}. As transfers both rows stay out of income and spending.`,
+      transactionIds: pairs.flatMap((p) => [p.out.id, p.in.id]),
       suggestedCategory: TRANSFER_CATEGORY,
     },
   ]
@@ -212,13 +272,14 @@ function otherShare(tx: Transaction[], limit: number, wanted?: string): Check[] 
   ]
 }
 
-const ORDER: CheckKind[] = ['own-transfer', 'likely-salary', 'double-payment', 'category-drift', 'other-share', 'missing-payment', 'payee-variants']
+const ORDER: CheckKind[] = ['own-transfer', 'transfer-pair', 'likely-salary', 'double-payment', 'category-drift', 'other-share', 'missing-payment', 'payee-variants']
 
 /** Everything worth checking in these transactions, most useful first. */
 export function worthChecking(tx: Transaction[], options: CheckOptions = {}): Check[] {
   const groups = groupPayees(tx)
   const all = [
     ...ownTransfers(tx, options.ownNames ?? []),
+    ...transferPairChecks(tx),
     ...likelySalary(groups),
     ...categoryDrift(groups),
     ...payeeVariants(groups),
